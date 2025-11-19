@@ -220,10 +220,8 @@
     </style>
   </head>
   <body>
-    <!-- BACKGROUND -->
     <canvas id="bg-canvas"></canvas>
 
-    <!-- CONTENT -->
     <div class="container">
       <header>
         <h1>AI Arcade</h1>
@@ -248,8 +246,6 @@
             <span class="play-btn">Play Now</span>
           </div>
         </a>
-        <!-- GAME 1: The Fishing Game -->
-        <!-- IMPORTANT: Rename your previous file to 'fishing.html' for this link to work -->
         <a href="./cloud.html" class="game-card">
           <div class="card-thumb thumb-2"></div>
           <div class="card-content">
@@ -258,11 +254,27 @@
             <span class="play-btn">Play Now</span>
           </div>
         </a>
+        <a href="./wateridle.html" class="game-card">
+          <div class="card-thumb thumb-2"></div>
+          <div class="card-content">
+            <h2 class="game-title">Water IDLE</h2>
+            <p class="game-desc">Idle Water Game</p>
+            <span class="play-btn">Play Now</span>
+          </div>
+        </a>
         <a href="./qwop.html" class="game-card">
           <div class="card-thumb thumb-2"></div>
           <div class="card-content">
             <h2 class="game-title">QWOP-a-PEDE</h2>
             <p class="game-desc">New twist on QWOP</p>
+            <span class="play-btn">Play Now</span>
+          </div>
+        </a>
+        <a href="./rougelite-td.html" class="game-card">
+          <div class="card-thumb thumb-2"></div>
+          <div class="card-content">
+            <h2 class="game-title">Whispering Woods TD</h2>
+            <p class="game-desc">Cozy Tower defense rougelite.</p>
             <span class="play-btn">Play Now</span>
           </div>
         </a>
@@ -278,7 +290,6 @@
           </div>
         </a>
 
-        <!-- GAME 2: Placeholder -->
         <a href="./kaiju.html" class="game-card">
           <div class="card-thumb thumb-1"></div>
           <div class="card-content">
@@ -287,8 +298,6 @@
             <span class="play-btn">Play Now</span>
           </div>
         </a>
-
-        <!-- GAME 3: Placeholder -->
 
         <a href="./hamster.html" class="game-card">
           <div class="card-thumb thumb-2"></div>
@@ -340,7 +349,6 @@
             <span class="play-btn">Play Now</span>
           </div>
         </a>
-        <!-- GAME 4: Placeholder -->
         <a href="./angler.html" class="game-card">
           <div class="card-thumb thumb-1"></div>
           <div class="card-content">
@@ -349,7 +357,6 @@
             <span class="play-btn">Play Now</span>
           </div>
         </a>
-        <!-- GAME 5: Placeholder -->
         <a href="./void.html" class="game-card">
           <div class="card-thumb thumb-2"></div>
           <div class="card-content">
@@ -358,8 +365,6 @@
             <span class="play-btn">Play Now</span>
           </div>
         </a>
-        <!-- GAME 6: Placeholder -->
-
         <a href="./ship.html" class="game-card">
           <div class="card-thumb thumb-3"></div>
           <div class="card-content">
@@ -398,7 +403,6 @@
       <footer>&copy; 2025 AI Generated Games Collection</footer>
     </div>
 
-    <!-- THREE.JS BACKGROUND SCRIPT -->
     <script type="module">
       import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js";
 
@@ -436,40 +440,47 @@
       });
 
       const particles = [];
-      for (let i = 0; i < 50; i++) {
-        const mesh = new THREE.Mesh(geometry, material);
 
-        // Random position
-        mesh.position.x = (Math.random() - 0.5) * 80;
-        mesh.position.y = (Math.random() - 0.5) * 80;
-        mesh.position.z = (Math.random() - 0.5) * 40;
+      // Function to help initialize particles
+      function createParticle(geom, mat, isOrb = false) {
+        const mesh = new THREE.Mesh(geom, mat);
+
+        // Random initial position
+        const x = (Math.random() - 0.5) * 80;
+        const y = (Math.random() - 0.5) * 80;
+        const z = (Math.random() - 0.5) * 40;
+
+        mesh.position.set(x, y, z);
 
         // Random scale
-        const s = Math.random() * 2;
+        const s = isOrb ? 1 : Math.random() * 2;
         mesh.scale.set(s, s, s);
 
-        // Store velocity
+        // Store initial data for organic movement
         mesh.userData = {
-          velX: (Math.random() - 0.5) * 0.02,
-          velY: (Math.random() - 0.5) * 0.02,
-          rotX: (Math.random() - 0.5) * 0.01,
-          rotY: (Math.random() - 0.5) * 0.01,
+          originalPos: { x, y, z },
+          randomPhase: Math.random() * Math.PI * 2, // Start at different sine wave points
+          rotationSpeed: {
+            x: (Math.random() - 0.5) * 0.01,
+            y: (Math.random() - 0.5) * 0.01,
+          },
+          floatSpeed: 0.5 + Math.random() * 1.5, // Different speeds for depth
         };
 
         group.add(mesh);
         particles.push(mesh);
       }
 
+      // Add Geometric Shapes
+      for (let i = 0; i < 50; i++) {
+        createParticle(geometry, material);
+      }
+
       // Add some glowing orbs
       const orbGeo = new THREE.SphereGeometry(0.2, 8, 8);
       const orbMat = new THREE.MeshBasicMaterial({ color: 0x00f260 });
       for (let i = 0; i < 20; i++) {
-        const orb = new THREE.Mesh(orbGeo, orbMat);
-        orb.position.x = (Math.random() - 0.5) * 60;
-        orb.position.y = (Math.random() - 0.5) * 60;
-        orb.position.z = (Math.random() - 0.5) * 20;
-        group.add(orb);
-        particles.push(orb);
+        createParticle(orbGeo, orbMat, true);
       }
 
       // Mouse Interaction
@@ -496,25 +507,42 @@
       function animate() {
         requestAnimationFrame(animate);
 
+        const time = Date.now() * 0.001;
+
+        // Ease the target rotation for the whole group (Camera look effect)
         targetX = mouseX * 0.001;
         targetY = mouseY * 0.001;
 
-        group.rotation.y += 0.002;
+        group.rotation.y += 0.002; // Constant subtle spin
         group.rotation.x += (targetY - group.rotation.x) * 0.05;
         group.rotation.y += (targetX - group.rotation.y) * 0.05;
 
         // Animate individual particles
         particles.forEach((p) => {
-          if (p.userData.velX) {
-            p.rotation.x += p.userData.rotX;
-            p.rotation.y += p.userData.rotY;
-            p.position.x += p.userData.velX;
-            p.position.y += p.userData.velY;
+          const u = p.userData;
 
-            // Wrap around
-            if (p.position.y > 40) p.position.y = -40;
-            if (p.position.y < -40) p.position.y = 40;
-          }
+          // 1. Self-Rotation
+          p.rotation.x += u.rotationSpeed.x;
+          p.rotation.y += u.rotationSpeed.y;
+
+          // 2. Organic Floating (Idle Movement)
+          // Uses Sine waves based on time + randomPhase so they don't move in unison
+          const floatX = Math.sin(time * u.floatSpeed + u.randomPhase) * 2;
+          const floatY =
+            Math.cos(time * u.floatSpeed * 0.8 + u.randomPhase) * 2;
+
+          // 3. Mouse "Parallax" Influence
+          // We move the individual particle slightly based on mouse position
+          // to give the feeling of depth/response.
+          const mouseEffectX = mouseX * 0.02;
+          const mouseEffectY = mouseY * -0.02;
+
+          // Apply positions relative to original anchor point
+          p.position.x = u.originalPos.x + floatX + mouseEffectX;
+          p.position.y = u.originalPos.y + floatY + mouseEffectY;
+
+          // Z-axis breathing for extra depth
+          p.position.z = u.originalPos.z + Math.sin(time * 0.5 + u.randomPhase);
         });
 
         renderer.render(scene, camera);
