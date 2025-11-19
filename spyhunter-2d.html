@@ -1,0 +1,1145 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>Spy Hunter Clone</title>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap");
+
+      :root {
+        --bg-color: #111;
+        --road-color: #333;
+        --grass-color: #1a2a1a;
+        --ui-color: #ff0055;
+        --text-color: #fff;
+      }
+
+      body {
+        margin: 0;
+        padding: 0;
+        background-color: var(--bg-color);
+        color: var(--text-color);
+        font-family: "Press Start 2P", monospace;
+        overflow: hidden;
+        touch-action: none;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+      }
+
+      #game-container {
+        position: relative;
+        width: 100%;
+        max-width: 600px;
+        height: 100vh;
+        background-color: #000;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+        display: flex;
+        flex-direction: column;
+      }
+
+      canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+        image-rendering: pixelated;
+      }
+
+      /* UI Overlay */
+      #ui-layer {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+      }
+
+      .hud-top {
+        padding: 10px;
+        display: flex;
+        justify-content: space-between;
+        text-shadow: 2px 2px 0 #000;
+        font-size: 14px;
+      }
+
+      .weapon-indicator {
+        position: absolute;
+        bottom: 180px; /* Above controls on mobile */
+        left: 10px;
+        background: rgba(0, 0, 0, 0.7);
+        padding: 5px;
+        border: 2px solid #fff;
+        display: none; /* Hidden until playing */
+      }
+
+      .weapon-active {
+        color: #0f0;
+      }
+
+      /* Mobile Controls */
+      #mobile-controls {
+        position: absolute;
+        bottom: 20px;
+        left: 0;
+        width: 100%;
+        height: 150px;
+        pointer-events: auto;
+        display: none; /* Flex when on mobile/small screens */
+        justify-content: space-between;
+        padding: 0 20px;
+        box-sizing: border-box;
+      }
+
+      .d-pad {
+        width: 120px;
+        height: 120px;
+        position: relative;
+      }
+
+      .btn {
+        background: rgba(255, 255, 255, 0.2);
+        border: 2px solid rgba(255, 255, 255, 0.5);
+        border-radius: 50%;
+        position: absolute;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-size: 20px;
+        user-select: none;
+      }
+
+      .btn:active {
+        background: rgba(255, 255, 255, 0.5);
+      }
+
+      .btn-up {
+        top: 0;
+        left: 40px;
+        width: 40px;
+        height: 40px;
+      }
+      .btn-down {
+        bottom: 0;
+        left: 40px;
+        width: 40px;
+        height: 40px;
+      }
+      .btn-left {
+        top: 40px;
+        left: 0;
+        width: 40px;
+        height: 40px;
+      }
+      .btn-right {
+        top: 40px;
+        right: 0;
+        width: 40px;
+        height: 40px;
+      }
+
+      .action-pad {
+        width: 140px;
+        height: 120px;
+        position: relative;
+      }
+
+      .btn-a {
+        bottom: 10px;
+        right: 0;
+        width: 60px;
+        height: 60px;
+        background: rgba(255, 0, 0, 0.3);
+        border-color: rgba(255, 0, 0, 0.6);
+      }
+      .btn-b {
+        bottom: 40px;
+        right: 70px;
+        width: 50px;
+        height: 50px;
+        background: rgba(0, 0, 255, 0.3);
+        border-color: rgba(0, 0, 255, 0.6);
+      }
+
+      .label {
+        font-size: 10px;
+        position: absolute;
+        bottom: -15px;
+        width: 100%;
+        text-align: center;
+        color: #fff;
+      }
+
+      /* CRT Scanline Effect */
+      .scanlines {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(
+          to bottom,
+          rgba(255, 255, 255, 0),
+          rgba(255, 255, 255, 0) 50%,
+          rgba(0, 0, 0, 0.1) 50%,
+          rgba(0, 0, 0, 0.1)
+        );
+        background-size: 100% 4px;
+        pointer-events: none;
+        z-index: 10;
+      }
+
+      /* Start Screen */
+      #start-screen,
+      #game-over-screen {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.85);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 20;
+        text-align: center;
+      }
+
+      h1 {
+        color: #f00;
+        font-style: italic;
+        text-shadow: 4px 4px 0 #fff;
+        margin-bottom: 10px;
+        font-size: 32px;
+      }
+      p {
+        margin: 10px 0;
+        line-height: 1.5;
+        color: #ccc;
+        font-size: 12px;
+        padding: 0 20px;
+      }
+
+      .blink {
+        animation: blinker 1s linear infinite;
+        color: #ff0;
+        cursor: pointer;
+        margin-top: 20px;
+      }
+      @keyframes blinker {
+        50% {
+          opacity: 0;
+        }
+      }
+
+      @media (max-width: 768px) {
+        #mobile-controls {
+          display: flex;
+        }
+        .weapon-indicator {
+          display: block;
+        }
+      }
+      @media (min-width: 769px) {
+        .weapon-indicator {
+          display: block;
+          top: 50px;
+          bottom: auto;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <style>
+      /* Minimal Floating Home Button */
+      .home-nav-btn {
+        position: fixed;
+        top: 15px;
+        left: 15px;
+        z-index: 10000; /* Ensure it sits above game UI/Canvases */
+        background: rgba(
+          30,
+          30,
+          30,
+          0.6
+        ); /* Dark semi-transparent for contrast */
+        color: #ffffff;
+        text-decoration: none;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+        font-size: 14px;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.2s ease;
+        backdrop-filter: blur(4px); /* Blurs background behind button */
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+
+      .home-nav-btn:hover {
+        background: rgba(30, 30, 30, 0.9);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      }
+
+      /* SVG Icon Style */
+      .home-nav-icon {
+        width: 16px;
+        height: 16px;
+      }
+    </style>
+
+    <!-- Link to your Hub (index.html) -->
+    <a href="index.html" class="home-nav-btn">
+      <svg
+        class="home-nav-icon"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+        <polyline points="9 22 9 12 15 12 15 22"></polyline>
+      </svg>
+      <span>Back to Hub</span>
+    </a>
+    <div id="game-container">
+      <canvas id="gameCanvas"></canvas>
+      <div class="scanlines"></div>
+
+      <div id="ui-layer">
+        <div class="hud-top">
+          <div id="score">SCORE: 00000</div>
+          <div id="lives">LIVES: 3</div>
+        </div>
+        <div class="weapon-indicator" id="weapon-hud">
+          WEAPON:
+          <span id="current-weapon" class="weapon-active">MACHINE GUN</span>
+        </div>
+
+        <div id="mobile-controls">
+          <div class="d-pad">
+            <div class="btn btn-up" id="btn-up"></div>
+            <div class="btn btn-down" id="btn-down"></div>
+            <div class="btn btn-left" id="btn-left"></div>
+            <div class="btn btn-right" id="btn-right"></div>
+          </div>
+          <div class="action-pad">
+            <div class="btn btn-a" id="btn-fire">
+              <span class="label">GUN</span>
+            </div>
+            <div class="btn btn-b" id="btn-special">
+              <span class="label">SPECIAL</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="start-screen">
+        <h1>SPY CHASER</h1>
+        <p>ARROW KEYS to Drive</p>
+        <p>'Z' / Button A: Machine Guns</p>
+        <p>'X' / Button B: Oil Slick / Smoke</p>
+        <p>Find the RED TRUCK for Upgrades!</p>
+        <div class="blink" id="start-btn">CLICK TO START</div>
+      </div>
+
+      <div id="game-over-screen" style="display: none">
+        <h1 style="color: #fff">GAME OVER</h1>
+        <p id="final-score">SCORE: 0</p>
+        <div class="blink" id="restart-btn">PLAY AGAIN</div>
+      </div>
+    </div>
+
+    <script>
+      /**
+       * SPY CHASER - Clone Logic
+       */
+
+      const canvas = document.getElementById("gameCanvas");
+      const ctx = canvas.getContext("2d");
+      const startScreen = document.getElementById("start-screen");
+      const gameOverScreen = document.getElementById("game-over-screen");
+      const scoreEl = document.getElementById("score");
+      const livesEl = document.getElementById("lives");
+      const weaponEl = document.getElementById("current-weapon");
+
+      // Game Constants
+      const GAME_WIDTH = 400; // Internal Resolution
+      let GAME_HEIGHT = 600;
+      let scale = 1;
+
+      // Input State
+      const keys = {
+        ArrowUp: false,
+        ArrowDown: false,
+        ArrowLeft: false,
+        ArrowRight: false,
+        z: false,
+        x: false,
+        " ": false,
+      };
+
+      // Game State
+      let gameState = "MENU"; // MENU, PLAYING, GAMEOVER
+      let frameCount = 0;
+      let score = 0;
+      let distance = 0;
+      let lives = 3;
+      let speed = 0;
+      const MAX_SPEED = 12;
+      const ACCEL = 0.2;
+      const FRICTION = 0.1;
+
+      // Entities
+      let player;
+      let entities = [];
+      let particles = [];
+      let roadOffset = 0;
+      let roadWidth = 240; // Road playable area
+      let roadX = 80; // Road start X
+
+      // Assets (Simulated with Drawing Functions)
+      const Colors = {
+        road: "#2d2d2d",
+        grass: "#152515",
+        line: "#ffffff",
+        water: "#0044cc",
+        player: "#ffffff",
+        enemyBlue: "#0000aa", // Switchblade
+        enemyLimo: "#000000", // Enforcer
+        civilian: "#00aaaa",
+        truck: "#aa0000", // Weapons Truck
+        oil: "#111111",
+        smoke: "#cccccc",
+      };
+
+      // Sound System (Web Audio API)
+      const AudioSys = (function () {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+
+        function playTone(freq, type, duration, vol = 0.1) {
+          if (ctx.state === "suspended") ctx.resume();
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq, ctx.currentTime);
+          gain.gain.setValueAtTime(vol, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(
+            0.01,
+            ctx.currentTime + duration
+          );
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start();
+          osc.stop(ctx.currentTime + duration);
+        }
+
+        function playNoise(duration) {
+          if (ctx.state === "suspended") ctx.resume();
+          const bufferSize = ctx.sampleRate * duration;
+          const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+          const data = buffer.getChannelData(0);
+          for (let i = 0; i < bufferSize; i++) {
+            data[i] = Math.random() * 2 - 1;
+          }
+          const noise = ctx.createBufferSource();
+          noise.buffer = buffer;
+          const gain = ctx.createGain();
+          gain.gain.setValueAtTime(0.1, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(
+            0.01,
+            ctx.currentTime + duration
+          );
+          noise.connect(gain);
+          gain.connect(ctx.destination);
+          noise.start();
+        }
+
+        return {
+          shoot: () => playTone(800, "square", 0.1, 0.05),
+          crash: () => playNoise(0.3),
+          powerup: () => playTone(1200, "sine", 0.4, 0.1),
+          enemyHit: () => playNoise(0.1),
+        };
+      })();
+
+      // Classes
+
+      class Vector {
+        constructor(x, y) {
+          this.x = x;
+          this.y = y;
+        }
+      }
+
+      class Entity {
+        constructor(x, y, w, h, color, type) {
+          this.x = x;
+          this.y = y;
+          this.w = w;
+          this.h = h;
+          this.color = color;
+          this.type = type;
+          this.dead = false;
+          this.vx = 0;
+          this.vy = 0; // Relative to road
+        }
+
+        draw(ctx) {
+          ctx.fillStyle = this.color;
+          ctx.fillRect(this.x, this.y, this.w, this.h);
+        }
+
+        update() {
+          this.x += this.vx;
+          this.y += this.vy;
+        }
+
+        getBounds() {
+          return { x: this.x, y: this.y, w: this.w, h: this.h };
+        }
+      }
+
+      class Player extends Entity {
+        constructor() {
+          super(
+            GAME_WIDTH / 2 - 10,
+            GAME_HEIGHT - 150,
+            20,
+            32,
+            Colors.player,
+            "player"
+          );
+          this.weapon = "machinegun"; // machinegun, oil, smoke
+          this.invulnerable = false;
+          this.inTruck = false;
+          this.dockTimer = 0;
+          this.ammo = 0; // Unlimited basic
+        }
+
+        update() {
+          // Movement relative to screen input
+          if (this.inTruck) {
+            // Logic handled by Truck entity
+            return;
+          }
+
+          // X Movement
+          if (keys.ArrowLeft) this.x -= 4;
+          if (keys.ArrowRight) this.x += 4;
+
+          // Speed Control (Y Movement simulation)
+          if (keys.ArrowUp) speed = Math.min(speed + ACCEL, MAX_SPEED);
+          else if (keys.ArrowDown) speed = Math.max(speed - ACCEL * 2, 0);
+          else speed = Math.max(speed - FRICTION, 0);
+
+          // Boundaries
+          const roadLeft = (GAME_WIDTH - roadWidth) / 2;
+          const roadRight = roadLeft + roadWidth;
+
+          // Off-road physics
+          if (this.x < roadLeft || this.x + this.w > roadRight) {
+            speed *= 0.9; // Slow down in grass
+            // Check tree collisions randomly if deep in grass?
+            // For now, just slow down
+            if (speed > 2)
+              createParticles(
+                this.x + this.w / 2,
+                this.y + this.h,
+                1,
+                Colors.grass
+              );
+          }
+
+          this.x = Math.max(0, Math.min(GAME_WIDTH - this.w, this.x));
+
+          // Shooting
+          if (keys.z && frameCount % 10 === 0) {
+            this.fire();
+          }
+
+          // Special
+          if (keys.x && !this.specialLock) {
+            this.useSpecial();
+            this.specialLock = true;
+          }
+          if (!keys.x) this.specialLock = false;
+        }
+
+        fire() {
+          AudioSys.shoot();
+          // Create projectiles
+          entities.push(new Projectile(this.x + 2, this.y, 0, -15));
+          entities.push(new Projectile(this.x + this.w - 4, this.y, 0, -15));
+        }
+
+        useSpecial() {
+          if (this.weapon === "oil") {
+            entities.push(new Hazard(this.x, this.y + this.h, "oil"));
+            this.weapon = "machinegun";
+            updateWeaponUI();
+          } else if (this.weapon === "smoke") {
+            entities.push(new Hazard(this.x, this.y + this.h, "smoke"));
+            this.weapon = "machinegun";
+            updateWeaponUI();
+          }
+        }
+
+        draw(ctx) {
+          if (this.inTruck) return;
+
+          // Car Body
+          ctx.fillStyle = "#fff";
+          ctx.fillRect(this.x, this.y, this.w, this.h);
+          // Windshield
+          ctx.fillStyle = "#444";
+          ctx.fillRect(this.x + 2, this.y + 8, this.w - 4, 6);
+          // Hood Scoop
+          ctx.fillStyle = "#ccc";
+          ctx.fillRect(this.x + 8, this.y + 18, 4, 8);
+          // Tires
+          ctx.fillStyle = "#000";
+          ctx.fillRect(this.x - 2, this.y + 4, 2, 8);
+          ctx.fillRect(this.x + this.w, this.y + 4, 2, 8);
+          ctx.fillRect(this.x - 2, this.y + 20, 2, 8);
+          ctx.fillRect(this.x + this.w, this.y + 20, 2, 8);
+        }
+      }
+
+      class Enemy extends Entity {
+        constructor(type) {
+          let x, y, w, h, c, vy;
+          const roadLeft = (GAME_WIDTH - roadWidth) / 2;
+
+          // Determine spawn lane (3 lanes)
+          const lane = Math.floor(Math.random() * 3);
+          const laneWidth = roadWidth / 3;
+          x = roadLeft + lane * laneWidth + laneWidth / 2 - 10;
+
+          // Spawn logic
+          if (Math.random() > 0.5) {
+            // Spawn ahead and move slower (player catches up)
+            y = -100;
+            vy = speed * 0.5;
+          } else {
+            // Spawn behind and overtake (if implemented, or simple logic: just static speed relative to world)
+            // Simplified: All enemies spawn top, move at different speeds
+            y = -50;
+          }
+
+          if (type === "switchblade") {
+            w = 22;
+            h = 32;
+            c = Colors.enemyBlue;
+            vy = 4; // Moving slower than max player speed
+          } else if (type === "limo") {
+            w = 24;
+            h = 40;
+            c = Colors.enemyLimo;
+            vy = 6;
+          } else if (type === "civilian") {
+            w = 18;
+            h = 30;
+            c = Colors.civilian;
+            vy = 3;
+          }
+
+          super(x, y, w, h, c, type);
+          this.baseSpeed = vy;
+          this.health = type === "limo" ? 3 : 1;
+          this.behaviorTimer = 0;
+        }
+
+        update() {
+          // Move relative to player speed
+          // The world moves down at 'speed'. Objects have their own velocity 'baseSpeed'.
+          // Relative Y change = baseSpeed - speed
+          // Actually, easier logic: Object Y += baseSpeed.
+          // Then in main loop, we shift everything up by 'speed' if we want camera fixed.
+          // But here, player is fixed Y (mostly). So objects move down by (speed - baseSpeed).
+
+          this.y += speed - this.baseSpeed;
+
+          // AI
+          if (
+            this.type === "switchblade" &&
+            this.y > 0 &&
+            this.y < GAME_HEIGHT
+          ) {
+            // Try to ram player if close in Y
+            if (Math.abs(this.y - player.y) < 100) {
+              if (this.x < player.x) this.x += 1;
+              else this.x -= 1;
+            }
+          }
+
+          if (this.y > GAME_HEIGHT + 100 || this.y < -500) {
+            this.dead = true;
+          }
+        }
+
+        draw(ctx) {
+          ctx.fillStyle = this.color;
+          ctx.fillRect(this.x, this.y, this.w, this.h);
+          // Details
+          ctx.fillStyle = "#000";
+          // Tires
+          ctx.fillRect(this.x - 2, this.y + 5, 2, 6);
+          ctx.fillRect(this.x + this.w, this.y + 5, 2, 6);
+          ctx.fillRect(this.x - 2, this.y + this.h - 10, 2, 6);
+          ctx.fillRect(this.x + this.w, this.y + this.h - 10, 2, 6);
+
+          if (this.type === "switchblade") {
+            // Blades (visual)
+            ctx.fillStyle = "#ccc";
+            ctx.fillRect(this.x - 4, this.y + 15, 4, 2);
+            ctx.fillRect(this.x + this.w, this.y + 15, 4, 2);
+          }
+        }
+      }
+
+      class Truck extends Entity {
+        constructor() {
+          const roadLeft = (GAME_WIDTH - roadWidth) / 2;
+          super(
+            roadLeft + roadWidth / 2 - 14,
+            -100,
+            28,
+            60,
+            Colors.truck,
+            "truck"
+          );
+          this.baseSpeed = 5;
+          this.docked = false;
+          this.timer = 0;
+        }
+
+        update() {
+          this.y += speed - this.baseSpeed;
+
+          if (this.docked) {
+            this.timer++;
+            // Keep player inside
+            player.x = this.x + 4;
+            player.y = this.y + 10;
+
+            if (this.timer > 120) {
+              // 2 seconds
+              this.undock();
+            }
+          }
+
+          if (this.y > GAME_HEIGHT + 100) this.dead = true;
+        }
+
+        undock() {
+          this.docked = false;
+          player.inTruck = false;
+          player.y = this.y - player.h - 10;
+          player.invulnerable = true;
+          // Give weapon
+          player.weapon = Math.random() > 0.5 ? "oil" : "smoke";
+          updateWeaponUI();
+          setTimeout(() => (player.invulnerable = false), 1000);
+          AudioSys.powerup();
+          this.baseSpeed = 2; // Truck slows down to let player pass
+        }
+
+        draw(ctx) {
+          // Cab
+          ctx.fillStyle = "#d00";
+          ctx.fillRect(this.x, this.y, this.w, 20);
+          // Trailer
+          ctx.fillStyle = "#a00";
+          ctx.fillRect(this.x, this.y + 22, this.w, this.h - 22);
+          // Ramp stripes
+          ctx.fillStyle = "#fff";
+          ctx.beginPath();
+          ctx.moveTo(this.x + 5, this.y + this.h);
+          ctx.lineTo(this.x + 14, this.y + 25);
+          ctx.lineTo(this.x + 23, this.y + this.h);
+          ctx.stroke();
+        }
+      }
+
+      class Projectile extends Entity {
+        constructor(x, y, vx, vy) {
+          super(x, y, 4, 4, "#ff0", "projectile");
+          this.vx = vx;
+          this.vy = vy;
+        }
+        update() {
+          this.x += this.vx;
+          this.y += this.vy;
+          if (this.y < 0 || this.y > GAME_HEIGHT) this.dead = true;
+        }
+      }
+
+      class Hazard extends Entity {
+        constructor(x, y, type) {
+          super(x, y, 30, 30, type === "oil" ? Colors.oil : Colors.smoke, type);
+          this.baseSpeed = 0; // Static on road
+        }
+        update() {
+          this.y += speed; // Moves with road
+          if (this.y > GAME_HEIGHT) this.dead = true;
+        }
+        draw(ctx) {
+          if (this.type === "oil") {
+            ctx.fillStyle = "#000";
+            ctx.beginPath();
+            ctx.arc(this.x + 15, this.y + 15, 15, 0, Math.PI * 2);
+            ctx.fill();
+          } else {
+            ctx.fillStyle = "rgba(200,200,200,0.5)";
+            ctx.beginPath();
+            ctx.arc(this.x + 15, this.y + 15, 20, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+      }
+
+      class Particle {
+        constructor(x, y, color) {
+          this.x = x;
+          this.y = y;
+          this.vx = (Math.random() - 0.5) * 5;
+          this.vy = (Math.random() - 0.5) * 5;
+          this.life = 1.0;
+          this.color = color;
+        }
+        update() {
+          this.x += this.vx;
+          this.y += this.vy;
+          this.life -= 0.05;
+        }
+        draw(ctx) {
+          ctx.globalAlpha = Math.max(0, this.life);
+          ctx.fillStyle = this.color;
+          ctx.fillRect(this.x, this.y, 4, 4);
+          ctx.globalAlpha = 1.0;
+        }
+      }
+
+      // Utils
+      function checkRectCollide(r1, r2) {
+        return !(
+          r2.x > r1.x + r1.w ||
+          r2.x + r2.w < r1.x ||
+          r2.y > r1.y + r1.h ||
+          r2.y + r2.h < r1.y
+        );
+      }
+
+      function createParticles(x, y, count, color) {
+        for (let i = 0; i < count; i++) {
+          particles.push(new Particle(x, y, color));
+        }
+      }
+
+      function updateWeaponUI() {
+        weaponEl.innerText = player.weapon.toUpperCase().replace("_", " ");
+        if (player.weapon !== "machinegun") {
+          weaponEl.style.color = "#ff0";
+        } else {
+          weaponEl.style.color = "#0f0";
+        }
+      }
+
+      // Initialization
+      function init() {
+        // Resize handling
+        resize();
+        window.addEventListener("resize", resize);
+
+        // Input Listeners
+        window.addEventListener("keydown", (e) => {
+          if (keys.hasOwnProperty(e.key)) keys[e.key] = true;
+          if (e.key === "z") keys.z = true;
+          if (e.key === "x") keys.x = true;
+        });
+
+        window.addEventListener("keyup", (e) => {
+          if (keys.hasOwnProperty(e.key)) keys[e.key] = false;
+          if (e.key === "z") keys.z = false;
+          if (e.key === "x") keys.x = false;
+        });
+
+        // Mobile Controls
+        setupTouchControls();
+
+        // Start Loop
+        requestAnimationFrame(gameLoop);
+      }
+
+      function setupTouchControls() {
+        const ids = [
+          "btn-up",
+          "btn-down",
+          "btn-left",
+          "btn-right",
+          "btn-fire",
+          "btn-special",
+        ];
+        const map = {
+          "btn-up": "ArrowUp",
+          "btn-down": "ArrowDown",
+          "btn-left": "ArrowLeft",
+          "btn-right": "ArrowRight",
+          "btn-fire": "z",
+          "btn-special": "x",
+        };
+
+        ids.forEach((id) => {
+          const el = document.getElementById(id);
+          el.addEventListener("touchstart", (e) => {
+            e.preventDefault();
+            keys[map[id]] = true;
+          });
+          el.addEventListener("touchend", (e) => {
+            e.preventDefault();
+            keys[map[id]] = false;
+          });
+          el.addEventListener("mousedown", (e) => {
+            e.preventDefault();
+            keys[map[id]] = true;
+          });
+          el.addEventListener("mouseup", (e) => {
+            e.preventDefault();
+            keys[map[id]] = false;
+          });
+        });
+
+        document
+          .getElementById("start-btn")
+          .addEventListener("click", startGame);
+        document
+          .getElementById("restart-btn")
+          .addEventListener("click", startGame);
+      }
+
+      function resize() {
+        // Maintain ratio inside container
+        const container = document.getElementById("game-container");
+        const w = container.clientWidth;
+        const h = container.clientHeight;
+
+        canvas.width = GAME_WIDTH;
+        canvas.height = GAME_HEIGHT; // Logic height
+
+        // Display scaling is handled by CSS width: 100%
+      }
+
+      function startGame() {
+        startScreen.style.display = "none";
+        gameOverScreen.style.display = "none";
+        gameState = "PLAYING";
+        score = 0;
+        lives = 3;
+        speed = 0;
+        entities = [];
+        particles = [];
+        player = new Player();
+        livesEl.innerText = "LIVES: " + lives;
+        scoreEl.innerText = "SCORE: " + score;
+        updateWeaponUI();
+
+        // Audio context might need resuming
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        const ctx = new AudioContext();
+        ctx.resume();
+      }
+
+      function spawnEntities() {
+        if (Math.random() < 0.01) {
+          const r = Math.random();
+          if (r < 0.4) entities.push(new Enemy("switchblade"));
+          else if (r < 0.7) entities.push(new Enemy("civilian"));
+          else entities.push(new Enemy("limo"));
+        }
+
+        // Spawn Truck occasionally
+        if (frameCount % 1500 === 1000) {
+          // Every ~25 seconds
+          entities.push(new Truck());
+        }
+      }
+
+      function gameOver() {
+        gameState = "GAMEOVER";
+        document.getElementById("final-score").innerText =
+          "SCORE: " + Math.floor(score);
+        gameOverScreen.style.display = "flex";
+      }
+
+      function gameLoop() {
+        if (gameState === "PLAYING") {
+          update();
+          draw();
+        } else if (gameState === "MENU") {
+          // Optional: Attract mode logic here
+          ctx.fillStyle = "#000";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+        requestAnimationFrame(gameLoop);
+      }
+
+      function update() {
+        frameCount++;
+        player.update();
+
+        // Scoring
+        if (speed > 0) score += speed * 0.01;
+        scoreEl.innerText = "SCORE: " + Math.floor(score);
+
+        // Road Scroll
+        roadOffset += speed;
+        if (roadOffset > 40) roadOffset = 0;
+
+        spawnEntities();
+
+        // Update Entities
+        for (let i = entities.length - 1; i >= 0; i--) {
+          let e = entities[i];
+          e.update();
+          if (e.dead) {
+            entities.splice(i, 1);
+            continue;
+          }
+
+          // Collision Logic
+          if (e.type === "projectile") {
+            // Check against enemies
+            for (let j = entities.length - 1; j >= 0; j--) {
+              let target = entities[j];
+              if (["switchblade", "limo", "civilian"].includes(target.type)) {
+                if (checkRectCollide(e.getBounds(), target.getBounds())) {
+                  e.dead = true;
+                  target.health--;
+                  createParticles(e.x, e.y, 5, "#ff0");
+                  if (target.health <= 0) {
+                    target.dead = true;
+                    AudioSys.crash();
+                    createParticles(target.x, target.y, 20, "#f00");
+                    if (target.type !== "civilian") score += 150;
+                    else score -= 500; // Penalty
+                  }
+                }
+              }
+            }
+          } else if (e.type === "truck") {
+            if (
+              !player.inTruck &&
+              checkRectCollide(player.getBounds(), e.getBounds())
+            ) {
+              // Docking logic: Must hit from behind
+              if (player.y > e.y + e.h - 10) {
+                player.inTruck = true;
+                e.docked = true;
+              }
+            }
+          } else if (["oil", "smoke"].includes(e.type)) {
+            // Check enemies hitting hazards
+            for (let j = entities.length - 1; j >= 0; j--) {
+              let target = entities[j];
+              if (["switchblade", "limo"].includes(target.type)) {
+                if (checkRectCollide(e.getBounds(), target.getBounds())) {
+                  target.dead = true;
+                  AudioSys.crash();
+                  createParticles(target.x, target.y, 15, "#555");
+                }
+              }
+            }
+          } else if (["switchblade", "limo", "civilian"].includes(e.type)) {
+            // Player collision
+            if (
+              !player.inTruck &&
+              !player.invulnerable &&
+              checkRectCollide(player.getBounds(), e.getBounds())
+            ) {
+              // Crash
+              AudioSys.crash();
+              createParticles(player.x, player.y, 30, "#fff");
+              lives--;
+              livesEl.innerText = "LIVES: " + lives;
+
+              // Reset player or game over
+              if (lives <= 0) {
+                gameOver();
+              } else {
+                player.invulnerable = true;
+                player.x = GAME_WIDTH / 2;
+                e.dead = true;
+                speed = 2;
+                setTimeout(() => (player.invulnerable = false), 2000);
+              }
+            }
+          }
+        }
+
+        // Particles
+        for (let i = particles.length - 1; i >= 0; i--) {
+          particles[i].update();
+          if (particles[i].life <= 0) particles.splice(i, 1);
+        }
+      }
+
+      function draw() {
+        // Clear
+        ctx.fillStyle = Colors.grass;
+        ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+
+        // Road
+        const roadLeft = (GAME_WIDTH - roadWidth) / 2;
+        ctx.fillStyle = Colors.road;
+        ctx.fillRect(roadLeft, 0, roadWidth, GAME_HEIGHT);
+
+        // Road Borders
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(roadLeft - 5, 0, 5, GAME_HEIGHT);
+        ctx.fillRect(roadLeft + roadWidth, 0, 5, GAME_HEIGHT);
+
+        // Dashed Lines
+        ctx.fillStyle = "#fff";
+        const laneWidth = roadWidth / 3;
+        for (let y = -40 + roadOffset; y < GAME_HEIGHT; y += 80) {
+          ctx.fillRect(roadLeft + laneWidth, y, 4, 40);
+          ctx.fillRect(roadLeft + laneWidth * 2, y, 4, 40);
+        }
+
+        // Draw Entities
+        // Sort by Y to handle basic layering
+        entities.sort((a, b) => a.y - b.y);
+
+        entities.forEach((e) => e.draw(ctx));
+
+        // Player
+        if (frameCount % 10 < 5 || !player.invulnerable) {
+          player.draw(ctx);
+        }
+
+        // Particles
+        particles.forEach((p) => p.draw(ctx));
+      }
+
+      // Boot
+      init();
+    </script>
+  </body>
+</html>
