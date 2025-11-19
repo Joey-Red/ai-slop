@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vending Machine POV</title>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        background-color: #e0f7fa;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      }
+      #canvas-container {
+        width: 100vw;
+        height: 100vh;
+      }
+      #ui-layer {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        transition: opacity 0.5s;
+      }
+
+      .btn {
+        pointer-events: auto;
+        padding: 15px 40px;
+        font-size: 24px;
+        color: white;
+        border: 4px solid white;
+        border-radius: 15px;
+        cursor: pointer;
+        font-weight: bold;
+        letter-spacing: 1px;
+        transition: transform 0.1s, background 0.2s;
+        text-transform: uppercase;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+      }
+
+      #insert-btn {
+        background: #4dd0e1;
+      }
+      #insert-btn:hover {
+        transform: scale(1.05);
+        background: #26c6da;
+      }
+      #insert-btn:active {
+        transform: scale(0.95);
+      }
+
+      #shake-btn {
+        display: none; /* Hidden by default */
+        background: #ff7043; /* Warning Orange */
+        font-size: 30px;
+        animation: pulse 0.5s infinite alternate;
+      }
+      #shake-btn:active {
+        background: #f4511e;
+        transform: rotate(2deg);
+      }
+
+      @keyframes pulse {
+        from {
+          transform: scale(1);
+        }
+        to {
+          transform: scale(1.1);
+        }
+      }
+
+      .hidden {
+        opacity: 0;
+        pointer-events: none !important;
+      }
+
+      #status-text {
+        position: absolute;
+        bottom: 10%;
+        font-size: 20px;
+        color: #555;
+        font-weight: bold;
+        background: rgba(255, 255, 255, 0.8);
+        padding: 10px 20px;
+        border-radius: 20px;
+        opacity: 0;
+        transition: opacity 0.5s;
+      }
+    </style>
+    <!-- Import Three.js -->
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <style>
+      /* Minimal Floating Home Button */
+      .home-nav-btn {
+        position: fixed;
+        top: 15px;
+        left: 15px;
+        z-index: 10000; /* Ensure it sits above game UI/Canvases */
+        background: rgba(
+          30,
+          30,
+          30,
+          0.6
+        ); /* Dark semi-transparent for contrast */
+        color: #ffffff;
+        text-decoration: none;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+        font-size: 14px;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.2s ease;
+        backdrop-filter: blur(4px); /* Blurs background behind button */
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+
+      .home-nav-btn:hover {
+        background: rgba(30, 30, 30, 0.9);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      }
+
+      /* SVG Icon Style */
+      .home-nav-icon {
+        width: 16px;
+        height: 16px;
+      }
+    </style>
+
+    <!-- Link to your Hub (index.html) -->
+    <a href="index.html" class="home-nav-btn">
+      <svg
+        class="home-nav-icon"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+        <polyline points="9 22 9 12 15 12 15 22"></polyline>
+      </svg>
+      <span>Back to Hub</span>
+    </a>
+    <div id="canvas-container"></div>
+
+    <div id="ui-layer">
+      <div style="text-align: center" id="start-menu">
+        <h1
+          style="
+            color: #00bcd4;
+            text-shadow: 2px 2px 0px white;
+            font-size: 3.5rem;
+            margin-bottom: 10px;
+          "
+        >
+          SNACK POV
+        </h1>
+        <p style="color: #78909c; margin-bottom: 30px; font-size: 1.2rem">
+          Become the chips. Don't get stuck.
+        </p>
+        <button id="insert-btn" class="btn">INSERT $1.50</button>
+      </div>
+
+      <button id="shake-btn" class="btn">SHAKE MACHINE!</button>
+      <div id="status-text">Selecting Item A4...</div>
+    </div>
+
+    <script type="module">
+      import * as THREE from "three";
+      import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+
+      // --- CONFIG ---
+      const STUCK_CHANCE = 0.4; // 40% chance to get stuck
+      const SHAKES_REQUIRED = 5; // Number of shakes to dislodge
+
+      // --- SCENE SETUP ---
+      const container = document.getElementById("canvas-container");
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0xe0f7fa); // Light Cyan
+      scene.fog = new THREE.Fog(0xe0f7fa, 20, 80);
+
+      const camera = new THREE.PerspectiveCamera(
+        60,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        1000
+      );
+      const renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        alpha: true,
+      });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(window.devicePixelRatio);
+      renderer.shadowMap.enabled = true;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      container.appendChild(renderer.domElement);
+
+      // --- LIGHTING ---
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+      scene.add(ambientLight);
+
+      // Main sunlight
+      const sunLight = new THREE.DirectionalLight(0xffffff, 1.2);
+      sunLight.position.set(15, 25, 20);
+      sunLight.castShadow = true;
+      sunLight.shadow.mapSize.width = 2048;
+      sunLight.shadow.mapSize.height = 2048;
+      scene.add(sunLight);
+
+      // Interior Machine Light (Fluorescent glow)
+      const interiorLight = new THREE.RectAreaLight(0xe0ffff, 2, 10, 20);
+      interiorLight.position.set(0, 15, 4);
+      interiorLight.lookAt(0, 15, 0);
+      scene.add(interiorLight);
+
+      // --- MATERIALS & TEXTURES ---
+
+      // Procedural Chips Texture
+      function createChipBagTexture() {
+        const size = 512;
+        const canvas = document.createElement("canvas");
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext("2d");
+
+        // Base Color (Classic Red/Orange chips)
+        ctx.fillStyle = "#FF5722";
+        ctx.fillRect(0, 0, size, size);
+
+        // Crinkle Highlights
+        ctx.fillStyle = "rgba(255,255,255,0.1)";
+        for (let i = 0; i < 20; i++) {
+          ctx.beginPath();
+          ctx.moveTo(0, Math.random() * size);
+          ctx.lineTo(size, Math.random() * size);
+          ctx.lineWidth = 10 + Math.random() * 20;
+          ctx.stroke();
+        }
+
+        // Logo
+        ctx.fillStyle = "#FFC107"; // Yellow circle
+        ctx.beginPath();
+        ctx.arc(size / 2, size / 2, 150, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = "#D32F2F";
+        ctx.font = "bold 80px Arial";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("CRISPS", size / 2, size / 2);
+
+        const tex = new THREE.CanvasTexture(canvas);
+        return tex;
+      }
+
+      const glassMat = new THREE.MeshPhysicalMaterial({
+        color: 0xffffff,
+        metalness: 0,
+        roughness: 0,
+        transmission: 0.98,
+        thickness: 0.5,
+        clearcoat: 1,
+        side: THREE.DoubleSide,
+      });
+
+      const machineCaseMat = new THREE.MeshStandardMaterial({
+        color: 0x4dd0e1,
+        roughness: 0.2,
+      }); // Cyan plastic/metal
+      const darkInsideMat = new THREE.MeshStandardMaterial({
+        color: 0x263238,
+        roughness: 0.9,
+      });
+      const coilMat = new THREE.MeshStandardMaterial({
+        color: 0xdddddd,
+        metalness: 0.8,
+        roughness: 0.2,
+      });
+
+      // --- BUILD THE MACHINE ---
+      const machineGroup = new THREE.Group();
+      scene.add(machineGroup);
+
+      // 1. Case (Box with hollow front)
+      // Back
+      const back = new THREE.Mesh(
+        new THREE.BoxGeometry(16, 25, 1),
+        machineCaseMat
+      );
+      back.position.set(0, 12.5, -5);
+      machineGroup.add(back);
+      // Sides
+      const left = new THREE.Mesh(
+        new THREE.BoxGeometry(1, 25, 10),
+        machineCaseMat
+      );
+      left.position.set(-8.5, 12.5, 0);
+      machineGroup.add(left);
+      const right = new THREE.Mesh(
+        new THREE.BoxGeometry(1, 25, 10),
+        machineCaseMat
+      );
+      right.position.set(8.5, 12.5, 0);
+      machineGroup.add(right);
+      // Top
+      const top = new THREE.Mesh(
+        new THREE.BoxGeometry(18, 1, 10),
+        machineCaseMat
+      );
+      top.position.set(0, 25.5, 0);
+      machineGroup.add(top);
+      // Bottom Control Panel Area
+      const bottom = new THREE.Mesh(
+        new THREE.BoxGeometry(18, 8, 11),
+        machineCaseMat
+      );
+      bottom.position.set(0, 4, 0.5); // Sticks out a bit
+      machineGroup.add(bottom);
+
+      // Pickup Box (Hole in bottom)
+      const pickupBox = new THREE.Mesh(
+        new THREE.BoxGeometry(12, 4, 8),
+        darkInsideMat
+      );
+      pickupBox.position.set(0, 3, 1);
+      // We need to subtract geometry properly or just cheat with placing black planes.
+      // Let's make the bottom visual only for now, we fall into the bin.
+
+      // Glass Front
+      const glassFront = new THREE.Mesh(
+        new THREE.PlaneGeometry(16, 18),
+        glassMat
+      );
+      glassFront.position.set(0, 16, 5); // Front of machine
+      machineGroup.add(glassFront);
+
+      // Shelves & Coils
+      const shelves = [];
+      for (let y = 0; y < 3; y++) {
+        const shelfY = 10 + y * 5;
+        // Shelf Plane
+        const shelf = new THREE.Mesh(
+          new THREE.BoxGeometry(15, 0.2, 8),
+          new THREE.MeshStandardMaterial({ color: 0x333333 })
+        );
+        shelf.position.set(0, shelfY, 0);
+        machineGroup.add(shelf);
+
+        // Add some coils
+        for (let x = -1; x <= 1; x++) {
+          const coilX = x * 4.5;
+          // Simple Coil Visual (TorusKnot or repeated torus)
+          // Let's use a simple cylinder for performance but texture it like a spring
+          const coil = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.5, 0.5, 7, 16),
+            coilMat
+          );
+          coil.rotation.x = Math.PI / 2;
+          coil.position.set(coilX, shelfY + 0.6, 0);
+          machineGroup.add(coil);
+        }
+      }
+
+      // --- THE PLAYER (CHIPS BAG) ---
+      // Target location: Middle shelf (y=15), Center (x=0)
+      const playerBag = new THREE.Mesh(
+        new THREE.BoxGeometry(2.5, 3.5, 1),
+        new THREE.MeshStandardMaterial({
+          map: createChipBagTexture(),
+          roughness: 0.6,
+        })
+      );
+      // Initial Position: Sitting in the coil
+      playerBag.position.set(0, 15.6, 2.5); // Slightly forward on the shelf
+      playerBag.rotation.x = -Math.PI / 12; // Leaning back slightly
+      machineGroup.add(playerBag);
+
+      // Dummy Bags (Fill the machine)
+      const dummyBagGeo = new THREE.BoxGeometry(2.5, 3.5, 1);
+      const dummyBagMat = new THREE.MeshStandardMaterial({
+        color: 0x4caf50,
+        roughness: 0.7,
+      }); // Green veggie chips
+      for (let y = 0; y < 3; y++) {
+        for (let x = -1; x <= 1; x++) {
+          if (y === 1 && x === 0) continue; // Skip player spot
+          const bag = new THREE.Mesh(dummyBagGeo, dummyBagMat);
+          bag.position.set(x * 4.5, 10 + y * 5 + 0.6, 2.5);
+          bag.rotation.x = -Math.PI / 12;
+          machineGroup.add(bag);
+        }
+      }
+
+      // --- ENVIRONMENT (The Room) ---
+      // Floor
+      const floor = new THREE.Mesh(
+        new THREE.PlaneGeometry(100, 100),
+        new THREE.MeshStandardMaterial({ color: 0xeeeeee })
+      );
+      floor.rotation.x = -Math.PI / 2;
+      scene.add(floor);
+
+      // The Giant Person (Looking in)
+      const personGroup = new THREE.Group();
+      scene.add(personGroup);
+      // Head
+      const head = new THREE.Mesh(
+        new THREE.SphereGeometry(5, 32, 32),
+        new THREE.MeshStandardMaterial({ color: 0xffccbc })
+      );
+      head.position.set(0, 16, 15); // Outside glass, looking in
+      personGroup.add(head);
+      // Eyes
+      const eyeGeo = new THREE.SphereGeometry(0.4, 16, 16);
+      const eyeMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+      const eyeL = new THREE.Mesh(eyeGeo, eyeMat);
+      eyeL.position.set(-1.5, 16.5, 10.5);
+      const eyeR = new THREE.Mesh(eyeGeo, eyeMat);
+      eyeR.position.set(1.5, 16.5, 10.5);
+      personGroup.add(eyeL);
+      personGroup.add(eyeR);
+      // Shoulders
+      const body = new THREE.Mesh(
+        new THREE.CylinderGeometry(6, 8, 10, 32),
+        new THREE.MeshStandardMaterial({ color: 0x5c6bc0 })
+      );
+      body.position.set(0, 6, 18);
+      personGroup.add(body);
+
+      // --- GAME LOGIC & STATE ---
+      const STATE = {
+        IDLE: 0,
+        SELECTING: 1,
+        VENDING: 2,
+        FALLING: 3,
+        STUCK: 4,
+        DISLODGED: 5,
+        DONE: 6,
+      };
+      let currentState = STATE.IDLE;
+
+      let velocity = new THREE.Vector3(0, 0, 0);
+      let rotationVelocity = new THREE.Vector3(0, 0, 0);
+      let shakeCount = 0;
+      let willGetStuck = false;
+
+      // Controls
+      camera.position.set(0, 16, 30);
+      const controls = new OrbitControls(camera, renderer.domElement);
+      controls.target.set(0, 12, 0);
+      controls.autoRotate = true;
+
+      // Helper function for camera follow
+      function updateCameraFollow() {
+        // Camera matches bag position but offset
+        const offset = new THREE.Vector3(0, 1, 4);
+        // We want the camera to rotate WITH the bag to simulate POV tumbling
+        // Transform offset by bag rotation
+        offset.applyEuler(playerBag.rotation);
+
+        const targetPos = playerBag.position.clone().add(offset);
+
+        // Smooth lerp
+        camera.position.lerp(targetPos, 0.1);
+        camera.lookAt(
+          playerBag.position
+            .clone()
+            .add(new THREE.Vector3(0, -2, -10).applyEuler(playerBag.rotation))
+        );
+      }
+
+      // Events
+      const uiMenu = document.getElementById("start-menu");
+      const statusText = document.getElementById("status-text");
+      const shakeBtn = document.getElementById("shake-btn");
+
+      document.getElementById("insert-btn").addEventListener("click", () => {
+        currentState = STATE.SELECTING;
+        uiMenu.style.opacity = 0;
+        controls.autoRotate = false;
+        controls.enabled = false;
+
+        // Determine fate immediately
+        willGetStuck = Math.random() < STUCK_CHANCE;
+
+        animateSelection();
+      });
+
+      document.addEventListener("keydown", (e) => {
+        if (e.code === "Space" && currentState === STATE.STUCK) doShake();
+      });
+      shakeBtn.addEventListener("click", doShake);
+
+      function doShake() {
+        if (currentState !== STATE.STUCK) return;
+
+        shakeCount++;
+
+        // Visual Shake Effect
+        const intensity = 0.5;
+        playerBag.position.x += (Math.random() - 0.5) * intensity;
+        playerBag.position.y += (Math.random() - 0.5) * intensity;
+        playerBag.rotation.z += (Math.random() - 0.5) * intensity;
+
+        // Camera shake
+        camera.position.x += Math.random() - 0.5;
+
+        machineGroup.rotation.z = (Math.random() - 0.5) * 0.05; // Whole machine wobbles
+        setTimeout(() => (machineGroup.rotation.z = 0), 100);
+
+        if (shakeCount >= SHAKES_REQUIRED) {
+          currentState = STATE.DISLODGED;
+          shakeBtn.style.display = "none";
+          statusText.innerText = "Finally!";
+          // Add a little push
+          velocity.set(0, -0.1, 0.1);
+          rotationVelocity.set(0.1, 0, 0);
+        }
+      }
+
+      function animateSelection() {
+        const startCam = camera.position.clone();
+        const endCam = new THREE.Vector3(0, 16, 8); // Close to glass, looking at chips
+        const startTarget = controls.target.clone();
+        const endTarget = playerBag.position.clone();
+
+        let alpha = 0;
+        statusText.style.opacity = 1;
+
+        function loop() {
+          if (currentState !== STATE.SELECTING) return;
+          alpha += 0.02;
+          camera.position.lerpVectors(startCam, endCam, easeOut(alpha));
+          controls.target.lerpVectors(startTarget, endTarget, easeOut(alpha));
+          camera.lookAt(controls.target);
+
+          if (alpha < 1) {
+            requestAnimationFrame(loop);
+          } else {
+            setTimeout(() => {
+              statusText.innerText = "Vending...";
+              currentState = STATE.VENDING;
+            }, 500);
+          }
+        }
+        loop();
+      }
+
+      function easeOut(x) {
+        return 1 - Math.pow(1 - x, 3);
+      }
+
+      // --- ANIMATION LOOP ---
+      const clock = new THREE.Clock();
+
+      function animate() {
+        requestAnimationFrame(animate);
+        const delta = clock.getDelta();
+
+        // 1. Idle
+        if (currentState === STATE.IDLE) {
+          controls.update();
+        }
+
+        // 2. Vending (Moving forward on coil)
+        if (currentState === STATE.VENDING) {
+          playerBag.position.z += 0.03; // Move forward
+          // Tiny rotation wobble
+          playerBag.rotation.z = Math.sin(Date.now() * 0.02) * 0.05;
+
+          // Trigger fall when off shelf
+          if (playerBag.position.z > 4.5) {
+            currentState = STATE.FALLING;
+            statusText.style.opacity = 0;
+            velocity.set(0, -0.05, 0.02); // Start falling down and slightly fwd
+            rotationVelocity.set(0.05, 0, 0); // Start tumbling fwd
+          }
+        }
+
+        // 3. Falling Logic
+        if (
+          currentState === STATE.FALLING ||
+          currentState === STATE.DISLODGED
+        ) {
+          // Apply Gravity
+          velocity.y -= 0.015;
+
+          // Apply Velocity
+          playerBag.position.add(velocity);
+          playerBag.rotation.x += rotationVelocity.x;
+          playerBag.rotation.y += rotationVelocity.y;
+          playerBag.rotation.z += rotationVelocity.z;
+
+          // POV Camera Follow
+          // When falling, we lock camera to bag
+          updateCameraFollow();
+
+          // COLLISION: Stuck Check
+          if (currentState === STATE.FALLING && willGetStuck) {
+            // Check if we hit the "glass" (z=5) or shelf lip area
+            // Let's say we get stuck halfway down (y=10)
+            if (playerBag.position.y < 12 && playerBag.position.y > 8) {
+              // STUCK!
+              currentState = STATE.STUCK;
+              shakeBtn.style.display = "block";
+              statusText.innerText = "STUCK! SHAKE IT!";
+              statusText.style.opacity = 1;
+              statusText.style.color = "red";
+            }
+          }
+
+          // COLLISION: Floor (Bin)
+          if (playerBag.position.y < 2) {
+            playerBag.position.y = 2;
+            currentState = STATE.DONE;
+            velocity.set(0, 0, 0);
+            rotationVelocity.set(0, 0, 0);
+            statusText.innerText = "Enjoy!";
+            statusText.style.color = "#333";
+            statusText.style.opacity = 1;
+
+            setTimeout(() => location.reload(), 4000);
+          }
+        }
+
+        // 4. Stuck State
+        if (currentState === STATE.STUCK) {
+          // Stick to the glass
+          playerBag.position.z = 4.8;
+          // Slight wobble to show it's precarious
+          playerBag.rotation.z = Math.sin(Date.now() * 0.01) * 0.1;
+          updateCameraFollow();
+        }
+
+        // 5. Done State (Just sit there)
+        if (currentState === STATE.DONE) {
+          // Camera drifts back to look at bag
+          const targetPos = new THREE.Vector3(0, 5, 15);
+          camera.position.lerp(targetPos, 0.05);
+          camera.lookAt(playerBag.position);
+        }
+
+        // Animate Person
+        personGroup.rotation.y = Math.sin(Date.now() * 0.001) * 0.1;
+        personGroup.rotation.x = Math.sin(Date.now() * 0.002) * 0.05;
+
+        renderer.render(scene, camera);
+      }
+
+      // Handle Window Resize
+      window.addEventListener("resize", () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+
+      animate();
+    </script>
+  </body>
+</html>

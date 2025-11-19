@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Toaster POV</title>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        background-color: #fff8e1;
+        font-family: "Segoe UI", sans-serif;
+      }
+      #canvas-container {
+        width: 100vw;
+        height: 100vh;
+      }
+
+      /* UI Layer */
+      #ui-layer {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.5s;
+      }
+
+      .panel {
+        background: rgba(255, 255, 255, 0.9);
+        padding: 30px 50px;
+        border-radius: 30px;
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.1);
+        text-align: center;
+        pointer-events: auto;
+        backdrop-filter: blur(10px);
+        border: 2px solid #fff;
+      }
+
+      h1 {
+        color: #ff8f00;
+        margin: 0 0 10px 0;
+        font-size: 3rem;
+        letter-spacing: -1px;
+      }
+      p {
+        color: #8d6e63;
+        font-size: 1.1rem;
+        margin-bottom: 30px;
+      }
+
+      /* Controls */
+      .slider-container {
+        margin-bottom: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 15px;
+      }
+
+      input[type="range"] {
+        -webkit-appearance: none;
+        width: 200px;
+        height: 10px;
+        background: #ddd;
+        border-radius: 5px;
+        outline: none;
+      }
+      input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 25px;
+        height: 25px;
+        border-radius: 50%;
+        background: #ff6f00;
+        cursor: pointer;
+        border: 3px solid white;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+      }
+
+      button {
+        background: linear-gradient(135deg, #ff8f00, #ff6f00);
+        border: none;
+        padding: 15px 50px;
+        color: white;
+        font-size: 1.5rem;
+        font-weight: bold;
+        border-radius: 50px;
+        cursor: pointer;
+        box-shadow: 0 10px 20px rgba(255, 111, 0, 0.3);
+        transition: transform 0.1s, box-shadow 0.1s;
+      }
+      button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 15px 30px rgba(255, 111, 0, 0.4);
+      }
+      button:active {
+        transform: translateY(1px);
+        box-shadow: 0 5px 10px rgba(255, 111, 0, 0.3);
+      }
+
+      #timer-display {
+        position: absolute;
+        top: 20%;
+        color: white;
+        font-size: 4rem;
+        font-weight: bold;
+        text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        opacity: 0;
+        transition: opacity 0.5s;
+      }
+
+      .hidden {
+        opacity: 0;
+        pointer-events: none !important;
+      }
+    </style>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <style>
+      /* Minimal Floating Home Button */
+      .home-nav-btn {
+        position: fixed;
+        top: 15px;
+        left: 15px;
+        z-index: 10000; /* Ensure it sits above game UI/Canvases */
+        background: rgba(
+          30,
+          30,
+          30,
+          0.6
+        ); /* Dark semi-transparent for contrast */
+        color: #ffffff;
+        text-decoration: none;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+        font-size: 14px;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.2s ease;
+        backdrop-filter: blur(4px); /* Blurs background behind button */
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+
+      .home-nav-btn:hover {
+        background: rgba(30, 30, 30, 0.9);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      }
+
+      /* SVG Icon Style */
+      .home-nav-icon {
+        width: 16px;
+        height: 16px;
+      }
+    </style>
+
+    <!-- Link to your Hub (index.html) -->
+    <a href="index.html" class="home-nav-btn">
+      <svg
+        class="home-nav-icon"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+        <polyline points="9 22 9 12 15 12 15 22"></polyline>
+      </svg>
+      <span>Back to Hub</span>
+    </a>
+    <div id="canvas-container"></div>
+
+    <div id="ui-layer">
+      <div id="timer-display">TOASTING</div>
+
+      <div class="panel" id="start-panel">
+        <h1>Morning Toast</h1>
+        <p>Set your doneness level and take the plunge.</p>
+
+        <div class="slider-container">
+          <span style="color: #fbc02d">Light</span>
+          <input
+            type="range"
+            id="toast-level"
+            min="1"
+            max="5"
+            value="3"
+            step="1"
+          />
+          <span style="color: #3e2723">Burnt</span>
+        </div>
+
+        <button id="push-lever-btn">PUSH LEVER</button>
+      </div>
+    </div>
+
+    <script type="module">
+      import * as THREE from "three";
+      import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+      import { RectAreaLightUniformsLib } from "three/addons/lights/RectAreaLightUniformsLib.js";
+
+      // --- SETUP ---
+      const container = document.getElementById("canvas-container");
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0xfff8e1);
+      scene.fog = new THREE.Fog(0xfff8e1, 10, 60);
+
+      const camera = new THREE.PerspectiveCamera(
+        65,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        1000
+      );
+      const renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        alpha: true,
+      });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(window.devicePixelRatio);
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.0;
+      container.appendChild(renderer.domElement);
+
+      RectAreaLightUniformsLib.init();
+
+      // --- SOUND SIMULATION (Visual Only) ---
+      // We will use camera shake to simulate the hum of the toaster
+
+      // --- TEXTURES ---
+      function createBreadTexture() {
+        const size = 512;
+        const canvas = document.createElement("canvas");
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext("2d");
+
+        // Base dough
+        ctx.fillStyle = "#FFF3E0";
+        ctx.fillRect(0, 0, size, size);
+
+        // Pores
+        for (let i = 0; i < 4000; i++) {
+          const x = Math.random() * size;
+          const y = Math.random() * size;
+          const r = Math.random() * 1.5;
+          ctx.fillStyle = "rgba(139, 69, 19, 0.05)";
+          ctx.beginPath();
+          ctx.arc(x, y, r, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        // Crust border (simple gradient)
+        const grad = ctx.createRadialGradient(
+          size / 2,
+          size / 2,
+          size / 3,
+          size / 2,
+          size / 2,
+          size / 2
+        );
+        grad.addColorStop(0, "rgba(255,255,255,0)");
+        grad.addColorStop(1, "rgba(161, 136, 127, 0.2)");
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, size, size);
+
+        return new THREE.CanvasTexture(canvas);
+      }
+
+      function createTileTexture() {
+        const size = 512;
+        const canvas = document.createElement("canvas");
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#E0F7FA";
+        ctx.fillRect(0, 0, size, size);
+        ctx.strokeStyle = "#B2EBF2";
+        ctx.lineWidth = 4;
+        // Grid
+        const tiles = 4;
+        const step = size / tiles;
+        for (let i = 0; i <= tiles; i++) {
+          ctx.beginPath();
+          ctx.moveTo(i * step, 0);
+          ctx.lineTo(i * step, size);
+          ctx.moveTo(0, i * step);
+          ctx.lineTo(size, i * step);
+          ctx.stroke();
+        }
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.wrapS = THREE.RepeatWrapping;
+        tex.wrapT = THREE.RepeatWrapping;
+        tex.repeat.set(4, 4);
+        return tex;
+      }
+
+      // --- OBJECTS ---
+
+      // 1. Environment (Kitchen)
+      const roomGroup = new THREE.Group();
+      scene.add(roomGroup);
+
+      const wallGeo = new THREE.BoxGeometry(50, 40, 1);
+      const wallMat = new THREE.MeshStandardMaterial({
+        map: createTileTexture(),
+        roughness: 0.2,
+      });
+      const wall = new THREE.Mesh(wallGeo, wallMat);
+      wall.position.set(0, 10, -15);
+      roomGroup.add(wall);
+
+      const counterGeo = new THREE.BoxGeometry(50, 1, 40);
+      const counterMat = new THREE.MeshStandardMaterial({
+        color: 0xffccbc,
+        roughness: 0.5,
+      });
+      const counter = new THREE.Mesh(counterGeo, counterMat);
+      counter.position.y = -0.5;
+      roomGroup.add(counter);
+
+      // Window Sun
+      const sunLight = new THREE.DirectionalLight(0xfffaed, 2);
+      sunLight.position.set(20, 30, 10);
+      sunLight.castShadow = true;
+      sunLight.shadow.mapSize.width = 2048;
+      sunLight.shadow.mapSize.height = 2048;
+      scene.add(sunLight);
+      scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+
+      // 2. Toaster
+      const toasterGroup = new THREE.Group();
+      scene.add(toasterGroup);
+
+      const chromeMat = new THREE.MeshPhysicalMaterial({
+        color: 0x80deea, // Pastel Blue
+        metalness: 0.4,
+        roughness: 0.2,
+        clearcoat: 1.0,
+        clearcoatRoughness: 0.1,
+      });
+      const innerMat = new THREE.MeshStandardMaterial({
+        color: 0x3e2723,
+        roughness: 0.9,
+      }); // Dark interior
+
+      // Body shell
+      // Creating a hollow box is hard with primitives, so we build walls
+      const tWidth = 12;
+      const tHeight = 8;
+      const tDepth = 8;
+
+      // Front/Back
+      const faceGeo = new THREE.BoxGeometry(tWidth, tHeight, 0.5);
+      const front = new THREE.Mesh(faceGeo, chromeMat);
+      front.position.set(0, 4, 4);
+      const back = new THREE.Mesh(faceGeo, chromeMat);
+      back.position.set(0, 4, -4);
+      toasterGroup.add(front);
+      toasterGroup.add(back);
+
+      // Sides
+      const sideGeo = new THREE.BoxGeometry(0.5, tHeight, 8);
+      const left = new THREE.Mesh(sideGeo, chromeMat);
+      left.position.set(-6, 4, 0);
+      const right = new THREE.Mesh(sideGeo, chromeMat);
+      right.position.set(6, 4, 0);
+      toasterGroup.add(left);
+      toasterGroup.add(right);
+
+      // Top (with slots)
+      // We need 3 pieces to make 2 slots
+      const topMidGeo = new THREE.BoxGeometry(tWidth, 0.5, 2);
+      const topSideGeo = new THREE.BoxGeometry(tWidth, 0.5, 2.5);
+
+      const topMid = new THREE.Mesh(topMidGeo, chromeMat);
+      topMid.position.set(0, 8, 0);
+      const topFront = new THREE.Mesh(topSideGeo, chromeMat);
+      topFront.position.set(0, 8, 3);
+      const topBack = new THREE.Mesh(topSideGeo, chromeMat);
+      topBack.position.set(0, 8, -3);
+      toasterGroup.add(topMid);
+      toasterGroup.add(topFront);
+      toasterGroup.add(topBack);
+
+      // Interior Walls (The heat chamber)
+      const chamberGeo = new THREE.BoxGeometry(10, 7, 0.2);
+      const chamberLeft = new THREE.Mesh(chamberGeo, innerMat);
+      chamberLeft.position.set(0, 3.5, -1.2);
+      const chamberRight = new THREE.Mesh(chamberGeo, innerMat);
+      chamberRight.position.set(0, 3.5, 1.2);
+      toasterGroup.add(chamberLeft);
+      toasterGroup.add(chamberRight);
+
+      // HEATING COILS (Emissive Strips)
+      const coils = [];
+      const coilMat = new THREE.MeshBasicMaterial({ color: 0x330000 }); // Off state
+
+      for (let y = 1; y < 7; y += 1.5) {
+        // Back wall coils
+        const c1 = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.05, 0.05, 9, 8),
+          coilMat.clone()
+        );
+        c1.rotation.z = Math.PI / 2;
+        c1.position.set(0, y, -1.1);
+        toasterGroup.add(c1);
+        coils.push(c1.material);
+
+        // Front wall coils
+        const c2 = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.05, 0.05, 9, 8),
+          coilMat.clone()
+        );
+        c2.rotation.z = Math.PI / 2;
+        c2.position.set(0, y, 1.1);
+        toasterGroup.add(c2);
+        coils.push(c2.material);
+      }
+
+      // Glow Light (Inside toaster)
+      const heatLight = new THREE.PointLight(0xff3d00, 0, 10); // Orange, start intensity 0
+      heatLight.position.set(0, 4, 0);
+      toasterGroup.add(heatLight);
+
+      // Lever Group
+      const leverGroup = new THREE.Group();
+      const handleGeo = new THREE.CylinderGeometry(0.5, 0.5, 2);
+      const handle = new THREE.Mesh(
+        handleGeo,
+        new THREE.MeshStandardMaterial({ color: 0x222222 })
+      );
+      handle.rotation.x = Math.PI / 2;
+      handle.position.set(6.5, 0, 0); // Stick out side
+      leverGroup.add(handle);
+      leverGroup.position.y = 6; // Start UP
+      toasterGroup.add(leverGroup);
+
+      // 3. The Player (Toast)
+      const breadGeo = new THREE.BoxGeometry(4, 4.5, 0.6);
+      // Modify geometry to round top
+      const posAttribute = breadGeo.attributes.position;
+      for (let i = 0; i < posAttribute.count; i++) {
+        const y = posAttribute.getY(i);
+        const x = posAttribute.getX(i);
+        if (y > 1.5) {
+          // curve top corners
+          const dist = Math.abs(x);
+          posAttribute.setY(i, y - dist * dist * 0.15);
+        }
+      }
+      breadGeo.computeVertexNormals();
+
+      const breadMat = new THREE.MeshStandardMaterial({
+        map: createBreadTexture(),
+        color: 0xfff3e0, // Start color (Dough)
+        roughness: 0.8,
+      });
+      const bread = new THREE.Mesh(breadGeo, breadMat);
+      bread.position.set(0, 6.5, 1.8); // Sitting in front slot (z=1.5ish)
+      // Actually, let's center it in the slot
+      bread.position.z = 1.8;
+      scene.add(bread);
+
+      // 4. The Giant (Grandma?)
+      const personGroup = new THREE.Group();
+      // Arm
+      const armGeo = new THREE.CylinderGeometry(2, 2.2, 15, 32);
+      const armMat = new THREE.MeshStandardMaterial({ color: 0xffccbc }); // Skin
+      const sleeveMat = new THREE.MeshStandardMaterial({ color: 0xb39ddb }); // Lavender sweater
+
+      const arm = new THREE.Mesh(armGeo, sleeveMat);
+      arm.position.set(12, 15, 5);
+      arm.rotation.z = Math.PI / 4;
+      personGroup.add(arm);
+
+      // Plate
+      const plateGeo = new THREE.CylinderGeometry(8, 6, 0.5, 64);
+      const plateMat = new THREE.MeshPhysicalMaterial({
+        color: 0xffffff,
+        clearcoat: 1,
+      });
+      const plate = new THREE.Mesh(plateGeo, plateMat);
+      plate.position.set(8, 8, 5);
+      plate.rotation.z = -Math.PI / 10;
+      personGroup.add(plate);
+
+      personGroup.position.set(20, 0, 0); // Off screen initially
+      scene.add(personGroup);
+
+      // --- GAME LOGIC ---
+
+      const STATE = {
+        IDLE: 0,
+        LOWERING: 1,
+        TOASTING: 2,
+        POPPING: 3,
+        PLATED: 4,
+      };
+      let currentState = STATE.IDLE;
+
+      let toastLevel = 3;
+      let toastTimer = 0;
+      let maxTime = 0;
+      let shakeIntensity = 0;
+
+      // Physics vars
+      let velocity = new THREE.Vector3();
+
+      // Camera Setup
+      // We attach camera to bread logic conceptually, but keep it separate obj for smoothness
+      // Initial: Looking at toaster
+      camera.position.set(15, 20, 15);
+      const controls = new OrbitControls(camera, renderer.domElement);
+      controls.target.set(0, 5, 0);
+      controls.enableDamping = true;
+      controls.autoRotate = true;
+      controls.autoRotateSpeed = 1.0;
+
+      // UI Events
+      document
+        .getElementById("toast-level")
+        .addEventListener(
+          "input",
+          (e) => (toastLevel = parseInt(e.target.value))
+        );
+      document
+        .getElementById("push-lever-btn")
+        .addEventListener("click", startToasting);
+
+      function startToasting() {
+        if (currentState !== STATE.IDLE) return;
+
+        currentState = STATE.LOWERING;
+        maxTime = toastLevel * 120; // frames roughly
+        toastTimer = 0;
+
+        // UI Hide
+        document.getElementById("start-panel").classList.add("hidden");
+        controls.autoRotate = false;
+        controls.enabled = false;
+
+        // Camera Transition to POV
+        // We want to be ON the bread looking OUT or DOWN?
+        // Best view: Riding the bread, looking slightly up/out at the room
+
+        const startPos = camera.position.clone();
+        const startTarget = controls.target.clone();
+
+        // Goal: Camera attached to bread top
+        // We will handle this in animate loop with lerp
+      }
+
+      // Easing
+      function lerp(start, end, t) {
+        return start * (1 - t) + end * t;
+      }
+
+      // Animation Loop
+      function animate() {
+        requestAnimationFrame(animate);
+
+        controls.update(); // Used for damping only in idle
+
+        if (currentState === STATE.LOWERING) {
+          // Move Bread Down
+          bread.position.y = lerp(bread.position.y, 3, 0.05);
+          leverGroup.position.y = lerp(leverGroup.position.y, 2, 0.05);
+
+          // Move Camera to POV
+          // Position: Slightly above bread, looking fwd
+          const targetCamPos = new THREE.Vector3(
+            bread.position.x,
+            bread.position.y + 3,
+            bread.position.z + 1
+          );
+          const targetLook = new THREE.Vector3(0, 10, -20); // Look at wall/window
+
+          camera.position.lerp(targetCamPos, 0.05);
+
+          // LookAt logic is tricky with lerp, so we manually lerp the target
+          const currentLook = new THREE.Vector3();
+          camera.getWorldDirection(currentLook);
+          const lookPoint = camera.position
+            .clone()
+            .add(currentLook.multiplyScalar(10));
+          lookPoint.lerp(targetLook, 0.05);
+          camera.lookAt(lookPoint);
+
+          if (bread.position.y < 3.1) {
+            currentState = STATE.TOASTING;
+            document.getElementById("timer-display").style.opacity = 1;
+          }
+        }
+
+        if (currentState === STATE.TOASTING) {
+          toastTimer++;
+          const progress = toastTimer / maxTime;
+
+          // 1. Heat visuals
+          const heatRamp = Math.min(progress * 2, 1); // Heat up fast
+          heatLight.intensity = heatRamp * 5;
+
+          // Coils glow
+          const coilColor = new THREE.Color(0x330000).lerp(
+            new THREE.Color(0xff5722),
+            heatRamp
+          );
+          coils.forEach((mat) => (mat.color = coilColor));
+
+          // 2. Bread Darkening
+          // Wheat (FFF3E0) -> Golden (FFB74D) -> Brown (5D4037) -> Black (000000)
+          let targetColor;
+          if (progress < 0.5) {
+            targetColor = new THREE.Color(0xfff3e0).lerp(
+              new THREE.Color(0xffb74d),
+              progress * 2
+            );
+          } else if (progress < 0.8) {
+            targetColor = new THREE.Color(0xffb74d).lerp(
+              new THREE.Color(0x5d4037),
+              (progress - 0.5) * 3.3
+            );
+          } else {
+            targetColor = new THREE.Color(0x5d4037).lerp(
+              new THREE.Color(0x111111),
+              (progress - 0.8) * 5
+            );
+          }
+          bread.material.color = targetColor;
+
+          // 3. Camera Shake (Vibration)
+          shakeIntensity = lerp(0, 0.05, heatRamp);
+          camera.position.x =
+            bread.position.x + (Math.random() - 0.5) * shakeIntensity;
+          camera.position.y =
+            bread.position.y + 3 + (Math.random() - 0.5) * shakeIntensity;
+
+          // 4. Giant Arrives
+          if (progress > 0.8) {
+            personGroup.position.x = lerp(personGroup.position.x, 2, 0.02);
+          }
+
+          if (toastTimer >= maxTime) {
+            currentState = STATE.POPPING;
+            velocity.set(0, 0.8, 0); // Launch velocity
+            document.getElementById("timer-display").style.opacity = 0;
+
+            // Reset visuals
+            heatLight.intensity = 0;
+            coils.forEach((mat) => mat.color.setHex(0x330000));
+            leverGroup.position.y = 6; // Snap up
+          }
+        }
+
+        if (currentState === STATE.POPPING) {
+          // Physics
+          bread.position.add(velocity);
+          velocity.y -= 0.015; // Gravity
+
+          // Slight Rotation for fun
+          bread.rotation.x -= 0.02;
+
+          // Slow Motion Effect?
+          // We are just doing normal physics, but the scale makes it feel grand.
+
+          // Camera Follow
+          // Pull back to see the arc
+          const targetCamPos = new THREE.Vector3(10, 15, 15);
+          camera.position.lerp(targetCamPos, 0.05);
+          camera.lookAt(bread.position);
+
+          // Collision with Plate
+          // Plate is roughly at (8, 8, 5)
+          // Simple distance check
+          const distToPlate = bread.position.distanceTo(
+            new THREE.Vector3(8, 8, 5)
+          );
+          if (distToPlate < 3 && velocity.y < 0) {
+            currentState = STATE.PLATED;
+            bread.position.set(8, 8.5, 5);
+            bread.rotation.set(-Math.PI / 2, 0, Math.PI / 4); // Lay flat
+          }
+
+          // Fail safe floor
+          if (bread.position.y < 0) {
+            velocity.set(0, 0, 0); // splat
+          }
+        }
+
+        if (currentState === STATE.PLATED) {
+          // Final nice shot
+          const targetCamPos = new THREE.Vector3(6, 12, 10);
+          camera.position.lerp(targetCamPos, 0.02);
+          camera.lookAt(bread.position);
+
+          // Show restart?
+          // Just linger for now.
+        }
+
+        renderer.render(scene, camera);
+      }
+
+      animate();
+
+      // Handle resize
+      window.addEventListener("resize", () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+    </script>
+  </body>
+</html>
