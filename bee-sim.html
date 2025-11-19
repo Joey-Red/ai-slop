@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bee Simulator: Roguelite Edition</title>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        font-family: "Courier New", Courier, monospace;
+        user-select: none;
+        background: #87ceeb;
+      }
+      canvas {
+        display: block;
+      }
+
+      #ui-layer {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        padding: 20px;
+        box-sizing: border-box;
+      }
+
+      .hud-panel {
+        background: rgba(0, 0, 0, 0.5);
+        color: #ffd700;
+        padding: 15px;
+        border-radius: 10px;
+        border: 2px solid #ffa500;
+        pointer-events: auto;
+      }
+
+      h1 {
+        margin: 0 0 5px 0;
+        font-size: 24px;
+        text-shadow: 2px 2px 0 #000;
+      }
+      p {
+        margin: 5px 0;
+        font-size: 18px;
+        font-weight: bold;
+      }
+      .instructions {
+        font-size: 14px;
+        color: #ddd;
+        font-weight: normal;
+        margin-top: 5px;
+      }
+
+      .bar-container {
+        width: 200px;
+        height: 20px;
+        background: #333;
+        border: 1px solid #fff;
+        margin-top: 5px;
+        position: relative;
+      }
+      .bar-fill {
+        height: 100%;
+        background: orange;
+        width: 0%;
+        transition: width 0.2s;
+      }
+      #nectar-bar .bar-fill {
+        background: #e6b800;
+      }
+
+      #message-area {
+        position: absolute;
+        top: 20%;
+        left: 50%;
+        transform: translateX(-50%);
+        text-align: center;
+        color: white;
+        text-shadow: 2px 2px 4px black;
+        font-size: 24px;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.5s;
+      }
+
+      /* Shop Modal */
+      #queen-shop {
+        display: none;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(255, 215, 0, 0.95);
+        border: 5px solid #8b4500;
+        padding: 30px;
+        border-radius: 20px;
+        text-align: center;
+        color: #3e1e00;
+        pointer-events: auto;
+        box-shadow: 0 0 50px rgba(255, 165, 0, 0.5);
+      }
+      #queen-shop h2 {
+        margin-top: 0;
+      }
+      .shop-btn {
+        background: #fff;
+        border: 2px solid #8b4500;
+        padding: 10px 20px;
+        margin: 10px;
+        font-size: 18px;
+        cursor: pointer;
+        font-family: inherit;
+        font-weight: bold;
+        transition: transform 0.1s;
+      }
+      .shop-btn:hover {
+        transform: scale(1.05);
+        background: #fff8dc;
+      }
+      .shop-btn:active {
+        transform: scale(0.95);
+      }
+      .cost {
+        display: block;
+        font-size: 12px;
+        color: #555;
+      }
+
+      #interaction-prompt {
+        position: absolute;
+        bottom: 20%;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.7);
+        color: white;
+        padding: 10px 20px;
+        border-radius: 20px;
+        font-size: 20px;
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <style>
+      /* Minimal Floating Home Button */
+      .home-nav-btn {
+        position: fixed;
+        top: 15px;
+        left: 15px;
+        z-index: 10000; /* Ensure it sits above game UI/Canvases */
+        background: rgba(
+          30,
+          30,
+          30,
+          0.6
+        ); /* Dark semi-transparent for contrast */
+        color: #ffffff;
+        text-decoration: none;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+        font-size: 14px;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.2s ease;
+        backdrop-filter: blur(4px); /* Blurs background behind button */
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+
+      .home-nav-btn:hover {
+        background: rgba(30, 30, 30, 0.9);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      }
+
+      /* SVG Icon Style */
+      .home-nav-icon {
+        width: 16px;
+        height: 16px;
+      }
+    </style>
+
+    <!-- Link to your Hub (index.html) -->
+    <a href="index.html" class="home-nav-btn">
+      <svg
+        class="home-nav-icon"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+        <polyline points="9 22 9 12 15 12 15 22"></polyline>
+      </svg>
+      <span>Back to Hub</span>
+    </a>
+    <div id="ui-layer">
+      <div class="hud-panel">
+        <h1>🐝 Bee Simulator</h1>
+        <p class="instructions">
+          WASD to Move • Fly over Flowers to Collect • Fly to Hive Hole to
+          Deposit
+        </p>
+        <p>Honey Stored: <span id="honey-score">0</span></p>
+        <div>
+          Nectar Capacity
+          <div class="bar-container" id="nectar-bar">
+            <div class="bar-fill" id="nectar-fill"></div>
+          </div>
+          <span id="nectar-text">0 / 10</span>
+        </div>
+      </div>
+      <div class="hud-panel" style="align-self: flex-end; text-align: right">
+        <p>Lvl <span id="level-disp">1</span></p>
+        <p>Speed: <span id="speed-stat">100%</span></p>
+        <p>Capacity: <span id="cap-stat">10</span></p>
+      </div>
+    </div>
+
+    <div id="message-area">Captured!</div>
+    <div id="interaction-prompt">Press 'E' to Talk to Queen</div>
+
+    <!-- Shop UI -->
+    <div id="queen-shop">
+      <h2>👑 The Queen's Royal Shop</h2>
+      <p>The Queen demands Honey!</p>
+      <div style="display: flex; flex-direction: column">
+        <button class="shop-btn" onclick="game.upgrade('speed')">
+          Aerodynamics (Speed Up)
+          <span class="cost">Cost: <span id="cost-speed">10</span> Honey</span>
+        </button>
+        <button class="shop-btn" onclick="game.upgrade('capacity')">
+          Larger Honey Stomach (Capacity +5)
+          <span class="cost"
+            >Cost: <span id="cost-capacity">15</span> Honey</span
+          >
+        </button>
+        <button class="shop-btn" onclick="game.upgrade('luck')">
+          Pollen Magnet (Flower Respawn)
+          <span class="cost">Cost: <span id="cost-luck">20</span> Honey</span>
+        </button>
+        <button
+          class="shop-btn"
+          style="background: #ffcccb"
+          onclick="game.closeShop()"
+        >
+          Buzz Off (Close)
+        </button>
+      </div>
+    </div>
+
+    <!-- Three.js from CDN (Reverted to r128 for stability) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <script>
+      // --- GAME CONFIGURATION & STATE ---
+      const CONFIG = {
+        worldSize: 400,
+        flowerCount: 60,
+        gravity: 0,
+        cameraOffset: new THREE.Vector3(0, 15, 25),
+        colors: {
+          beeYellow: 0xffd700,
+          beeBlack: 0x111111,
+          ground: 0x3cb043,
+          flowerColors: [0xff69b4, 0xff4500, 0x9370db, 0xffff00, 0x00ced1],
+        },
+      };
+
+      const STATE = {
+        nectar: 0,
+        maxNectar: 10,
+        honey: 0,
+        level: 1,
+        speedMult: 1.0,
+        luck: 1.0,
+        costs: { speed: 10, capacity: 15, luck: 20 },
+      };
+
+      // --- THREE.JS SETUP ---
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x87ceeb); // Sky blue
+      scene.fog = new THREE.Fog(0x87ceeb, 20, 150);
+
+      const camera = new THREE.PerspectiveCamera(
+        60,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        1000
+      );
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.shadowMap.enabled = true;
+      document.body.appendChild(renderer.domElement);
+
+      // Lighting
+      const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.8);
+      scene.add(hemiLight);
+
+      const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+      dirLight.position.set(50, 100, 50);
+      dirLight.castShadow = true;
+      dirLight.shadow.camera.top = 100;
+      dirLight.shadow.camera.bottom = -100;
+      dirLight.shadow.camera.left = -100;
+      dirLight.shadow.camera.right = 100;
+      scene.add(dirLight);
+
+      // Ground
+      const groundGeo = new THREE.PlaneGeometry(
+        CONFIG.worldSize,
+        CONFIG.worldSize
+      );
+      const groundMat = new THREE.MeshStandardMaterial({
+        color: CONFIG.colors.ground,
+        roughness: 0.8,
+      });
+      const ground = new THREE.Mesh(groundGeo, groundMat);
+      ground.rotation.x = -Math.PI / 2;
+      ground.receiveShadow = true;
+      scene.add(ground);
+
+      // --- GAME OBJECTS ---
+
+      class Bee {
+        constructor() {
+          this.mesh = new THREE.Group();
+
+          // Body (Using Sphere scaled to look like capsule for r128 compatibility)
+          const bodyGeo = new THREE.SphereGeometry(0.8, 16, 16);
+          const bodyMat = new THREE.MeshStandardMaterial({
+            color: CONFIG.colors.beeYellow,
+          });
+          this.body = new THREE.Mesh(bodyGeo, bodyMat);
+          this.body.scale.set(1, 2, 1); // Stretch
+          this.body.rotation.z = Math.PI / 2;
+          this.body.castShadow = true;
+
+          // Stripes
+          const stripeGeo = new THREE.TorusGeometry(0.75, 0.1, 8, 16);
+          const stripeMat = new THREE.MeshBasicMaterial({
+            color: CONFIG.colors.beeBlack,
+          });
+          const stripe1 = new THREE.Mesh(stripeGeo, stripeMat);
+          const stripe2 = new THREE.Mesh(stripeGeo, stripeMat);
+          stripe1.rotation.y = Math.PI / 2;
+          stripe2.rotation.y = Math.PI / 2;
+          stripe1.position.x = -0.3;
+          stripe2.position.x = 0.3;
+
+          // Eyes
+          const eyeGeo = new THREE.SphereGeometry(0.25);
+          const eyeMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+          const eyeL = new THREE.Mesh(eyeGeo, eyeMat);
+          const eyeR = new THREE.Mesh(eyeGeo, eyeMat);
+          eyeL.position.set(1, 0.2, 0.3);
+          eyeR.position.set(1, 0.2, -0.3);
+
+          // Stinger
+          const stingerGeo = new THREE.ConeGeometry(0.3, 0.6, 8);
+          const stinger = new THREE.Mesh(stingerGeo, stripeMat);
+          stinger.rotation.z = -Math.PI / 2;
+          stinger.position.x = -1.3;
+
+          // Wings
+          const wingGeo = new THREE.CircleGeometry(1.2, 16);
+          const wingMat = new THREE.MeshStandardMaterial({
+            color: 0xffffff,
+            transparent: true,
+            opacity: 0.6,
+            side: THREE.DoubleSide,
+          });
+
+          this.wingL = new THREE.Mesh(wingGeo, wingMat);
+          this.wingR = new THREE.Mesh(wingGeo, wingMat);
+
+          this.wingL.rotation.x = -Math.PI / 2;
+          this.wingR.rotation.x = -Math.PI / 2;
+
+          this.wingL.position.set(0, 0.8, 0.5);
+          this.wingR.position.set(0, 0.8, -0.5);
+
+          // Group assembly
+          this.body.add(stripe1, stripe2, eyeL, eyeR, stinger);
+          this.mesh.add(this.body, this.wingL, this.wingR);
+
+          this.mesh.position.y = 3;
+          scene.add(this.mesh);
+
+          // Movement Props
+          this.velocity = new THREE.Vector3();
+          this.maxSpeed = 20;
+          this.acceleration = 80; // Increased acceleration for snappiness
+          this.friction = 10; // Increased base friction
+        }
+
+        update(dt, input) {
+          // Wing Animation
+          const wingSpeed = 20;
+          this.wingL.rotation.z = Math.sin(Date.now() * 0.02) * 0.5;
+          this.wingR.rotation.z = -Math.sin(Date.now() * 0.02) * 0.5;
+
+          // Hover float
+          this.mesh.position.y = 3 + Math.sin(Date.now() * 0.003) * 0.5;
+
+          // Movement Logic
+          const moveDir = new THREE.Vector3();
+          if (input.up) moveDir.z -= 1;
+          if (input.down) moveDir.z += 1;
+          if (input.left) moveDir.x -= 1;
+          if (input.right) moveDir.x += 1;
+
+          if (moveDir.length() > 0) moveDir.normalize();
+
+          // Apply Acceleration
+          const effectiveSpeed = this.acceleration * STATE.speedMult;
+          this.velocity.add(moveDir.multiplyScalar(effectiveSpeed * dt));
+
+          // Apply Friction (Drastically increased when no input for snapping stop)
+          const frictionFactor = moveDir.length() === 0 ? 20 : this.friction;
+          this.velocity.add(
+            this.velocity.clone().multiplyScalar(-frictionFactor * dt)
+          );
+
+          // Clamp Speed
+          const currentMax = this.maxSpeed * STATE.speedMult;
+          if (this.velocity.length() > currentMax) {
+            this.velocity.normalize().multiplyScalar(currentMax);
+          }
+
+          // Stop completely if very slow (prevents micro-sliding)
+          if (moveDir.length() === 0 && this.velocity.length() < 0.5) {
+            this.velocity.set(0, 0, 0);
+          }
+
+          // Apply Position
+          this.mesh.position.add(this.velocity.clone().multiplyScalar(dt));
+
+          // Rotation (Face direction of travel)
+          if (this.velocity.length() > 0.1) {
+            const angle = Math.atan2(-this.velocity.z, this.velocity.x);
+            this.mesh.rotation.y = angle;
+
+            // Tilt slightly forward
+            this.mesh.rotation.z = -this.velocity.length() * 0.01;
+          }
+
+          // Boundary Check
+          const limit = CONFIG.worldSize / 2 - 2;
+          this.mesh.position.x = Math.max(
+            -limit,
+            Math.min(limit, this.mesh.position.x)
+          );
+          this.mesh.position.z = Math.max(
+            -limit,
+            Math.min(limit, this.mesh.position.z)
+          );
+        }
+      }
+
+      class Flower {
+        constructor(x, z) {
+          this.mesh = new THREE.Group();
+
+          // Stem
+          const stemGeo = new THREE.CylinderGeometry(0.1, 0.1, 2);
+          const stemMat = new THREE.MeshStandardMaterial({ color: 0x228b22 });
+          const stem = new THREE.Mesh(stemGeo, stemMat);
+          stem.position.y = 1;
+          stem.castShadow = true;
+
+          // Petals
+          const color =
+            CONFIG.colors.flowerColors[
+              Math.floor(Math.random() * CONFIG.colors.flowerColors.length)
+            ];
+          const headGeo = new THREE.DodecahedronGeometry(0.8);
+          this.activeColor = new THREE.Color(color);
+          this.deadColor = new THREE.Color(0x555555);
+          this.headMat = new THREE.MeshStandardMaterial({
+            color: this.activeColor,
+          });
+          const head = new THREE.Mesh(headGeo, this.headMat);
+          head.position.y = 2;
+
+          this.mesh.add(stem, head);
+          this.mesh.position.set(x, 0, z);
+
+          // Random rotation and scale for variety
+          this.mesh.rotation.y = Math.random() * Math.PI;
+          const scale = 0.8 + Math.random() * 0.5;
+          this.mesh.scale.set(scale, scale, scale);
+
+          scene.add(this.mesh);
+
+          this.hasNectar = true;
+          this.cooldown = 0;
+        }
+
+        update(dt) {
+          // Bobbing
+          this.mesh.rotation.z =
+            Math.sin(Date.now() * 0.001 + this.mesh.position.x) * 0.1;
+
+          if (!this.hasNectar) {
+            this.cooldown -= dt;
+            if (this.cooldown <= 0) {
+              this.regenerate();
+            }
+          }
+        }
+
+        collect() {
+          if (!this.hasNectar) return false;
+          this.hasNectar = false;
+          this.headMat.color.copy(this.deadColor);
+          // Cooldown based on "Luck" stat (higher luck = faster respawn)
+          this.cooldown = 10 / STATE.luck;
+          return true;
+        }
+
+        regenerate() {
+          this.hasNectar = true;
+          this.headMat.color.copy(this.activeColor);
+
+          // Pop effect
+          this.mesh.scale.y = 1.5;
+          setTimeout(() => {
+            this.mesh.scale.y = 1; // Reset loosely (scale varies per flower in constructor, but this is simple feedback)
+          }, 200);
+        }
+      }
+
+      class Hive {
+        constructor() {
+          this.mesh = new THREE.Group();
+
+          // Main Dome
+          const domeGeo = new THREE.SphereGeometry(
+            5,
+            16,
+            16,
+            0,
+            Math.PI * 2,
+            0,
+            Math.PI / 2
+          );
+          const domeMat = new THREE.MeshStandardMaterial({ color: 0xdaa520 }); // Goldenrod
+          const dome = new THREE.Mesh(domeGeo, domeMat);
+          dome.scale.y = 1.2;
+
+          // Rings
+          const ringGeo = new THREE.TorusGeometry(3.5, 0.5, 8, 24);
+          const ringMat = new THREE.MeshStandardMaterial({ color: 0x8b4513 });
+          const ring1 = new THREE.Mesh(ringGeo, ringMat);
+          ring1.rotation.x = Math.PI / 2;
+          ring1.position.y = 1;
+
+          const ring2 = ring1.clone();
+          ring2.scale.set(0.8, 0.8, 0.8);
+          ring2.position.y = 3;
+
+          // Entrance
+          const doorGeo = new THREE.CircleGeometry(1.5, 16);
+          const doorMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+          const door = new THREE.Mesh(doorGeo, doorMat);
+          door.position.set(0, 1.5, 4.5);
+          // door.rotation.x = -0.2;
+
+          this.mesh.add(dome, ring1, ring2, door);
+          this.mesh.position.set(0, 0, 0);
+          this.mesh.castShadow = true;
+          scene.add(this.mesh);
+        }
+      }
+
+      class Queen {
+        constructor() {
+          this.mesh = new THREE.Group();
+
+          // Bigger Body (Sphere scaled to look like capsule for r128 compatibility)
+          const bodyGeo = new THREE.SphereGeometry(1.5, 16, 16);
+          const bodyMat = new THREE.MeshStandardMaterial({
+            color: CONFIG.colors.beeYellow,
+          });
+          this.body = new THREE.Mesh(bodyGeo, bodyMat);
+          this.body.scale.set(1, 2, 1); // Stretch
+          this.body.rotation.z = Math.PI / 2;
+
+          // Crown
+          const crownGeo = new THREE.CylinderGeometry(1.2, 0.8, 1, 8);
+          const crownMat = new THREE.MeshStandardMaterial({ color: 0xff0000 });
+          const crown = new THREE.Mesh(crownGeo, crownMat);
+          crown.position.set(1.5, 1.5, 0);
+          crown.rotation.z = -0.5;
+
+          // Wings
+          const wingGeo = new THREE.CircleGeometry(2.5, 16);
+          const wingMat = new THREE.MeshStandardMaterial({
+            color: 0xffffff,
+            transparent: true,
+            opacity: 0.6,
+            side: THREE.DoubleSide,
+          });
+          this.wingL = new THREE.Mesh(wingGeo, wingMat);
+          this.wingR = new THREE.Mesh(wingGeo, wingMat);
+          this.wingL.rotation.x = -Math.PI / 2;
+          this.wingR.rotation.x = -Math.PI / 2;
+          this.wingL.position.set(0, 1.5, 1);
+          this.wingR.position.set(0, 1.5, -1);
+
+          this.mesh.add(this.body, crown, this.wingL, this.wingR);
+          this.mesh.position.set(15, 4, 5); // Next to Hive
+          scene.add(this.mesh);
+        }
+
+        update() {
+          this.mesh.position.y = 4 + Math.sin(Date.now() * 0.002) * 0.5;
+          this.wingL.rotation.z = Math.sin(Date.now() * 0.01) * 0.3;
+          this.wingR.rotation.z = -Math.sin(Date.now() * 0.01) * 0.3;
+        }
+      }
+
+      // --- INITIALIZATION ---
+      const bee = new Bee();
+      const hive = new Hive();
+      const queen = new Queen();
+      const flowers = [];
+
+      function initWorld() {
+        for (let i = 0; i < CONFIG.flowerCount; i++) {
+          // Don't spawn too close to hive
+          let x, z, dist;
+          do {
+            x = (Math.random() - 0.5) * CONFIG.worldSize * 0.9;
+            z = (Math.random() - 0.5) * CONFIG.worldSize * 0.9;
+            dist = Math.sqrt(x * x + z * z);
+          } while (dist < 20); // Safe zone around hive
+
+          flowers.push(new Flower(x, z));
+        }
+      }
+      initWorld();
+
+      // --- INPUT HANDLING ---
+      const input = {
+        up: false,
+        down: false,
+        left: false,
+        right: false,
+        interact: false,
+      };
+
+      window.addEventListener("keydown", (e) => {
+        if (e.key === "w" || e.key === "ArrowUp") input.up = true;
+        if (e.key === "s" || e.key === "ArrowDown") input.down = true;
+        if (e.key === "a" || e.key === "ArrowLeft") input.left = true;
+        if (e.key === "d" || e.key === "ArrowRight") input.right = true;
+        if (e.key === "e" || e.key === "E") handleInteraction();
+      });
+
+      window.addEventListener("keyup", (e) => {
+        if (e.key === "w" || e.key === "ArrowUp") input.up = false;
+        if (e.key === "s" || e.key === "ArrowDown") input.down = false;
+        if (e.key === "a" || e.key === "ArrowLeft") input.left = false;
+        if (e.key === "d" || e.key === "ArrowRight") input.right = false;
+      });
+
+      // --- GAME LOGIC ---
+      const ui = {
+        honey: document.getElementById("honey-score"),
+        nectarBar: document.getElementById("nectar-fill"),
+        nectarText: document.getElementById("nectar-text"),
+        msg: document.getElementById("message-area"),
+        level: document.getElementById("level-disp"),
+        speed: document.getElementById("speed-stat"),
+        cap: document.getElementById("cap-stat"),
+        interact: document.getElementById("interaction-prompt"),
+        shop: document.getElementById("queen-shop"),
+      };
+
+      function showMessage(text, color = "#FFF") {
+        ui.msg.innerText = text;
+        ui.msg.style.color = color;
+        ui.msg.style.opacity = 1;
+        ui.msg.style.top = "20%";
+
+        // Simple "float up" animation reset
+        requestAnimationFrame(() => {
+          ui.msg.style.top = "15%";
+        });
+
+        setTimeout(() => {
+          ui.msg.style.opacity = 0;
+        }, 1500);
+      }
+
+      let canShop = false;
+      let isShopOpen = false;
+
+      function handleInteraction() {
+        if (canShop && !isShopOpen) {
+          openShop();
+        }
+      }
+
+      function openShop() {
+        isShopOpen = true;
+        ui.shop.style.display = "block";
+
+        // Update Prices
+        document.getElementById("cost-speed").innerText = STATE.costs.speed;
+        document.getElementById("cost-capacity").innerText =
+          STATE.costs.capacity;
+        document.getElementById("cost-luck").innerText = STATE.costs.luck;
+      }
+
+      window.game = {
+        closeShop: () => {
+          isShopOpen = false;
+          ui.shop.style.display = "none";
+        },
+        upgrade: (type) => {
+          const cost = STATE.costs[type];
+          if (STATE.honey >= cost) {
+            STATE.honey -= cost;
+            STATE.costs[type] = Math.floor(STATE.costs[type] * 1.5); // Price increase
+            STATE.level++;
+
+            if (type === "speed") {
+              STATE.speedMult += 0.2;
+              showMessage("Speed Upgraded!", "#00FFFF");
+            } else if (type === "capacity") {
+              STATE.maxNectar += 5;
+              showMessage("Capacity Upgraded!", "#00FFFF");
+            } else if (type === "luck") {
+              STATE.luck += 0.5;
+              showMessage("Fortune Upgraded!", "#00FFFF");
+            }
+
+            // Refresh UI
+            updateUI();
+            openShop(); // Refresh prices
+          } else {
+            showMessage("Not enough Honey!", "#FF0000");
+          }
+        },
+      };
+
+      function updateUI() {
+        ui.honey.innerText = STATE.honey;
+        const pct = (STATE.nectar / STATE.maxNectar) * 100;
+        ui.nectarBar.style.width = `${pct}%`;
+        ui.nectarText.innerText = `${STATE.nectar} / ${STATE.maxNectar}`;
+
+        if (pct >= 100)
+          ui.nectarBar.style.background = "#FF4500"; // Red warning
+        else ui.nectarBar.style.background = "#e6b800";
+
+        ui.level.innerText = STATE.level;
+        ui.speed.innerText = Math.round(STATE.speedMult * 100) + "%";
+        ui.cap.innerText = STATE.maxNectar;
+      }
+
+      // Helper: 2D Distance (Ignore height differences)
+      function getDistance2D(v1, v2) {
+        const dx = v1.x - v2.x;
+        const dz = v1.z - v2.z;
+        return Math.sqrt(dx * dx + dz * dz);
+      }
+
+      function checkCollisions() {
+        const beePos = bee.mesh.position;
+
+        // 1. Flowers
+        if (STATE.nectar < STATE.maxNectar) {
+          for (let f of flowers) {
+            if (f.hasNectar) {
+              // Use 2D distance so flying OVER the flower counts
+              const dist = getDistance2D(beePos, f.mesh.position);
+              if (dist < 4.0) {
+                // Increased hit radius
+                if (f.collect()) {
+                  STATE.nectar++;
+                  showMessage("+1 Nectar");
+                  updateUI();
+                }
+              }
+            }
+          }
+        }
+
+        // 2. Hive (Deposit)
+        // Use 2D distance for Hive too
+        const hivePos = new THREE.Vector3(0, 1.5, 4.5);
+        const distToHive = getDistance2D(beePos, hivePos);
+
+        if (distToHive < 6 && STATE.nectar > 0) {
+          STATE.honey += STATE.nectar;
+          showMessage(`Deposited ${STATE.nectar} Nectar!`, "#FFD700");
+          STATE.nectar = 0;
+          updateUI();
+        }
+
+        // 3. Queen (Interaction)
+        const distToQueen = getDistance2D(beePos, queen.mesh.position);
+        if (distToQueen < 8) {
+          canShop = true;
+          ui.interact.style.display = "block";
+        } else {
+          canShop = false;
+          ui.interact.style.display = "none";
+          if (isShopOpen) window.game.closeShop();
+        }
+      }
+
+      // --- LOOP ---
+      const clock = new THREE.Clock();
+
+      function animate() {
+        requestAnimationFrame(animate);
+
+        const dt = clock.getDelta();
+
+        if (!isShopOpen) {
+          bee.update(dt, input);
+        }
+
+        queen.update();
+        flowers.forEach((f) => f.update(dt));
+
+        checkCollisions();
+
+        // Camera Follow logic (Smooth)
+        const idealOffset = CONFIG.cameraOffset.clone();
+        idealOffset.applyMatrix4(bee.mesh.matrixWorld); // Apply bee's transform
+        // Actually, we want a simpler follow: always behind and up, but rotation doesn't swing wildly
+
+        const targetPos = bee.mesh.position
+          .clone()
+          .add(new THREE.Vector3(0, 15, 20));
+        camera.position.lerp(targetPos, 0.1);
+        camera.lookAt(bee.mesh.position);
+
+        renderer.render(scene, camera);
+      }
+
+      // Handle Resize
+      window.addEventListener("resize", () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+
+      animate();
+    </script>
+  </body>
+</html>
