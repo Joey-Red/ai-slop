@@ -40,6 +40,17 @@
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
       }
 
+      /* Tower Selection State */
+      .tower-btn {
+        border: 2px solid transparent;
+      }
+      .tower-btn.active {
+        border-color: #059669; /* Emerald 600 */
+        background-color: #d1fae5; /* Emerald 100 */
+        transform: translateY(-4px);
+        box-shadow: 0 6px 16px rgba(5, 150, 105, 0.2);
+      }
+
       .btn-speed.active {
         background-color: #10b981;
         color: white;
@@ -82,6 +93,24 @@
 
       .interactive {
         pointer-events: auto;
+      }
+
+      /* Hotkey badge */
+      .hotkey {
+        position: absolute;
+        top: -8px;
+        left: -8px;
+        background: #334155;
+        color: white;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        font-size: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        border: 2px solid white;
       }
     </style>
   </head>
@@ -253,6 +282,18 @@
         </p>
       </div>
 
+      <!-- Boss Notification -->
+      <div
+        id="bossWarning"
+        class="absolute top-1/3 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none hidden"
+      >
+        <h1
+          class="text-6xl font-black text-rose-600 drop-shadow-lg animate-pulse"
+        >
+          ⚠️ BOSS APPROACHING ⚠️
+        </h1>
+      </div>
+
       <!-- Card Selection Overlay (Roguelite Element) -->
       <div
         id="cardOverlay"
@@ -324,9 +365,11 @@
           class="glass-panel rounded-2xl p-2 flex gap-2 shadow-xl transform transition-all hover:scale-105"
         >
           <button
-            class="btn-cozy bg-emerald-100 hover:bg-emerald-200 text-emerald-800 p-3 rounded-xl flex flex-col items-center w-24 relative group"
+            id="towerBtn0"
+            class="btn-cozy tower-btn bg-emerald-100 hover:bg-emerald-200 text-emerald-800 p-3 rounded-xl flex flex-col items-center w-24 relative group"
             onclick="game.selectTower(0)"
           >
+            <div class="hotkey">1</div>
             <div class="text-2xl mb-1">🌱</div>
             <div class="font-bold text-sm">Sprout</div>
             <div class="text-xs opacity-70">50 ✦</div>
@@ -339,9 +382,11 @@
           </button>
 
           <button
-            class="btn-cozy bg-amber-100 hover:bg-amber-200 text-amber-800 p-3 rounded-xl flex flex-col items-center w-24 relative group"
+            id="towerBtn1"
+            class="btn-cozy tower-btn bg-amber-100 hover:bg-amber-200 text-amber-800 p-3 rounded-xl flex flex-col items-center w-24 relative group"
             onclick="game.selectTower(1)"
           >
+            <div class="hotkey">2</div>
             <div class="text-2xl mb-1">🌻</div>
             <div class="font-bold text-sm">Sun</div>
             <div class="text-xs opacity-70">120 ✦</div>
@@ -353,9 +398,11 @@
           </button>
 
           <button
-            class="btn-cozy bg-sky-100 hover:bg-sky-200 text-sky-800 p-3 rounded-xl flex flex-col items-center w-24 relative group"
+            id="towerBtn2"
+            class="btn-cozy tower-btn bg-sky-100 hover:bg-sky-200 text-sky-800 p-3 rounded-xl flex flex-col items-center w-24 relative group"
             onclick="game.selectTower(2)"
           >
+            <div class="hotkey">3</div>
             <div class="text-2xl mb-1">❄️</div>
             <div class="font-bold text-sm">Frost</div>
             <div class="text-xs opacity-70">150 ✦</div>
@@ -420,6 +467,14 @@
           gain.gain.linearRampToValueAtTime(0, now + 0.1);
           osc.start(now);
           osc.stop(now + 0.1);
+        } else if (type === "bossSpawn") {
+          osc.type = "sawtooth";
+          osc.frequency.setValueAtTime(100, now);
+          osc.frequency.linearRampToValueAtTime(50, now + 1.0);
+          gain.gain.setValueAtTime(0.3, now);
+          gain.gain.linearRampToValueAtTime(0, now + 1.0);
+          osc.start(now);
+          osc.stop(now + 1.0);
         } else if (type === "build") {
           osc.type = "sine";
           osc.frequency.setValueAtTime(300, now);
@@ -462,6 +517,8 @@
         rangeStroke: "rgba(16, 185, 129, 0.5)",
         enemy: "#a78bfa",
         enemyDark: "#7c3aed",
+        boss: "#be123c", // Rose 700
+        bossDark: "#881337",
       };
 
       let game = {
@@ -470,7 +527,7 @@
         money: 150,
         health: 20,
         wave: 1,
-        speed: 1, // Game Speed
+        speed: 1,
         enemies: [],
         towers: [],
         projectiles: [],
@@ -480,6 +537,7 @@
         selectedTowerType: -1,
         spawnTimer: 0,
         enemiesToSpawn: 0,
+        isBossWave: false, // Flag for boss spawn logic
         waveConfig: { count: 5, interval: 60, hpMultiplier: 1 },
         modifiers: {
           damage: 1,
@@ -602,18 +660,38 @@
       // --- Classes ---
 
       class Enemy {
-        constructor(path) {
+        constructor(path, isBoss = false) {
           this.pathIndex = 0;
           this.progress = 0;
           this.x = path[0].x;
           this.y = path[0].y;
-          this.radius = 12;
-          this.baseSpeed = 1.5 + game.wave * 0.1;
-          this.speed = this.baseSpeed;
-          this.maxHealth = 20 * Math.pow(1.3, game.wave - 1);
-          this.health = this.maxHealth;
+          this.isBoss = isBoss;
           this.slowTimer = 0;
           this.wobblePhase = Math.random() * Math.PI * 2;
+
+          // Stats
+          const baseHp = 20 * Math.pow(1.3, game.wave - 1);
+          this.maxHealth = isBoss ? baseHp * 15 : baseHp; // Boss has 15x HP
+          this.health = this.maxHealth;
+
+          const baseSpeed = 1.5 + game.wave * 0.1;
+          // Boss speed can vary, lets make it slightly slower but tanky, or fast.
+          // Randomize Boss Trait: 0 = Tanky (Slow), 1 = Sprinter (Fast)
+          if (isBoss) {
+            this.radius = 25;
+            if (Math.random() > 0.5) {
+              this.speed = baseSpeed * 0.6; // Tanky Slow
+              this.maxHealth *= 1.5;
+              this.health = this.maxHealth;
+              this.name = "Ancient Oak";
+            } else {
+              this.speed = baseSpeed * 1.3; // Fast
+              this.name = "Rabid Wolf";
+            }
+          } else {
+            this.radius = 12;
+            this.speed = baseSpeed;
+          }
         }
 
         update() {
@@ -639,7 +717,7 @@
             this.pathIndex++;
             if (this.pathIndex >= game.path.length - 1) {
               // Reached end
-              game.health--;
+              game.health -= this.isBoss ? 5 : 1; // Boss deals 5 dmg
               createParticles(this.x, this.y, "#f43f5e", 10);
               updateUI();
               playSound("hit");
@@ -654,40 +732,94 @@
         }
 
         draw(ctx, time) {
-          const wobble = Math.sin(time * 0.01 + this.wobblePhase) * 3;
+          const wobble =
+            Math.sin(time * 0.01 + this.wobblePhase) * (this.isBoss ? 1 : 3);
           ctx.save();
           ctx.translate(this.x, this.y + wobble);
 
           // Shadow
           ctx.fillStyle = "rgba(0,0,0,0.1)";
           ctx.beginPath();
-          ctx.ellipse(0, 15, 8, 4, 0, 0, Math.PI * 2);
+          ctx.ellipse(
+            0,
+            this.radius + 5,
+            this.radius * 0.8,
+            this.radius * 0.4,
+            0,
+            0,
+            Math.PI * 2
+          );
           ctx.fill();
 
           // Body
-          ctx.fillStyle = this.slowTimer > 0 ? "#93c5fd" : COLORS.enemy;
+          if (this.slowTimer > 0) {
+            ctx.fillStyle = "#93c5fd";
+          } else {
+            ctx.fillStyle = this.isBoss ? COLORS.boss : COLORS.enemy;
+          }
+
           ctx.beginPath();
-          ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+          if (this.isBoss) {
+            // Boss Shape (Square-ish or Big Circle)
+            ctx.roundRect(
+              -this.radius,
+              -this.radius,
+              this.radius * 2,
+              this.radius * 2,
+              10
+            );
+          } else {
+            ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+          }
           ctx.fill();
 
           // Eyes
+          const eyeOffset = this.isBoss ? 10 : 4;
+          const eyeSize = this.isBoss ? 6 : 3;
           ctx.fillStyle = "white";
           ctx.beginPath();
-          ctx.arc(-4, -2, 3, 0, Math.PI * 2);
-          ctx.arc(4, -2, 3, 0, Math.PI * 2);
+          ctx.arc(-eyeOffset, -2, eyeSize, 0, Math.PI * 2);
+          ctx.arc(eyeOffset, -2, eyeSize, 0, Math.PI * 2);
           ctx.fill();
           ctx.fillStyle = "black";
           ctx.beginPath();
-          ctx.arc(-4, -2, 1, 0, Math.PI * 2);
-          ctx.arc(4, -2, 1, 0, Math.PI * 2);
+          ctx.arc(-eyeOffset, -2, eyeSize / 3, 0, Math.PI * 2);
+          ctx.arc(eyeOffset, -2, eyeSize / 3, 0, Math.PI * 2);
           ctx.fill();
+
+          // Crown for Boss
+          if (this.isBoss) {
+            ctx.fillStyle = "#fbbf24"; // Gold
+            ctx.beginPath();
+            ctx.moveTo(-15, -25);
+            ctx.lineTo(-10, -35);
+            ctx.lineTo(0, -25);
+            ctx.lineTo(10, -35);
+            ctx.lineTo(15, -25);
+            ctx.fill();
+          }
 
           // Health Bar
           const hpPct = Math.max(0, this.health / this.maxHealth);
+          const barWidth = this.isBoss ? 60 : 20;
+          const barY = this.isBoss ? -40 : -20;
+
           ctx.fillStyle = "rgba(0,0,0,0.3)";
-          ctx.fillRect(-10, -20, 20, 4);
+          ctx.fillRect(-barWidth / 2, barY, barWidth, 6);
           ctx.fillStyle = "#4ade80";
-          ctx.fillRect(-10, -20, 20 * hpPct, 4);
+          ctx.fillRect(-barWidth / 2, barY, barWidth * hpPct, 6);
+
+          // Boss Name
+          if (this.isBoss) {
+            ctx.fillStyle = "white";
+            ctx.font = "bold 10px Nunito";
+            ctx.textAlign = "center";
+            ctx.fillText(this.name, 0, barY - 5);
+            ctx.strokeStyle = "black";
+            ctx.lineWidth = 2;
+            ctx.strokeText(this.name, 0, barY - 5);
+            ctx.fillText(this.name, 0, barY - 5);
+          }
 
           ctx.restore();
         }
@@ -921,7 +1053,13 @@
           if (game.enemiesToSpawn > 0) {
             game.spawnTimer--;
             if (game.spawnTimer <= 0) {
-              game.enemies.push(new Enemy(game.path));
+              if (game.isBossWave && game.enemiesToSpawn === 1) {
+                // Spawn Boss as the last enemy of the wave (or only enemy)
+                game.enemies.push(new Enemy(game.path, true));
+                playSound("bossSpawn");
+              } else {
+                game.enemies.push(new Enemy(game.path, false));
+              }
               game.enemiesToSpawn--;
               game.spawnTimer = game.waveConfig.interval;
             }
@@ -937,10 +1075,18 @@
 
           // 2. Check for death via damage
           if (e.health <= 0) {
-            game.money += Math.floor(10 * game.modifiers.goldGain);
-            createParticles(e.x, e.y, "#a78bfa", 8); // Pop effect
+            const gold =
+              Math.floor(10 * game.modifiers.goldGain) * (e.isBoss ? 10 : 1); // More gold for boss
+            game.money += gold;
+
+            if (e.isBoss) {
+              createParticles(e.x, e.y, "#fbbf24", 30, 2);
+              playSound("bossSpawn"); // Reuse sound for drama
+            } else {
+              createParticles(e.x, e.y, "#a78bfa", 8);
+              playSound("pop");
+            }
             updateUI();
-            playSound("pop");
             return false; // remove
           }
 
@@ -1054,14 +1200,41 @@
 
       game.selectTower = (idx) => {
         if (game.state === "GAME_OVER") return;
-        game.selectedTowerType = idx;
-        document.body.style.cursor = "crosshair";
+
+        // Toggle logic
+        if (game.selectedTowerType === idx) {
+          game.selectedTowerType = -1; // Deselect
+          document.body.style.cursor = "default";
+        } else {
+          game.selectedTowerType = idx;
+          document.body.style.cursor = "crosshair";
+        }
+        updateUI(); // Update buttons
       };
+
+      // Keyboard Hotkeys
+      window.addEventListener("keydown", (e) => {
+        if (e.key === "1") game.selectTower(0);
+        if (e.key === "2") game.selectTower(1);
+        if (e.key === "3") game.selectTower(2);
+      });
 
       game.startWave = () => {
         if (game.state !== "IDLE") return;
         game.state = "PLAYING";
-        game.enemiesToSpawn = 5 + Math.floor(game.wave * 1.5);
+
+        // Boss Logic: Every 10 waves
+        game.isBossWave = game.wave % 10 === 0;
+
+        if (game.isBossWave) {
+          game.enemiesToSpawn = 1; // Only spawn boss
+          const bossAlert = document.getElementById("bossWarning");
+          bossAlert.classList.remove("hidden");
+          setTimeout(() => bossAlert.classList.add("hidden"), 3000);
+        } else {
+          game.enemiesToSpawn = 5 + Math.floor(game.wave * 1.5);
+        }
+
         game.waveConfig.hpMultiplier = Math.pow(1.2, game.wave);
 
         document.getElementById("nextWaveBtn").classList.add("hidden");
@@ -1069,8 +1242,6 @@
       };
 
       function endWave() {
-        // Reset speed to 1x for card selection for better UX, or keep it?
-        // Keeping it is better for QoL.
         game.state = "CARD_SELECT";
         game.wave++;
         updateUI();
@@ -1161,8 +1332,10 @@
               game.towers.push(
                 new Tower(game.mouse.x, game.mouse.y, game.selectedTowerType)
               );
-              game.selectedTowerType = -1;
-              document.body.style.cursor = "default";
+
+              // Removed Deselect here to allow rapid placement.
+              // If user wants to deselect, they can click the button again or press right click (context menu)
+
               createParticles(game.mouse.x, game.mouse.y, "#ffffff", 10);
               updateUI();
               playSound("build");
@@ -1175,6 +1348,7 @@
         e.preventDefault();
         game.selectedTowerType = -1;
         document.body.style.cursor = "default";
+        updateUI();
       });
 
       function distToSegment(p, v, w) {
@@ -1194,6 +1368,16 @@
           game.health
         );
         document.getElementById("waveDisplay").innerText = game.wave;
+
+        // Update Button Highlights
+        for (let i = 0; i < 3; i++) {
+          const btn = document.getElementById(`towerBtn${i}`);
+          if (game.selectedTowerType === i) {
+            btn.classList.add("active");
+          } else {
+            btn.classList.remove("active");
+          }
+        }
       }
 
       document.getElementById("startBtn").onclick = () => {
