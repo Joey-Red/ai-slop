@@ -1,0 +1,1345 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cozy Plushie Fishing</title>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Fredoka:wght@300;500;700&display=swap");
+
+      body {
+        margin: 0;
+        overflow: hidden;
+        font-family: "Fredoka", sans-serif;
+        user-select: none;
+        background-color: #a8d5e5; /* Sky color */
+      }
+
+      #ui-layer {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+      }
+
+      /* Interactive Elements need pointer-events auto */
+      .interactive {
+        pointer-events: auto;
+      }
+
+      /* MAIN MENU */
+      #main-menu {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 100;
+      }
+
+      h1 {
+        color: #ff8fab;
+        font-size: 4rem;
+        margin-bottom: 10px;
+        text-shadow: 2px 2px 0px #fff, 4px 4px 0px #ffc2d1;
+      }
+
+      .char-select-container {
+        display: flex;
+        gap: 20px;
+        margin: 30px;
+      }
+
+      .char-card {
+        width: 150px;
+        height: 200px;
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: transform 0.2s, border 0.2s;
+        border: 4px solid transparent;
+      }
+
+      .char-card:hover {
+        transform: translateY(-5px);
+      }
+
+      .char-card.selected {
+        border-color: #ff8fab;
+        background-color: #fff0f5;
+      }
+
+      .char-preview {
+        width: 80px;
+        height: 80px;
+        background-color: #eee;
+        border-radius: 50%;
+        margin-bottom: 10px;
+        position: relative; /* Placeholder for actual shapes */
+      }
+
+      /* Simple shapes for CSS preview, actual game uses 3D */
+      .preview-bear {
+        background: #8d6e63;
+      }
+      .preview-bunny {
+        background: #fce4ec;
+      }
+      .preview-frog {
+        background: #a5d6a7;
+      }
+
+      input[type="text"] {
+        padding: 15px;
+        border-radius: 30px;
+        border: 2px solid #ddd;
+        font-family: "Fredoka", sans-serif;
+        font-size: 1.2rem;
+        text-align: center;
+        margin-bottom: 20px;
+        outline: none;
+      }
+
+      input[type="text"]:focus {
+        border-color: #ff8fab;
+      }
+
+      button {
+        padding: 15px 40px;
+        background-color: #ff8fab;
+        color: white;
+        border: none;
+        border-radius: 30px;
+        font-family: "Fredoka", sans-serif;
+        font-size: 1.5rem;
+        cursor: pointer;
+        box-shadow: 0 5px 0 #ef6e8d;
+        transition: transform 0.1s, box-shadow 0.1s;
+      }
+
+      button:active {
+        transform: translateY(5px);
+        box-shadow: 0 0 0 #ef6e8d;
+      }
+
+      /* GAME HUD */
+      #hud {
+        display: none;
+        position: absolute;
+        width: 100%;
+        height: 100%;
+      }
+
+      .hud-panel {
+        position: absolute;
+        background: rgba(255, 255, 255, 0.8);
+        padding: 10px 20px;
+        border-radius: 20px;
+        backdrop-filter: blur(5px);
+        color: #555;
+        font-weight: bold;
+      }
+
+      #controls-hint {
+        bottom: 20px;
+        left: 20px;
+      }
+
+      #location-tag {
+        top: 20px;
+        left: 100px;
+        font-size: 1.5rem;
+        color: #ff8fab;
+      }
+
+      #inventory-btn {
+        top: 20px;
+        right: 20px;
+        cursor: pointer;
+      }
+
+      #editor-toggle {
+        bottom: 20px;
+        right: 20px;
+        cursor: pointer;
+        background: #ffe082;
+        color: #d4a017;
+      }
+
+      /* NOTIFICATIONS */
+      #fish-alert {
+        position: absolute;
+        top: 40%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        padding: 20px 40px;
+        border-radius: 20px;
+        text-align: center;
+        display: none;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      }
+
+      #fish-alert h2 {
+        color: #ff8fab;
+        margin: 0 0 10px 0;
+      }
+
+      @keyframes popIn {
+        from {
+          transform: translate(-50%, -40%) scale(0.5);
+          opacity: 0;
+        }
+        to {
+          transform: translate(-50%, -50%) scale(1);
+          opacity: 1;
+        }
+      }
+
+      /* INVENTORY MODAL */
+      #inventory-modal {
+        display: none;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 60%;
+        height: 60%;
+        background: white;
+        border-radius: 30px;
+        padding: 30px;
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
+        flex-direction: column;
+      }
+
+      .inv-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+      }
+
+      .inv-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+        gap: 15px;
+        overflow-y: auto;
+        padding: 10px;
+      }
+
+      .inv-item {
+        background: #f0f8ff;
+        border-radius: 15px;
+        padding: 10px;
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .inv-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        margin-bottom: 5px;
+      }
+
+      .close-btn {
+        background: #ff8fab;
+        color: white;
+        border: none;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        cursor: pointer;
+      }
+
+      /* HOUSE ENTRANCE PROMPT */
+      #prompt {
+        position: absolute;
+        bottom: 100px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.6);
+        color: white;
+        padding: 10px 20px;
+        border-radius: 20px;
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <style>
+      /* Minimal Floating Home Button */
+      .home-nav-btn {
+        position: fixed;
+        top: 15px;
+        left: 15px;
+        z-index: 10000; /* Ensure it sits above game UI/Canvases */
+        background: rgba(
+          30,
+          30,
+          30,
+          0.6
+        ); /* Dark semi-transparent for contrast */
+        color: #ffffff;
+        text-decoration: none;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+        font-size: 14px;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.2s ease;
+        backdrop-filter: blur(4px); /* Blurs background behind button */
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+
+      .home-nav-btn:hover {
+        background: rgba(30, 30, 30, 0.9);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      }
+
+      /* SVG Icon Style */
+      .home-nav-icon {
+        width: 16px;
+        height: 16px;
+      }
+    </style>
+
+    <!-- Link to your Hub (index.html) -->
+    <a href="index.html" class="home-nav-btn">
+      <svg
+        class="home-nav-icon"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+        <polyline points="9 22 9 12 15 12 15 22"></polyline>
+      </svg>
+      <span>Back to Hub</span>
+    </a>
+    <!-- 3D CANVAS CONTAINER -->
+    <div id="canvas-container"></div>
+
+    <!-- UI LAYER -->
+    <div id="ui-layer">
+      <!-- MAIN MENU -->
+      <div id="main-menu" class="interactive">
+        <h1>Cozy Plushie Fishing</h1>
+        <p>Choose your plushie!</p>
+
+        <div class="char-select-container">
+          <div class="char-card selected" onclick="selectChar('bear', this)">
+            <div class="char-preview preview-bear"></div>
+            <h3>Bear</h3>
+          </div>
+          <div class="char-card" onclick="selectChar('bunny', this)">
+            <div class="char-preview preview-bunny"></div>
+            <h3>Bunny</h3>
+          </div>
+          <div class="char-card" onclick="selectChar('frog', this)">
+            <div class="char-preview preview-frog"></div>
+            <h3>Frog</h3>
+          </div>
+        </div>
+
+        <input
+          type="text"
+          id="player-name"
+          placeholder="Enter Name"
+          value="Fluffy"
+          class="interactive"
+        />
+        <button onclick="startGame()" class="interactive">
+          Start Adventure
+        </button>
+      </div>
+
+      <!-- HUD -->
+      <div id="hud">
+        <!-- <a href="./fishing.html" class="game-card">
+          <div class="card-thumb thumb-1"></div>
+          <div class="card-content">
+            <h2 class="game-title">Cozy Plushie Fishing</h2>
+            <p class="game-desc">
+              Relax on a procedural island. Choose your plushie character, catch
+              rare fish, and build your own aquarium house.
+            </p>
+            <span class="play-btn">Play Now</span>
+          </div>
+        </a> -->
+        <div class="hud-panel" id="location-tag">Sunshine Island</div>
+        <div class="hud-panel" id="controls-hint">
+          WASD to Move &bull; Drag to Look &bull; SPACE to Fish
+        </div>
+        <button
+          class="hud-panel interactive"
+          id="inventory-btn"
+          onclick="toggleInventory()"
+        >
+          🎒 Inventory
+        </button>
+        <button
+          class="hud-panel interactive"
+          id="editor-toggle"
+          onclick="toggleEditor()"
+        >
+          🔨 Editor: OFF
+        </button>
+
+        <div id="prompt">Press SPACE to Enter House</div>
+      </div>
+
+      <!-- POPUPS -->
+      <div id="fish-alert" class="interactive">
+        <h2>Caught!</h2>
+        <p id="fish-details">Blue Snapper (12cm)</p>
+        <button onclick="closeAlert()">Yay!</button>
+      </div>
+
+      <div id="inventory-modal" class="interactive">
+        <div class="inv-header">
+          <h2>My Catch</h2>
+          <button class="close-btn" onclick="toggleInventory()">X</button>
+        </div>
+        <div class="inv-grid" id="inv-grid">
+          <!-- Items go here -->
+        </div>
+      </div>
+    </div>
+
+    <!-- SCRIPTS -->
+    <!-- Import Three.js via ES Modules -->
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"
+        }
+      }
+    </script>
+
+    <script type="module">
+      import * as THREE from "three";
+
+      // --- GLOBAL VARIABLES ---
+      let scene, camera, renderer;
+      let player, playerMesh;
+      let worldGroup, waterMesh, houseMesh;
+      let raycaster, pointer;
+      let animationId;
+      let lastTime = 0;
+
+      // Game State
+      const state = {
+        mode: "MENU", // MENU, PLAY, FISHING, HOUSE, EDIT
+        selectedChar: "bear",
+        playerName: "Fluffy",
+        inventory: [],
+        fishing: {
+          active: false,
+          timer: 0,
+          bobber: null,
+          readyToCatch: false,
+        },
+        house: {
+          inside: false,
+          fishObjects: [], // 3D objects in the tank
+        },
+        editor: {
+          active: false,
+        },
+      };
+
+      // Keys
+      const keys = { w: false, a: false, s: false, d: false };
+
+      // --- ASSET GENERATORS (Procedural Low Poly Plushies) ---
+      const Assets = {
+        materials: {
+          bear: new THREE.MeshStandardMaterial({
+            color: 0x8d6e63,
+            roughness: 1,
+            flatShading: true,
+          }),
+          bunny: new THREE.MeshStandardMaterial({
+            color: 0xffeff4,
+            roughness: 1,
+            flatShading: true,
+          }),
+          frog: new THREE.MeshStandardMaterial({
+            color: 0xa5d6a7,
+            roughness: 1,
+            flatShading: true,
+          }),
+          wood: new THREE.MeshStandardMaterial({
+            color: 0x8b5a2b,
+            flatShading: true,
+          }),
+          leaves: new THREE.MeshStandardMaterial({
+            color: 0x91c788,
+            flatShading: true,
+          }),
+          stone: new THREE.MeshStandardMaterial({
+            color: 0x9e9e9e,
+            flatShading: true,
+          }),
+          water: new THREE.MeshPhongMaterial({
+            color: 0x4fc3f7,
+            transparent: true,
+            opacity: 0.6,
+            specular: 0xffffff,
+            shininess: 50,
+            flatShading: true,
+          }),
+          glass: new THREE.MeshPhysicalMaterial({
+            color: 0xffffff,
+            transmission: 0.9,
+            opacity: 1,
+            transparent: true,
+            roughness: 0,
+            metalness: 0,
+          }),
+        },
+
+        createBear: () => {
+          const group = new THREE.Group();
+          const mat = Assets.materials.bear;
+          // Body
+          const body = new THREE.Mesh(
+            new THREE.SphereGeometry(0.6, 12, 12),
+            mat
+          );
+          body.position.y = 0.6;
+          body.scale.set(1, 1.1, 0.9);
+          // Head
+          const head = new THREE.Mesh(
+            new THREE.SphereGeometry(0.5, 12, 12),
+            mat
+          );
+          head.position.y = 1.3;
+          // Ears
+          const earGeo = new THREE.SphereGeometry(0.15, 8, 8);
+          const earL = new THREE.Mesh(earGeo, mat);
+          earL.position.set(-0.35, 1.7, 0);
+          const earR = new THREE.Mesh(earGeo, mat);
+          earR.position.set(0.35, 1.7, 0);
+          // Face
+          const snout = new THREE.Mesh(
+            new THREE.SphereGeometry(0.15, 8, 8),
+            new THREE.MeshStandardMaterial({ color: 0xffe0b2 })
+          );
+          snout.position.set(0, 1.3, 0.4);
+          const nose = new THREE.Mesh(
+            new THREE.SphereGeometry(0.05, 8, 8),
+            new THREE.MeshBasicMaterial({ color: 0x3e2723 })
+          );
+          nose.position.set(0, 1.35, 0.52);
+
+          group.add(body, head, earL, earR, snout, nose);
+          return group;
+        },
+
+        createBunny: () => {
+          const group = new THREE.Group();
+          const mat = Assets.materials.bunny;
+          // Body
+          const body = new THREE.Mesh(
+            new THREE.SphereGeometry(0.5, 12, 12),
+            mat
+          );
+          body.position.y = 0.5;
+          // Head
+          const head = new THREE.Mesh(
+            new THREE.SphereGeometry(0.45, 12, 12),
+            mat
+          );
+          head.position.y = 1.1;
+          // Ears (Long)
+          const earGeo = new THREE.CapsuleGeometry(0.1, 0.5, 4, 8);
+          const earL = new THREE.Mesh(earGeo, mat);
+          earL.position.set(-0.2, 1.7, 0);
+          const earR = new THREE.Mesh(earGeo, mat);
+          earR.position.set(0.2, 1.7, 0);
+
+          const tail = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 8), mat);
+          tail.position.set(0, 0.5, -0.5);
+
+          group.add(body, head, earL, earR, tail);
+          return group;
+        },
+
+        createFrog: () => {
+          const group = new THREE.Group();
+          const mat = Assets.materials.frog;
+          // Body (Squat)
+          const body = new THREE.Mesh(
+            new THREE.SphereGeometry(0.6, 12, 12),
+            mat
+          );
+          body.position.y = 0.5;
+          body.scale.set(1.1, 0.8, 1);
+          // Eyes (Pop up)
+          const eyeGeo = new THREE.SphereGeometry(0.2, 8, 8);
+          const eyeL = new THREE.Mesh(eyeGeo, mat);
+          eyeL.position.set(-0.3, 1, 0.2);
+          const eyeR = new THREE.Mesh(eyeGeo, mat);
+          eyeR.position.set(0.3, 1, 0.2);
+
+          const pupilGeo = new THREE.SphereGeometry(0.08, 8, 8);
+          const pupilMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+          const pL = new THREE.Mesh(pupilGeo, pupilMat);
+          pL.position.set(-0.3, 1.05, 0.35);
+          const pR = new THREE.Mesh(pupilGeo, pupilMat);
+          pR.position.set(0.3, 1.05, 0.35);
+
+          group.add(body, eyeL, eyeR, pL, pR);
+          return group;
+        },
+
+        createFish: (color, size) => {
+          const group = new THREE.Group();
+          const mat = new THREE.MeshStandardMaterial({
+            color: color,
+            flatShading: true,
+          });
+
+          // Body
+          const body = new THREE.Mesh(
+            new THREE.CapsuleGeometry(0.1 * size, 0.4 * size, 4, 8),
+            mat
+          );
+          body.rotation.z = Math.PI / 2;
+
+          // Tail
+          const tail = new THREE.Mesh(
+            new THREE.ConeGeometry(0.15 * size, 0.3 * size, 8),
+            mat
+          );
+          tail.rotation.z = -Math.PI / 2;
+          tail.position.x = -0.35 * size;
+
+          group.add(body, tail);
+          return group;
+        },
+
+        createTree: () => {
+          const group = new THREE.Group();
+          // Trunk
+          const trunk = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.2, 0.3, 1, 6),
+            Assets.materials.wood
+          );
+          trunk.position.y = 0.5;
+          // Leaves (Cone layers)
+          const l1 = new THREE.Mesh(
+            new THREE.ConeGeometry(1, 1.5, 7),
+            Assets.materials.leaves
+          );
+          l1.position.y = 1.5;
+          const l2 = new THREE.Mesh(
+            new THREE.ConeGeometry(0.8, 1.2, 7),
+            Assets.materials.leaves
+          );
+          l2.position.y = 2.2;
+
+          group.add(trunk, l1, l2);
+          group.castShadow = true;
+          return group;
+        },
+
+        createHouse: () => {
+          const group = new THREE.Group();
+          // Base
+          const base = new THREE.Mesh(
+            new THREE.BoxGeometry(4, 3, 4),
+            new THREE.MeshStandardMaterial({ color: 0xffffff })
+          );
+          base.position.y = 1.5;
+          // Roof
+          const roof = new THREE.Mesh(
+            new THREE.ConeGeometry(3.5, 2, 4),
+            new THREE.MeshStandardMaterial({ color: 0xff8fab })
+          );
+          roof.position.y = 4;
+          roof.rotation.y = Math.PI / 4;
+          // Door
+          const door = new THREE.Mesh(
+            new THREE.BoxGeometry(1, 1.5, 0.1),
+            Assets.materials.wood
+          );
+          door.position.set(0, 0.75, 2.05);
+
+          group.add(base, roof, door);
+          return group;
+        },
+      };
+
+      // --- INIT ---
+      function init() {
+        // Setup Renderer
+        renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        document
+          .getElementById("canvas-container")
+          .appendChild(renderer.domElement);
+
+        // Setup Scene
+        scene = new THREE.Scene();
+        // Fog for cozy fade
+        scene.fog = new THREE.Fog(0xa8d5e5, 10, 40);
+
+        // Setup Camera
+        camera = new THREE.PerspectiveCamera(
+          60,
+          window.innerWidth / window.innerHeight,
+          0.1,
+          1000
+        );
+        camera.position.set(0, 5, 10);
+
+        // Lighting
+        const hemiLight = new THREE.HemisphereLight(0xffffff, 0xffffee, 0.6);
+        scene.add(hemiLight);
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(10, 20, 10);
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.width = 2048;
+        dirLight.shadow.mapSize.height = 2048;
+        scene.add(dirLight);
+
+        // Raycaster
+        raycaster = new THREE.Raycaster();
+        pointer = new THREE.Vector2();
+
+        // Events
+        window.addEventListener("resize", onWindowResize);
+        window.addEventListener("keydown", (e) => handleKey(e, true));
+        window.addEventListener("keyup", (e) => handleKey(e, false));
+        window.addEventListener("mousedown", onMouseDown);
+        window.addEventListener("mouseup", onMouseUp);
+        window.addEventListener("mousemove", onMouseMove);
+
+        // Animation Loop
+        animate();
+      }
+
+      function buildWorld() {
+        worldGroup = new THREE.Group();
+        scene.add(worldGroup);
+
+        // Ground (Island)
+        const groundGeo = new THREE.CylinderGeometry(15, 15, 2, 32);
+        const groundMat = new THREE.MeshStandardMaterial({
+          color: 0xc5e1a5,
+          flatShading: true,
+        });
+        const ground = new THREE.Mesh(groundGeo, groundMat);
+        ground.position.y = -1;
+        ground.receiveShadow = true;
+        worldGroup.add(ground);
+
+        // Water
+        const waterGeo = new THREE.PlaneGeometry(100, 100, 32, 32);
+        waterMesh = new THREE.Mesh(waterGeo, Assets.materials.water);
+        waterMesh.rotation.x = -Math.PI / 2;
+        waterMesh.position.y = -0.5;
+        scene.add(waterMesh);
+
+        // Trees (Procedural Placement)
+        for (let i = 0; i < 8; i++) {
+          const tree = Assets.createTree();
+          const angle = Math.random() * Math.PI * 2;
+          const radius = 5 + Math.random() * 8;
+          tree.position.set(
+            Math.cos(angle) * radius,
+            0,
+            Math.sin(angle) * radius
+          );
+          // Avoid center where house is
+          if (tree.position.distanceTo(new THREE.Vector3(0, 0, 0)) > 4) {
+            worldGroup.add(tree);
+          }
+        }
+
+        // House
+        houseMesh = Assets.createHouse();
+        houseMesh.position.set(0, 0, -3);
+        worldGroup.add(houseMesh);
+
+        // Add physics collider for house interaction
+        houseMesh.userData = { type: "house" };
+      }
+
+      function buildInterior() {
+        // Clear world group temporarily
+        scene.remove(worldGroup);
+        scene.remove(waterMesh);
+        scene.fog = null; // No fog inside
+        scene.background = new THREE.Color(0xffe0b2); // Warm indoor color
+
+        const room = new THREE.Group();
+
+        // Floor
+        const floor = new THREE.Mesh(
+          new THREE.BoxGeometry(20, 1, 20),
+          Assets.materials.wood
+        );
+        floor.position.y = -0.5;
+        room.add(floor);
+
+        // The Giant Tank
+        const tankGeo = new THREE.BoxGeometry(12, 8, 6);
+        // Invert normals for inside view if needed, but here we look from outside
+        const tank = new THREE.Mesh(tankGeo, Assets.materials.glass);
+        tank.position.set(0, 4, -5);
+        room.add(tank);
+
+        // Water inside tank
+        const innerWater = new THREE.Mesh(
+          new THREE.BoxGeometry(11.8, 7.8, 5.8),
+          new THREE.MeshBasicMaterial({
+            color: 0x4fc3f7,
+            opacity: 0.3,
+            transparent: true,
+          })
+        );
+        innerWater.position.copy(tank.position);
+        room.add(innerWater);
+
+        // Tank Decoration
+        const gravel = new THREE.Mesh(
+          new THREE.BoxGeometry(11.8, 0.5, 5.8),
+          new THREE.MeshStandardMaterial({ color: 0x8d6e63 })
+        );
+        gravel.position.set(0, 0.5, -5);
+        room.add(gravel);
+
+        // Add Player House Model
+        player.position.set(0, 0, 5);
+        player.rotation.y = Math.PI;
+        scene.add(player);
+        scene.add(room);
+
+        // Populate Tank
+        state.house.fishObjects = [];
+        state.inventory.forEach((fishData) => {
+          const fishMesh = Assets.createFish(
+            fishData.colorHex,
+            fishData.sizeVal
+          );
+          // Random pos inside tank bounds
+          fishMesh.position.set(
+            (Math.random() - 0.5) * 10,
+            1 + Math.random() * 6,
+            -5 + (Math.random() - 0.5) * 4
+          );
+          // Random velocity
+          fishMesh.userData = {
+            velocity: new THREE.Vector3(
+              (Math.random() - 0.5) * 0.05,
+              (Math.random() - 0.5) * 0.01,
+              (Math.random() - 0.5) * 0.02
+            ),
+          };
+          scene.add(fishMesh);
+          state.house.fishObjects.push(fishMesh);
+        });
+
+        // Exit zone
+        const exitMat = new THREE.MeshBasicMaterial({
+          color: 0x000000,
+          transparent: true,
+          opacity: 0.2,
+        });
+        const exit = new THREE.Mesh(new THREE.BoxGeometry(4, 4, 1), exitMat);
+        exit.position.set(0, 2, 9);
+        exit.userData = { type: "exit" };
+        room.add(exit);
+
+        return room;
+      }
+
+      // --- PLAYER CONTROLS ---
+      function createPlayer() {
+        player = new THREE.Group();
+        if (state.selectedChar === "bear") playerMesh = Assets.createBear();
+        else if (state.selectedChar === "bunny")
+          playerMesh = Assets.createBunny();
+        else playerMesh = Assets.createFrog();
+
+        // Face away from camera initially
+        playerMesh.rotation.y = Math.PI;
+        player.add(playerMesh);
+        scene.add(player);
+      }
+
+      function handleKey(e, isDown) {
+        const k = e.key.toLowerCase();
+        if (keys.hasOwnProperty(k)) keys[k] = isDown;
+
+        // Actions
+        if (isDown) {
+          if (e.code === "Space") handleSpaceAction();
+          if (k === "e") toggleInventory();
+        }
+      }
+
+      function handleSpaceAction() {
+        if (state.mode === "MENU") return;
+
+        // 1. Catching Fish
+        if (state.mode === "FISHING" && state.fishing.readyToCatch) {
+          catchFish();
+          return;
+        }
+
+        // 2. Casting Line
+        if (state.mode === "PLAY") {
+          // Check if near water
+          const distToCenter = player.position.length();
+          if (distToCenter > 12 && distToCenter < 16) {
+            startFishing();
+            return;
+          }
+
+          // Check if near house
+          const distToHouse = player.position.distanceTo(houseMesh.position);
+          if (distToHouse < 3.5) {
+            enterHouse();
+            return;
+          }
+        }
+
+        // 3. Exit House
+        if (state.mode === "HOUSE") {
+          if (player.position.z > 8) {
+            exitHouse();
+          }
+        }
+      }
+
+      // --- GAMEPLAY LOGIC ---
+
+      function startFishing() {
+        state.mode = "FISHING";
+        document.getElementById("controls-hint").innerText =
+          "Waiting for a bite... (Watch for '!')";
+
+        // Create Bobber
+        const bobberGeo = new THREE.SphereGeometry(0.2, 8, 8);
+        const bobberMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+        state.fishing.bobber = new THREE.Mesh(bobberGeo, bobberMat);
+
+        // Place bobber in front of player in water
+        const forward = new THREE.Vector3(0, 0, 1).applyAxisAngle(
+          new THREE.Vector3(0, 1, 0),
+          player.rotation.y
+        );
+        state.fishing.bobber.position
+          .copy(player.position)
+          .add(forward.multiplyScalar(3));
+        state.fishing.bobber.position.y = -0.5; // Water level
+        scene.add(state.fishing.bobber);
+
+        // Random timer 2-5 seconds
+        const waitTime = 2000 + Math.random() * 3000;
+        setTimeout(() => {
+          if (state.mode !== "FISHING") return; // Cancelled
+          state.fishing.readyToCatch = true;
+          state.fishing.bobber.position.y = -1; // Dip
+
+          // Visual cue
+          const exclamation = document.createElement("div");
+          exclamation.innerText = "!";
+          exclamation.style.position = "absolute";
+          exclamation.style.color = "red";
+          exclamation.style.fontSize = "50px";
+          exclamation.style.fontWeight = "bold";
+          exclamation.style.top = "40%";
+          exclamation.style.left = "50%";
+          document.body.appendChild(exclamation);
+
+          setTimeout(() => {
+            if (state.fishing.readyToCatch) {
+              // Missed it
+              state.fishing.readyToCatch = false;
+              endFishing(false);
+              exclamation.remove();
+            }
+          }, 1000); // 1 second window to catch
+
+          // Store ref to remove later
+          state.fishing.exclamation = exclamation;
+        }, waitTime);
+      }
+
+      function catchFish() {
+        if (state.fishing.exclamation) state.fishing.exclamation.remove();
+
+        // Generate Fish
+        const types = ["Guppy", "Trout", "Goldfish", "Bass", "Koi"];
+        const colors = [0xff0000, 0x00ff00, 0x0000ff, 0xffff00, 0xffaa00];
+        const sizes = [0.5, 0.8, 1.0, 1.2, 1.5];
+
+        const rType = types[Math.floor(Math.random() * types.length)];
+        const rColor = colors[Math.floor(Math.random() * colors.length)];
+        const rSize = sizes[Math.floor(Math.random() * sizes.length)];
+
+        const fishData = {
+          name: rType,
+          colorHex: rColor,
+          sizeVal: rSize,
+          sizeCm: Math.floor(rSize * 10 + Math.random() * 5),
+        };
+
+        state.inventory.push(fishData);
+
+        // Animation: Hold up fish
+        const fishMesh = Assets.createFish(rColor, rSize);
+        fishMesh.position.set(0, 2.5, 0.5);
+        fishMesh.rotation.y = Math.PI / 2;
+        fishMesh.rotation.z = Math.PI / 4;
+        player.add(fishMesh);
+
+        // Show UI
+        document.getElementById(
+          "fish-details"
+        ).innerText = `You caught a ${fishData.name} (${fishData.sizeCm}cm)!`;
+        document.getElementById("fish-alert").style.display = "block";
+
+        // Remove bobber
+        scene.remove(state.fishing.bobber);
+        state.fishing.bobber = null;
+        state.fishing.readyToCatch = false;
+
+        // Temp state to freeze player
+        state.mode = "CAUGHT";
+
+        // Store mesh to remove after click
+        state.fishing.tempMesh = fishMesh;
+      }
+
+      window.closeAlert = function () {
+        document.getElementById("fish-alert").style.display = "none";
+        state.mode = "PLAY";
+        player.remove(state.fishing.tempMesh);
+        document.getElementById("controls-hint").innerText =
+          "WASD to Move • Drag to Look • SPACE to Fish";
+      };
+
+      function endFishing(success) {
+        scene.remove(state.fishing.bobber);
+        state.fishing.bobber = null;
+        state.mode = "PLAY";
+        document.getElementById("controls-hint").innerText =
+          "Missed it! Try again.";
+        setTimeout(
+          () =>
+            (document.getElementById("controls-hint").innerText =
+              "WASD to Move • Drag to Look • SPACE to Fish"),
+          2000
+        );
+      }
+
+      function enterHouse() {
+        state.mode = "HOUSE";
+        state.house.inside = true;
+        document.getElementById(
+          "location-tag"
+        ).innerText = `${state.playerName}'s House`;
+        document.getElementById("prompt").style.display = "none";
+        state.house.sceneRef = buildInterior();
+      }
+
+      function exitHouse() {
+        state.mode = "PLAY";
+        state.house.inside = false;
+        document.getElementById("location-tag").innerText = "Sunshine Island";
+
+        // Clean up house scene
+        scene.remove(state.house.sceneRef);
+        state.house.fishObjects = []; // clear memory
+
+        // Restore world
+        scene.add(worldGroup);
+        scene.add(waterMesh);
+        scene.fog = new THREE.Fog(0xa8d5e5, 10, 40);
+        scene.background = null; // Transparent for CSS sky
+
+        player.position.set(0, 0, -2); // Front of house
+      }
+
+      // --- UI FUNCTIONS ---
+      window.selectChar = function (type, el) {
+        state.selectedChar = type;
+        document
+          .querySelectorAll(".char-card")
+          .forEach((c) => c.classList.remove("selected"));
+        el.classList.add("selected");
+      };
+
+      window.startGame = function () {
+        const nameInput = document.getElementById("player-name").value;
+        if (nameInput) state.playerName = nameInput;
+
+        document.getElementById("main-menu").style.display = "none";
+        document.getElementById("hud").style.display = "block";
+
+        init(); // Initialize 3D
+        createPlayer();
+        buildWorld();
+        state.mode = "PLAY";
+      };
+
+      window.toggleInventory = function () {
+        const modal = document.getElementById("inventory-modal");
+        if (modal.style.display === "flex") {
+          modal.style.display = "none";
+        } else {
+          // Build list
+          const grid = document.getElementById("inv-grid");
+          grid.innerHTML = "";
+          if (state.inventory.length === 0) {
+            grid.innerHTML = "<p>No fish caught yet!</p>";
+          }
+          state.inventory.forEach((fish) => {
+            const div = document.createElement("div");
+            div.className = "inv-item";
+            const colorStr = "#" + fish.colorHex.toString(16).padStart(6, "0");
+            div.innerHTML = `
+                        <div class="inv-icon" style="background-color: ${colorStr}"></div>
+                        <strong>${fish.name}</strong>
+                        <small>${fish.sizeCm}cm</small>
+                    `;
+            grid.appendChild(div);
+          });
+          modal.style.display = "flex";
+        }
+      };
+
+      window.toggleEditor = function () {
+        state.editor.active = !state.editor.active;
+        const btn = document.getElementById("editor-toggle");
+        if (state.editor.active) {
+          btn.innerText = "🔨 Click Ground to Place Tree";
+          state.mode = "EDIT";
+          document.body.style.cursor = "crosshair";
+        } else {
+          btn.innerText = "🔨 Editor: OFF";
+          state.mode = "PLAY";
+          document.body.style.cursor = "default";
+        }
+      };
+
+      // --- INPUT HANDLING (Mouse Look & Editor) ---
+      let isDragging = false;
+      let previousMousePosition = { x: 0, y: 0 };
+      let cameraAngle = 0;
+      let cameraHeight = 5;
+      const cameraDistance = 10;
+
+      function onMouseDown(e) {
+        if (e.target.closest(".interactive")) return; // Don't click through UI
+        isDragging = true;
+        previousMousePosition = { x: e.clientX, y: e.clientY };
+
+        // Editor Logic
+        if (state.mode === "EDIT" && state.editor.active) {
+          pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
+          pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
+          raycaster.setFromCamera(pointer, camera);
+          const intersects = raycaster.intersectObjects(worldGroup.children);
+          if (intersects.length > 0) {
+            const p = intersects[0].point;
+            const tree = Assets.createTree();
+            tree.position.copy(p);
+            // Simple animation for placement
+            tree.scale.set(0, 0, 0);
+            worldGroup.add(tree);
+
+            let s = 0;
+            const pop = setInterval(() => {
+              s += 0.1;
+              tree.scale.set(s, s, s);
+              if (s >= 1) clearInterval(pop);
+            }, 16);
+          }
+        }
+      }
+
+      function onMouseUp() {
+        isDragging = false;
+      }
+
+      function onMouseMove(e) {
+        if (state.mode === "MENU") return;
+
+        if (isDragging) {
+          const deltaMove = {
+            x: e.clientX - previousMousePosition.x,
+            y: e.clientY - previousMousePosition.y,
+          };
+
+          cameraAngle -= deltaMove.x * 0.005;
+          cameraHeight += deltaMove.y * 0.05;
+
+          // Clamp height
+          cameraHeight = Math.max(2, Math.min(15, cameraHeight));
+
+          previousMousePosition = { x: e.clientX, y: e.clientY };
+        }
+      }
+
+      function onWindowResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      }
+
+      // --- MAIN LOOP ---
+      function animate(time) {
+        requestAnimationFrame(animate);
+
+        const dt = (time - lastTime) / 1000;
+        lastTime = time;
+
+        if (state.mode === "MENU") return;
+
+        // Update Water (Wavy effect)
+        if (waterMesh) {
+          const positions = waterMesh.geometry.attributes.position;
+          for (let i = 0; i < positions.count; i++) {
+            // Simple vertex wave
+            const x = positions.getX(i);
+            const y = positions.getY(i); // actually Z in world space before rotation
+            const z =
+              0.2 *
+              Math.sin(x / 2 + time * 0.001) *
+              Math.cos(y / 2 + time * 0.001);
+            positions.setZ(i, z);
+          }
+          positions.needsUpdate = true;
+        }
+
+        // Player Movement
+        if ((state.mode === "PLAY" || state.mode === "HOUSE") && player) {
+          const speed = 5 * dt;
+          const direction = new THREE.Vector3();
+
+          // Camera forward direction (ignoring Y)
+          const camForward = new THREE.Vector3();
+          camera.getWorldDirection(camForward);
+          camForward.y = 0;
+          camForward.normalize();
+
+          const camRight = new THREE.Vector3();
+          camRight.crossVectors(camForward, new THREE.Vector3(0, 1, 0));
+
+          if (keys.w) direction.add(camForward);
+          if (keys.s) direction.sub(camForward);
+          if (keys.d) direction.add(camRight);
+          if (keys.a) direction.sub(camRight);
+
+          if (direction.length() > 0) {
+            direction.normalize();
+            player.position.add(direction.multiplyScalar(speed));
+
+            // Rotate player to face direction
+            const targetRotation = Math.atan2(direction.x, direction.z);
+            // Smooth rotation
+            let rotDiff = targetRotation - player.rotation.y;
+            while (rotDiff > Math.PI) rotDiff -= Math.PI * 2;
+            while (rotDiff < -Math.PI) rotDiff += Math.PI * 2;
+            player.rotation.y += rotDiff * 0.2;
+
+            // Bobbing animation
+            playerMesh.position.y = Math.abs(Math.sin(time * 0.01)) * 0.2;
+          } else {
+            playerMesh.position.y = THREE.MathUtils.lerp(
+              playerMesh.position.y,
+              0,
+              0.1
+            );
+          }
+
+          // Constraints
+          if (state.mode === "PLAY") {
+            // Keep on island (simple radius check)
+            if (player.position.length() > 14.5) {
+              player.position.setLength(14.5);
+            }
+
+            // House interaction prompt
+            if (houseMesh) {
+              if (player.position.distanceTo(houseMesh.position) < 4) {
+                document.getElementById("prompt").style.display = "block";
+              } else {
+                document.getElementById("prompt").style.display = "none";
+              }
+            }
+          }
+        }
+
+        // Aquarium Fish Logic
+        if (state.mode === "HOUSE" && state.house.fishObjects.length > 0) {
+          state.house.fishObjects.forEach((fish) => {
+            fish.position.add(fish.userData.velocity);
+            // Turn fish to face velocity
+            fish.lookAt(fish.position.clone().add(fish.userData.velocity));
+            fish.rotateX(Math.PI / 2); // Fix orientation due to cylinder
+
+            // Bounds check (Box -5 to 5 on X, 1 to 7 on Y, -7 to -3 on Z roughly)
+            if (fish.position.x > 4 || fish.position.x < -4)
+              fish.userData.velocity.x *= -1;
+            if (fish.position.y > 7 || fish.position.y < 1.5)
+              fish.userData.velocity.y *= -1;
+            if (fish.position.z > -3 || fish.position.z < -7)
+              fish.userData.velocity.z *= -1;
+          });
+        }
+
+        // Camera Follow Logic
+        if (player) {
+          const targetPos = player.position.clone();
+          targetPos.y += 1.5; // Look slightly above player
+
+          const offset = new THREE.Vector3(0, cameraHeight, cameraDistance);
+          // Rotate offset based on cameraAngle
+          offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), cameraAngle);
+
+          const desiredCamPos = targetPos.clone().add(offset);
+
+          camera.position.lerp(desiredCamPos, 0.1);
+          camera.lookAt(targetPos);
+        }
+
+        renderer.render(scene, camera);
+      }
+    </script>
+  </body>
+</html>

@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hamster Hacker: Parkour Protocol</title>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        font-family: "Courier New", Courier, monospace;
+        background-color: #111;
+      }
+      canvas {
+        display: block;
+      }
+
+      #ui-layer {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+      }
+
+      #hud-top {
+        padding: 20px;
+        text-align: center;
+        background: linear-gradient(to bottom, rgba(0, 0, 0, 0.8), transparent);
+        color: #0f0;
+        text-shadow: 0 0 10px #0f0;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 24px;
+        text-transform: uppercase;
+      }
+      p {
+        margin: 5px 0;
+        font-size: 14px;
+        color: #aaa;
+      }
+
+      #screen-display {
+        background: #000;
+        border: 4px solid #333;
+        border-radius: 10px;
+        width: 300px;
+        margin: 0 auto;
+        padding: 15px;
+        box-shadow: 0 0 20px rgba(0, 255, 0, 0.2);
+      }
+
+      .status-line {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 10px;
+        font-weight: bold;
+      }
+
+      #password-target {
+        color: #ff00ff;
+      }
+      #current-input {
+        color: #0f0;
+        font-size: 24px;
+        min-height: 30px;
+        border-bottom: 2px solid #0f0;
+      }
+
+      #overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.85);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        pointer-events: auto;
+        z-index: 10;
+      }
+
+      button {
+        padding: 15px 30px;
+        font-size: 20px;
+        background: #0f0;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-family: inherit;
+        font-weight: bold;
+        margin-top: 20px;
+      }
+      button:hover {
+        background: #0a0;
+      }
+
+      #messages {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 40px;
+        color: yellow;
+        text-shadow: 2px 2px 0 #000;
+        display: none;
+        pointer-events: none;
+      }
+    </style>
+    <!-- Three.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  </head>
+  <body>
+    <style>
+      /* Minimal Floating Home Button */
+      .home-nav-btn {
+        position: fixed;
+        top: 15px;
+        left: 15px;
+        z-index: 10000; /* Ensure it sits above game UI/Canvases */
+        background: rgba(
+          30,
+          30,
+          30,
+          0.6
+        ); /* Dark semi-transparent for contrast */
+        color: #ffffff;
+        text-decoration: none;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+        font-size: 14px;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.2s ease;
+        backdrop-filter: blur(4px); /* Blurs background behind button */
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+
+      .home-nav-btn:hover {
+        background: rgba(30, 30, 30, 0.9);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      }
+
+      /* SVG Icon Style */
+      .home-nav-icon {
+        width: 16px;
+        height: 16px;
+      }
+    </style>
+
+    <!-- Link to your Hub (index.html) -->
+    <a href="index.html" class="home-nav-btn">
+      <svg
+        class="home-nav-icon"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+        <polyline points="9 22 9 12 15 12 15 22"></polyline>
+      </svg>
+      <span>Back to Hub</span>
+    </a>
+    <!-- UI Overlay -->
+    <div id="ui-layer">
+      <div id="hud-top">
+        <div id="screen-display">
+          <div class="status-line">
+            <span>REQUIRED:</span>
+            <span id="password-target">OPEN</span>
+          </div>
+          <div id="current-input">_</div>
+        </div>
+        <p>Use WASD to Move | SPACE to Jump | Click to Start</p>
+      </div>
+    </div>
+
+    <!-- Start/Game Over Screen -->
+    <div id="overlay">
+      <h1 id="overlay-title">HAMSTER HACKER</h1>
+      <p style="max-width: 400px; text-align: center">
+        You are a hamster. Jump on the giant keys to type the password. Unlock
+        the door and parkour to the exit!
+      </p>
+      <button id="start-btn">INITIATE PROTOCOL</button>
+    </div>
+
+    <div id="messages">DOOR UNLOCKED!</div>
+
+    <script>
+      // --- Game Configuration ---
+      const TARGET_PASSWORD = "OPEN";
+      // USER PREFERENCES - DO NOT CHANGE
+      const GRAVITY = 0.05;
+      const JUMP_FORCE = 0.9;
+      const SPEED = 0.1;
+      // -------------------------------
+      const FRICTION = 0.85;
+      const MAX_FALL_SPEED = 1.5;
+      const KEY_SIZE = 4;
+      const KEY_SPACING = 5;
+
+      // --- Global Variables ---
+      let scene, camera, renderer;
+      let player, playerVelocity, playerOnGround;
+      let keys = [];
+      let platforms = []; // All collidable objects
+      let goal;
+      let door, doorLeft, doorRight;
+      let inputString = "";
+      let isGameActive = false;
+      let cameraOffset;
+      let raycaster;
+
+      // Logic for single-press keys
+      let lastKeyHit = null;
+
+      // DOM Elements
+      const currentInputEl = document.getElementById("current-input");
+      const overlayEl = document.getElementById("overlay");
+      const overlayTitleEl = document.getElementById("overlay-title");
+      const startBtn = document.getElementById("start-btn");
+      const messageEl = document.getElementById("messages");
+
+      // --- Initialization ---
+      function init() {
+        // Scene Setup
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x202030);
+        scene.fog = new THREE.Fog(0x202030, 20, 100);
+
+        // Initialize Raycaster
+        raycaster = new THREE.Raycaster();
+
+        // Camera
+        camera = new THREE.PerspectiveCamera(
+          75,
+          window.innerWidth / window.innerHeight,
+          0.1,
+          1000
+        );
+        cameraOffset = new THREE.Vector3(0, 8, 12);
+
+        // Renderer
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        document.body.appendChild(renderer.domElement);
+
+        // Lights
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(20, 50, 20);
+        dirLight.castShadow = true;
+        scene.add(dirLight);
+
+        createPlayer();
+        createEnvironment();
+        setupEvents();
+
+        animate();
+      }
+
+      // --- Player Creation (The Hamster) ---
+      function createPlayer() {
+        const geometry = new THREE.BoxGeometry(1.2, 1.2, 1.2);
+        const material = new THREE.MeshLambertMaterial({ color: 0xd2b48c });
+        player = new THREE.Mesh(geometry, material);
+        player.position.set(0, 2, 15);
+        player.castShadow = true;
+        player.receiveShadow = true;
+
+        // Ears
+        const earGeo = new THREE.BoxGeometry(0.3, 0.3, 0.1);
+        const earMat = new THREE.MeshLambertMaterial({ color: 0x8b4513 });
+        const leftEar = new THREE.Mesh(earGeo, earMat);
+        leftEar.position.set(-0.4, 0.7, 0.4);
+        const rightEar = new THREE.Mesh(earGeo, earMat);
+        rightEar.position.set(0.4, 0.7, 0.4);
+        player.add(leftEar);
+        player.add(rightEar);
+
+        // Eyes
+        const eyeGeo = new THREE.BoxGeometry(0.1, 0.1, 0.1);
+        const eyeMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+        const leftEye = new THREE.Mesh(eyeGeo, eyeMat);
+        leftEye.position.set(-0.3, 0.2, 0.6);
+        const rightEye = new THREE.Mesh(eyeGeo, eyeMat);
+        rightEye.position.set(0.3, 0.2, 0.6);
+        player.add(leftEye);
+        player.add(rightEye);
+
+        scene.add(player);
+
+        playerVelocity = new THREE.Vector3(0, 0, 0);
+        playerOnGround = false;
+      }
+
+      // --- Environment Generator ---
+      function createEnvironment() {
+        // Floor (Desk)
+        const floorGeo = new THREE.PlaneGeometry(300, 300);
+        const floorMat = new THREE.MeshPhongMaterial({
+          color: 0x111111,
+          depthWrite: true,
+        });
+        const floor = new THREE.Mesh(floorGeo, floorMat);
+        floor.rotation.x = -Math.PI / 2;
+        floor.position.y = -5;
+        floor.receiveShadow = true;
+        scene.add(floor);
+
+        platforms.push(floor);
+
+        // 1. The Keyboard
+        createKeyboard();
+
+        // 2. The Wall & Door
+        const wallGeo = new THREE.BoxGeometry(80, 20, 2);
+        const wallMat = new THREE.MeshLambertMaterial({ color: 0x333333 });
+        const wall = new THREE.Mesh(wallGeo, wallMat);
+        wall.position.set(0, 5, -15);
+        wall.receiveShadow = true;
+        scene.add(wall);
+        platforms.push(wall);
+
+        // Door Frame
+        const doorFrameGeo = new THREE.BoxGeometry(12, 14, 3);
+        const doorFrameMat = new THREE.MeshLambertMaterial({ color: 0x555555 });
+        const doorFrame = new THREE.Mesh(doorFrameGeo, doorFrameMat);
+        doorFrame.position.set(0, 2, -15);
+        scene.add(doorFrame);
+        platforms.push(doorFrame);
+
+        // The Doors
+        const doorGeo = new THREE.BoxGeometry(5, 12, 1);
+        const doorMat = new THREE.MeshPhongMaterial({
+          color: 0x00ff00,
+          opacity: 0.7,
+          transparent: true,
+        });
+
+        doorLeft = new THREE.Mesh(doorGeo, doorMat);
+        doorLeft.position.set(-2.5, 2, -15);
+        scene.add(doorLeft);
+
+        doorRight = new THREE.Mesh(doorGeo, doorMat);
+        doorRight.position.set(2.5, 2, -15);
+        scene.add(doorRight);
+
+        // Collision box for door
+        door = new THREE.Mesh(
+          new THREE.BoxGeometry(10, 12, 1),
+          new THREE.MeshBasicMaterial({ visible: false })
+        );
+        door.position.set(0, 2, -15);
+        platforms.push(door);
+      }
+
+      function createKeyboard() {
+        const rows = ["QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"];
+        const startZ = 0;
+        const startX = -20;
+
+        rows.forEach((row, rIndex) => {
+          let rowOffset = rIndex * 2;
+          for (let i = 0; i < row.length; i++) {
+            let char = row[i];
+            createKey(
+              startX + i * KEY_SPACING + rowOffset,
+              0,
+              startZ + rIndex * KEY_SPACING,
+              char
+            );
+          }
+        });
+
+        createKey(15, 0, startZ - 5, "BACK", 0xff0000, 8, 4);
+      }
+
+      function createTextTexture(text, bgColor = "#222") {
+        const canvas = document.createElement("canvas");
+        canvas.width = 256;
+        canvas.height = 256;
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = bgColor;
+        ctx.fillRect(0, 0, 256, 256);
+        ctx.lineWidth = 20;
+        ctx.strokeStyle = "#444";
+        ctx.strokeRect(0, 0, 256, 256);
+        ctx.font = "bold 100px Arial";
+        ctx.fillStyle = "white";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(text, 128, 128);
+        return new THREE.CanvasTexture(canvas);
+      }
+
+      function createKey(
+        x,
+        y,
+        z,
+        char,
+        colorHex = 0x222222,
+        w = KEY_SIZE,
+        d = KEY_SIZE
+      ) {
+        const geometry = new THREE.BoxGeometry(w, 1, d);
+        const texture = createTextTexture(
+          char,
+          colorHex === 0xff0000 ? "#800" : "#222"
+        );
+        const matTop = new THREE.MeshLambertMaterial({ map: texture });
+        const matSide = new THREE.MeshLambertMaterial({ color: 0x111111 });
+        const materials = [matSide, matSide, matTop, matSide, matSide, matSide];
+        const keyMesh = new THREE.Mesh(geometry, materials);
+        keyMesh.position.set(x, y, z);
+        keyMesh.castShadow = true;
+        keyMesh.receiveShadow = true;
+        keyMesh.userData = { isKey: true, char: char, baseY: y };
+        scene.add(keyMesh);
+        keys.push(keyMesh);
+        platforms.push(keyMesh);
+      }
+
+      function generateParkourLevel() {
+        const startZ = -25;
+        let currentX = 0;
+        let currentY = 0;
+        let currentZ = startZ;
+        const numPlatforms = 12;
+
+        for (let i = 0; i < numPlatforms; i++) {
+          const w = 4 + Math.random() * 3;
+          const d = 4 + Math.random() * 3;
+          currentX += (Math.random() - 0.5) * 10;
+          currentY += (Math.random() - 0.2) * 4;
+          currentZ -= 6 + Math.random() * 4;
+          if (currentX > 20) currentX = 20;
+          if (currentX < -20) currentX = -20;
+          if (currentY < -5) currentY = -5;
+
+          const geo = new THREE.BoxGeometry(w, 1, d);
+          const mat = new THREE.MeshLambertMaterial({
+            color: Math.random() * 0xffffff,
+          });
+          const plat = new THREE.Mesh(geo, mat);
+          plat.position.set(currentX, currentY, currentZ);
+          plat.castShadow = true;
+          plat.receiveShadow = true;
+          scene.add(plat);
+          platforms.push(plat);
+
+          if (i === numPlatforms - 1) {
+            const goalGeo = new THREE.SphereGeometry(2, 32, 32);
+            const goalMat = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+            goal = new THREE.Mesh(goalGeo, goalMat);
+            goal.position.set(currentX, currentY + 3, currentZ);
+            scene.add(goal);
+            const goalLight = new THREE.PointLight(0x00ff00, 1, 20);
+            goalLight.position.set(currentX, currentY + 4, currentZ);
+            scene.add(goalLight);
+          }
+        }
+      }
+
+      // --- Controls & Events ---
+      const keysPressed = {};
+
+      function setupEvents() {
+        document.addEventListener("keydown", (e) => {
+          keysPressed[e.code] = true;
+          if (e.code === "Space" && playerOnGround) {
+            playerVelocity.y = JUMP_FORCE;
+            playerOnGround = false;
+          }
+        });
+        document.addEventListener(
+          "keyup",
+          (e) => (keysPressed[e.code] = false)
+        );
+
+        startBtn.addEventListener("click", () => {
+          resetGame();
+          overlayEl.style.display = "none";
+          document.body.requestPointerLock =
+            document.body.requestPointerLock ||
+            document.body.mozRequestPointerLock;
+          document.body.requestPointerLock();
+        });
+
+        document.addEventListener("click", () => {
+          if (isGameActive && document.pointerLockElement !== document.body) {
+            document.body.requestPointerLock();
+          }
+        });
+      }
+
+      // --- Physics & Logic ---
+      function checkCollision() {
+        playerOnGround = false;
+
+        // 1. Raycasting for Floor/Landing
+        const rayOrigin = player.position.clone();
+        rayOrigin.y += 0.1;
+        raycaster.set(rayOrigin, new THREE.Vector3(0, -1, 0));
+
+        const intersects = raycaster.intersectObjects(platforms);
+
+        if (intersects.length > 0) {
+          const hit = intersects[0];
+          const distanceToGround = hit.distance;
+          const collisionThreshold = 0.7 + Math.abs(playerVelocity.y);
+
+          if (distanceToGround < collisionThreshold && playerVelocity.y <= 0) {
+            // Snap to top of surface
+            player.position.y = hit.point.y + 0.6;
+            playerVelocity.y = 0;
+            playerOnGround = true;
+
+            // --- KEY LOGIC UPDATED ---
+            if (hit.object.userData.isKey) {
+              // Only trigger if this isn't the last key we hit
+              if (lastKeyHit !== hit.object) {
+                handleKeyLand(hit.object);
+                lastKeyHit = hit.object;
+              }
+            } else {
+              // If we land on the floor/platform, reset key memory
+              lastKeyHit = null;
+            }
+          }
+        } else {
+          // If in air (no raycast hit), reset key memory
+          // This allows jumping up and down on the same key
+          if (!playerOnGround) {
+            lastKeyHit = null;
+          }
+        }
+
+        // 2. Simple Boundary Checks (Walls/Goal)
+        if (goal) {
+          const dist = player.position.distanceTo(goal.position);
+          if (dist < 3) {
+            gameWin();
+          }
+        }
+      }
+
+      function handleKeyLand(keyMesh) {
+        // Visual depress effect
+        keyMesh.position.y = -0.5;
+        setTimeout(() => {
+          keyMesh.position.y = keyMesh.userData.baseY;
+        }, 100);
+
+        const char = keyMesh.userData.char;
+        if (char === "BACK") {
+          inputString = "";
+        } else {
+          if (inputString.length < TARGET_PASSWORD.length) {
+            inputString += char;
+          }
+        }
+        updateDisplay();
+        checkPassword();
+      }
+
+      function updateDisplay() {
+        currentInputEl.textContent = inputString || "_";
+        if (inputString === TARGET_PASSWORD) {
+          currentInputEl.style.color = "#00ff00";
+        } else {
+          currentInputEl.style.color = "#ffffff";
+        }
+      }
+
+      function checkPassword() {
+        if (inputString === TARGET_PASSWORD && door.parent) {
+          messageEl.textContent = "ACCESS GRANTED";
+          messageEl.style.display = "block";
+
+          // Remove the physical blocker IMMEDIATELY
+          platforms = platforms.filter((p) => p !== door);
+
+          // Generate parkour IMMEDIATELY so it is visible
+          generateParkourLevel();
+
+          // Open Visual Doors
+          let openInterval = setInterval(() => {
+            doorLeft.position.x -= 0.1;
+            doorRight.position.x += 0.1;
+            if (doorLeft.position.x < -8) clearInterval(openInterval);
+          }, 16);
+
+          setTimeout(() => {
+            messageEl.style.display = "none";
+          }, 2000);
+        }
+      }
+
+      function gameWin() {
+        isGameActive = false;
+        document.exitPointerLock();
+        overlayTitleEl.textContent = "MISSION COMPLETE!";
+        startBtn.textContent = "PLAY AGAIN";
+        overlayEl.style.display = "flex";
+      }
+
+      function resetGame() {
+        isGameActive = true;
+        inputString = "";
+        lastKeyHit = null;
+        updateDisplay();
+        player.position.set(0, 2, 15);
+        playerVelocity.set(0, 0, 0);
+        doorLeft.position.set(-2.5, 2, -15);
+        doorRight.position.set(2.5, 2, -15);
+        if (!platforms.includes(door)) platforms.push(door);
+
+        // Cleanup old platforms
+        platforms = platforms.filter(
+          (p) =>
+            p.userData.isKey ||
+            p === door ||
+            p.geometry.type === "BoxGeometry" ||
+            p.geometry.type === "PlaneGeometry"
+        );
+
+        scene.children = scene.children.filter((child) => {
+          if (
+            child === player ||
+            child.isLight ||
+            keys.includes(child) ||
+            child === doorLeft ||
+            child === doorRight
+          )
+            return true;
+          if (child.geometry && child.geometry.type === "PlaneGeometry")
+            return true;
+          if (
+            child.geometry &&
+            child.geometry.type === "BoxGeometry" &&
+            child.position.z > -20
+          )
+            return true;
+          return false;
+        });
+        goal = null;
+      }
+
+      function animate() {
+        requestAnimationFrame(animate);
+        if (!isGameActive) return;
+
+        const moveSpeed = SPEED;
+        if (keysPressed["KeyW"] || keysPressed["ArrowUp"])
+          playerVelocity.z -= moveSpeed;
+        if (keysPressed["KeyS"] || keysPressed["ArrowDown"])
+          playerVelocity.z += moveSpeed;
+        if (keysPressed["KeyA"] || keysPressed["ArrowLeft"])
+          playerVelocity.x -= moveSpeed;
+        if (keysPressed["KeyD"] || keysPressed["ArrowRight"])
+          playerVelocity.x += moveSpeed;
+
+        playerVelocity.x *= FRICTION;
+        playerVelocity.z *= FRICTION;
+
+        // Apply Gravity with Terminal Velocity
+        playerVelocity.y -= GRAVITY;
+        if (playerVelocity.y < -MAX_FALL_SPEED) {
+          playerVelocity.y = -MAX_FALL_SPEED;
+        }
+
+        player.position.x += playerVelocity.x;
+        player.position.z += playerVelocity.z;
+        player.position.y += playerVelocity.y;
+
+        checkCollision();
+
+        if (player.position.y < -30) {
+          player.position.set(0, 5, 15); // Respawn slightly higher
+          playerVelocity.set(0, 0, 0);
+          inputString = "";
+          updateDisplay();
+        }
+
+        // Smooth Camera
+        const targetCamX = player.position.x + cameraOffset.x;
+        const targetCamY = player.position.y + cameraOffset.y;
+        const targetCamZ = player.position.z + cameraOffset.z;
+
+        camera.position.x += (targetCamX - camera.position.x) * 0.1;
+        camera.position.y += (targetCamY - camera.position.y) * 0.1;
+        camera.position.z += (targetCamZ - camera.position.z) * 0.1;
+
+        camera.lookAt(player.position);
+
+        // goal rotation
+        if (goal) {
+          goal.rotation.y += 0.02;
+          goal.position.y += Math.sin(Date.now() * 0.005) * 0.02;
+        }
+        renderer.render(scene, camera);
+      }
+
+      window.addEventListener("resize", () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+
+      init();
+    </script>
+  </body>
+</html>

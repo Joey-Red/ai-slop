@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Belda Bindbaker</title>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        background-color: #20a0d0;
+        font-family: "Arial", sans-serif;
+      }
+      #ui {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        color: white;
+        font-weight: bold;
+        text-shadow: 2px 2px 0 #000;
+        pointer-events: none;
+      }
+      .heart {
+        color: #ff3333;
+        font-size: 30px;
+        display: inline-block;
+        margin-right: 5px;
+      }
+      #controls {
+        position: absolute;
+        bottom: 20px;
+        left: 20px;
+        color: white;
+        font-size: 14px;
+        background: rgba(0, 0, 0, 0.3);
+        padding: 10px;
+        border-radius: 10px;
+        pointer-events: none;
+      }
+      #game-over {
+        display: none;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 40px;
+        text-align: center;
+        border-radius: 20px;
+        border: 4px solid white;
+      }
+      button {
+        background: #4caf50;
+        border: none;
+        color: white;
+        padding: 15px 32px;
+        text-align: center;
+        text-decoration: none;
+        display: inline-block;
+        font-size: 16px;
+        margin-top: 20px;
+        cursor: pointer;
+        border-radius: 5px;
+      }
+    </style>
+  </head>
+  <body>
+    <style>
+      /* Minimal Floating Home Button */
+      .home-nav-btn {
+        position: fixed;
+        top: 15px;
+        left: 15px;
+        z-index: 10000; /* Ensure it sits above game UI/Canvases */
+        background: rgba(
+          30,
+          30,
+          30,
+          0.6
+        ); /* Dark semi-transparent for contrast */
+        color: #ffffff;
+        text-decoration: none;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+        font-size: 14px;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.2s ease;
+        backdrop-filter: blur(4px); /* Blurs background behind button */
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+
+      .home-nav-btn:hover {
+        background: rgba(30, 30, 30, 0.9);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      }
+
+      /* SVG Icon Style */
+      .home-nav-icon {
+        width: 16px;
+        height: 16px;
+      }
+    </style>
+
+    <!-- Link to your Hub (index.html) -->
+    <a href="index.html" class="home-nav-btn">
+      <svg
+        class="home-nav-icon"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+        <polyline points="9 22 9 12 15 12 15 22"></polyline>
+      </svg>
+      <span>Back to Hub</span>
+    </a>
+    <div id="ui">
+      <div id="hearts-container">
+        <span class="heart">♥</span><span class="heart">♥</span
+        ><span class="heart">♥</span>
+      </div>
+      <div style="margin-top: 10px; font-size: 20px; color: #ffd700">
+        RUPEES: <span id="score">0</span>
+      </div>
+    </div>
+
+    <div id="controls">
+      WASD / ARROWS to Move<br />
+      SPACE to Attack
+    </div>
+
+    <div id="game-over">
+      <h1 id="go-title">GAME OVER</h1>
+      <button onclick="location.reload()">TRY AGAIN</button>
+    </div>
+
+    <!-- Import Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <script>
+      // --- GAME CONFIGURATION & COLORS ---
+      const COLORS = {
+        sky: 0x87ceeb,
+        ocean: 0x20a0d0,
+        grass: 0x6ec048,
+        rock: 0x8b5e3c,
+        tunic: 0x00aa00,
+        hat: 0x00cc00,
+        skin: 0xffdcb1,
+        enemy: 0xff3333,
+        vase: 0xf0f8ff,
+        vasePattern: 0x204080,
+      };
+
+      // --- SCENE SETUP ---
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(COLORS.sky);
+      // Fog helps hide the edge of the world and gives depth
+      scene.fog = new THREE.Fog(COLORS.sky, 20, 90);
+
+      const camera = new THREE.PerspectiveCamera(
+        60,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        200
+      );
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      document.body.appendChild(renderer.domElement);
+
+      // --- LIGHTING (Cel-shaded feel requires somewhat directional light) ---
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+      scene.add(ambientLight);
+
+      const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+      dirLight.position.set(50, 100, 50);
+      dirLight.castShadow = true;
+      dirLight.shadow.camera.left = -50;
+      dirLight.shadow.camera.right = 50;
+      dirLight.shadow.camera.top = 50;
+      dirLight.shadow.camera.bottom = -50;
+      dirLight.shadow.mapSize.width = 2048;
+      dirLight.shadow.mapSize.height = 2048;
+      scene.add(dirLight);
+
+      // --- MATERIALS ---
+      // Using MeshToonMaterial for that Zelda look
+      const matGrass = new THREE.MeshToonMaterial({ color: COLORS.grass });
+      const matOcean = new THREE.MeshBasicMaterial({
+        color: COLORS.ocean,
+        transparent: true,
+        opacity: 0.9,
+      });
+      const matSkin = new THREE.MeshToonMaterial({ color: COLORS.skin });
+      const matTunic = new THREE.MeshToonMaterial({ color: COLORS.tunic });
+      const matHat = new THREE.MeshToonMaterial({ color: COLORS.hat });
+      const matEnemy = new THREE.MeshToonMaterial({ color: COLORS.enemy });
+      const matVase = new THREE.MeshToonMaterial({ color: COLORS.vase });
+
+      // --- WORLD GENERATION ---
+
+      // Ocean
+      const oceanGeo = new THREE.PlaneGeometry(500, 500, 20, 20);
+      const ocean = new THREE.Mesh(oceanGeo, matOcean);
+      ocean.rotation.x = -Math.PI / 2;
+      ocean.position.y = -1.5;
+      scene.add(ocean);
+
+      // Island (Simple cylinder with noise-ish vertices)
+      const islandGeo = new THREE.CylinderGeometry(30, 35, 5, 16);
+      const island = new THREE.Mesh(islandGeo, matGrass);
+      island.position.y = -2.5;
+      island.receiveShadow = true;
+      scene.add(island);
+
+      // --- GAME ENTITIES ---
+
+      const entities = [];
+      const particles = [];
+      let score = 0;
+      let playerHealth = 3;
+
+      // Helper to create Toon Link Style Character
+      function createCharacter() {
+        const group = new THREE.Group();
+
+        // Body
+        const bodyGeo = new THREE.CylinderGeometry(0.4, 0.5, 1.2, 8);
+        const body = new THREE.Mesh(bodyGeo, matTunic);
+        body.position.y = 0.6;
+        body.castShadow = true;
+        group.add(body);
+
+        // Head
+        const headGeo = new THREE.SphereGeometry(0.5, 16, 16);
+        const head = new THREE.Mesh(headGeo, matSkin);
+        head.position.y = 1.4;
+        head.castShadow = true;
+        group.add(head);
+
+        // Hat
+        const hatGeo = new THREE.ConeGeometry(0.5, 1.5, 16);
+        const hat = new THREE.Mesh(hatGeo, matHat);
+        hat.rotation.x = -Math.PI / 4;
+        hat.position.set(0, 1.8, -0.5);
+        group.add(hat);
+
+        // Sword pivot (shoulder)
+        const handGroup = new THREE.Group();
+        handGroup.position.set(0.6, 0.8, 0);
+
+        // Sword Mesh
+        const hiltGeo = new THREE.BoxGeometry(0.1, 0.1, 0.3);
+        const hilt = new THREE.Mesh(
+          hiltGeo,
+          new THREE.MeshStandardMaterial({ color: 0x333333 })
+        );
+        const bladeGeo = new THREE.BoxGeometry(0.1, 0.8, 0.15);
+        const blade = new THREE.Mesh(
+          bladeGeo,
+          new THREE.MeshStandardMaterial({ color: 0xdddddd, metalness: 0.5 })
+        );
+        blade.position.y = 0.45;
+
+        handGroup.add(hilt);
+        handGroup.add(blade);
+        group.add(handGroup);
+
+        group.userData = { hand: handGroup };
+        return group;
+      }
+
+      // Player Class
+      class Player {
+        constructor() {
+          this.mesh = createCharacter();
+          scene.add(this.mesh);
+          this.speed = 0.2;
+          this.position = new THREE.Vector3(0, 0, 0);
+          this.velocity = new THREE.Vector3();
+          this.rotation = 0;
+          this.isAttacking = false;
+          this.attackTimer = 0;
+          this.attackCooldown = 0;
+          this.invincible = 0;
+        }
+
+        update(input, dt) {
+          // Movement
+          if (this.attackTimer === 0) {
+            let moveX = 0;
+            let moveZ = 0;
+            if (input.keys["ArrowUp"] || input.keys["w"]) moveZ = -1;
+            if (input.keys["ArrowDown"] || input.keys["s"]) moveZ = 1;
+            if (input.keys["ArrowLeft"] || input.keys["a"]) moveX = -1;
+            if (input.keys["ArrowRight"] || input.keys["d"]) moveX = 1;
+
+            if (moveX !== 0 || moveZ !== 0) {
+              // Calculate rotation based on camera
+              const angle = Math.atan2(moveX, moveZ);
+              this.rotation = angle;
+
+              this.mesh.rotation.y = this.rotation;
+
+              this.velocity.x = Math.sin(this.rotation) * this.speed;
+              this.velocity.z = Math.cos(this.rotation) * this.speed;
+            } else {
+              this.velocity.set(0, 0, 0);
+            }
+
+            // Attack Trigger
+            if (input.keys[" "] && this.attackCooldown <= 0) {
+              this.attack();
+            }
+          } else {
+            this.velocity.set(0, 0, 0); // Stop while attacking
+          }
+
+          // Apply Position with simple boundary
+          const nextPos = this.position.clone().add(this.velocity);
+          if (nextPos.length() < 28) {
+            // Island radius check
+            this.position.copy(nextPos);
+          }
+
+          this.mesh.position.copy(this.position);
+
+          // Attack Animation
+          if (this.attackTimer > 0) {
+            this.attackTimer -= dt;
+            // Swing sword
+            const progress = 1 - this.attackTimer / 0.3;
+            const hand = this.mesh.userData.hand;
+            hand.rotation.z = -Math.PI / 2 + Math.sin(progress * Math.PI) * 2; // Slash motion
+            hand.rotation.x = Math.sin(progress * Math.PI) * 1;
+
+            if (this.attackTimer <= 0) {
+              this.attackTimer = 0;
+              hand.rotation.set(0, 0, 0);
+              this.isAttacking = false;
+            }
+          }
+
+          if (this.attackCooldown > 0) this.attackCooldown -= dt;
+          if (this.invincible > 0) {
+            this.invincible -= dt;
+            this.mesh.visible = Math.floor(Date.now() / 100) % 2 === 0;
+          } else {
+            this.mesh.visible = true;
+          }
+
+          // Camera Follow
+          const camOffset = new THREE.Vector3(0, 8, 12);
+          // Simple smooth follow
+          camera.position.lerp(this.position.clone().add(camOffset), 0.1);
+          camera.lookAt(this.position);
+        }
+
+        attack() {
+          this.isAttacking = true;
+          this.attackTimer = 0.3; // duration
+          this.attackCooldown = 0.5;
+        }
+
+        takeDamage() {
+          if (this.invincible > 0) return;
+          playerHealth--;
+          updateUI();
+          this.invincible = 1.5;
+
+          // Knockback
+          this.position.add(
+            this.velocity.clone().negate().normalize().multiplyScalar(2)
+          );
+
+          if (playerHealth <= 0) {
+            document.getElementById("game-over").style.display = "block";
+            this.mesh.visible = false;
+          }
+        }
+      }
+
+      // Base Entity Class
+      class Entity {
+        constructor(mesh) {
+          this.mesh = mesh;
+          this.active = true;
+          scene.add(this.mesh);
+        }
+        destroy() {
+          this.active = false;
+          scene.remove(this.mesh);
+        }
+      }
+
+      // Vase Class
+      class Vase extends Entity {
+        constructor(x, z) {
+          const geo = new THREE.CylinderGeometry(0.4, 0.3, 1, 12);
+          const mesh = new THREE.Mesh(geo, matVase);
+          mesh.position.set(x, 0.5, z);
+          mesh.castShadow = true;
+          super(mesh);
+          this.type = "vase";
+        }
+
+        break() {
+          spawnParticles(this.mesh.position, COLORS.vase, 8);
+          score += 5;
+          updateUI();
+          this.destroy();
+        }
+      }
+
+      // Enemy Class
+      class Enemy extends Entity {
+        constructor(x, z) {
+          const geo = new THREE.SphereGeometry(0.6, 16, 16);
+          // Squish it a bit to look like a blob
+          geo.scale(1, 0.8, 1);
+          const mesh = new THREE.Mesh(geo, matEnemy);
+          mesh.position.set(x, 0.5, z);
+          mesh.castShadow = true;
+
+          // Eyes
+          const eyeGeo = new THREE.SphereGeometry(0.15, 8, 8);
+          const matEye = new THREE.MeshBasicMaterial({ color: 0xffffff });
+          const eyeL = new THREE.Mesh(eyeGeo, matEye);
+          eyeL.position.set(-0.2, 0.2, 0.5);
+          const eyeR = new THREE.Mesh(eyeGeo, matEye);
+          eyeR.position.set(0.2, 0.2, 0.5);
+          mesh.add(eyeL);
+          mesh.add(eyeR);
+
+          super(mesh);
+          this.type = "enemy";
+          this.hp = 2;
+          this.knockback = 0;
+          this.state = "idle"; // idle, chase
+          this.moveSpeed = 0.08;
+        }
+
+        update(player, dt) {
+          if (!this.active) return;
+
+          if (this.knockback > 0) {
+            this.knockback -= dt;
+            // Slide back
+            const dir = this.mesh.position
+              .clone()
+              .sub(player.position)
+              .normalize();
+            this.mesh.position.add(dir.multiplyScalar(0.2));
+            return;
+          }
+
+          const dist = this.mesh.position.distanceTo(player.position);
+
+          // Logic
+          if (dist < 10) this.state = "chase";
+
+          if (this.state === "chase" && playerHealth > 0) {
+            const dir = player.position
+              .clone()
+              .sub(this.mesh.position)
+              .normalize();
+            this.mesh.position.add(dir.multiplyScalar(this.moveSpeed));
+            this.mesh.lookAt(player.position);
+
+            // Bounce animation
+            this.mesh.position.y =
+              0.5 + Math.abs(Math.sin(Date.now() * 0.01)) * 0.5;
+          }
+
+          // Collision with player
+          if (dist < 1.2) {
+            player.takeDamage();
+          }
+        }
+
+        hit(playerPos) {
+          this.hp--;
+          spawnParticles(this.mesh.position, 0xffffff, 5);
+          this.knockback = 0.3;
+
+          if (this.hp <= 0) {
+            spawnParticles(this.mesh.position, 0xaa00aa, 15); // Purple poof
+            score += 20;
+            updateUI();
+            this.destroy();
+          }
+        }
+      }
+
+      // Particle System
+      class Particle {
+        constructor(pos, color) {
+          const geo = new THREE.TetrahedronGeometry(Math.random() * 0.3 + 0.1);
+          const mat = new THREE.MeshBasicMaterial({ color: color });
+          this.mesh = new THREE.Mesh(geo, mat);
+          this.mesh.position.copy(pos);
+
+          // Random velocity
+          this.velocity = new THREE.Vector3(
+            (Math.random() - 0.5) * 0.4,
+            Math.random() * 0.4 + 0.2,
+            (Math.random() - 0.5) * 0.4
+          );
+          this.life = 1.0;
+          scene.add(this.mesh);
+        }
+
+        update() {
+          this.velocity.y -= 0.02; // Gravity
+          this.mesh.position.add(this.velocity);
+          this.mesh.rotation.x += 0.1;
+          this.mesh.rotation.y += 0.1;
+          this.life -= 0.02;
+          this.mesh.scale.setScalar(this.life);
+
+          if (this.life <= 0) {
+            scene.remove(this.mesh);
+            return false; // dead
+          }
+          return true; // alive
+        }
+      }
+
+      function spawnParticles(pos, color, count) {
+        for (let i = 0; i < count; i++) {
+          particles.push(new Particle(pos, color));
+        }
+      }
+
+      // --- INPUT HANDLING ---
+      const input = {
+        keys: {},
+      };
+      window.addEventListener("keydown", (e) => (input.keys[e.key] = true));
+      window.addEventListener("keyup", (e) => (input.keys[e.key] = false));
+
+      // --- GAME INITIALIZATION ---
+      const player = new Player();
+
+      // Spawn stuff
+      function spawnWorld() {
+        // Vases
+        for (let i = 0; i < 10; i++) {
+          const angle = Math.random() * Math.PI * 2;
+          const radius = Math.random() * 20 + 5;
+          entities.push(
+            new Vase(Math.cos(angle) * radius, Math.sin(angle) * radius)
+          );
+        }
+        // Enemies
+        for (let i = 0; i < 5; i++) {
+          const angle = Math.random() * Math.PI * 2;
+          const radius = Math.random() * 15 + 10;
+          entities.push(
+            new Enemy(Math.cos(angle) * radius, Math.sin(angle) * radius)
+          );
+        }
+
+        // Scenery (Rocks/Bushes)
+        const rockGeo = new THREE.DodecahedronGeometry(1);
+        const rockMat = new THREE.MeshToonMaterial({ color: COLORS.rock });
+        for (let i = 0; i < 8; i++) {
+          const mesh = new THREE.Mesh(rockGeo, rockMat);
+          const angle = Math.random() * Math.PI * 2;
+          const radius = Math.random() * 25;
+          mesh.position.set(
+            Math.cos(angle) * radius,
+            0.5,
+            Math.sin(angle) * radius
+          );
+          mesh.scale.setScalar(Math.random() * 1 + 0.5);
+          mesh.castShadow = true;
+          scene.add(mesh);
+        }
+      }
+
+      spawnWorld();
+
+      function updateUI() {
+        const container = document.getElementById("hearts-container");
+        container.innerHTML = "";
+        for (let i = 0; i < playerHealth; i++) {
+          container.innerHTML += '<span class="heart">♥</span>';
+        }
+        document.getElementById("score").innerText = score;
+      }
+
+      // --- MAIN LOOP ---
+      const clock = new THREE.Clock();
+
+      function animate() {
+        requestAnimationFrame(animate);
+
+        if (playerHealth <= 0) {
+          renderer.render(scene, camera);
+          return;
+        }
+
+        const dt = clock.getDelta();
+
+        player.update(input, dt);
+
+        // Update Entities
+        entities.forEach((ent) => {
+          if (!ent.active) return;
+
+          // Enemy Logic
+          if (ent.type === "enemy") ent.update(player, dt);
+
+          // Collision with Sword
+          if (player.isAttacking) {
+            const dist = player.mesh.position.distanceTo(ent.mesh.position);
+            // Simple directional check (in front of player)
+            const dirToEnt = ent.mesh.position
+              .clone()
+              .sub(player.mesh.position)
+              .normalize();
+            const playerDir = new THREE.Vector3(
+              Math.sin(player.rotation),
+              0,
+              Math.cos(player.rotation)
+            );
+            const dot = dirToEnt.dot(playerDir);
+
+            if (dist < 2.5 && dot > 0.5) {
+              if (ent.type === "vase") ent.break();
+              if (ent.type === "enemy" && ent.knockback <= 0)
+                ent.hit(player.position);
+            }
+          }
+        });
+
+        // Clean up dead entities
+        for (let i = entities.length - 1; i >= 0; i--) {
+          if (!entities[i].active) entities.splice(i, 1);
+        }
+
+        // Update Particles
+        for (let i = particles.length - 1; i >= 0; i--) {
+          const alive = particles[i].update();
+          if (!alive) particles.splice(i, 1);
+        }
+
+        // Simple Ocean Animation
+        ocean.position.y = -1.5 + Math.sin(Date.now() * 0.001) * 0.2;
+
+        renderer.render(scene, camera);
+      }
+
+      animate();
+
+      // Resize handler
+      window.addEventListener("resize", () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+    </script>
+  </body>
+</html>

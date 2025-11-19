@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cozy Ninja vs Kaiju</title>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        background-color: #bfe3dd;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        user-select: none;
+      }
+      #ui-layer {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+      }
+      #main-menu {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(255, 245, 230, 0.8);
+        backdrop-filter: blur(5px);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        pointer-events: auto;
+        z-index: 10;
+        transition: opacity 0.5s;
+      }
+      h1 {
+        font-size: 4rem;
+        color: #ff8fab;
+        text-shadow: 3px 3px 0px #a2d2ff;
+        margin-bottom: 10px;
+      }
+      .btn {
+        background: #a2d2ff;
+        border: none;
+        padding: 15px 40px;
+        font-size: 1.5rem;
+        color: white;
+        border-radius: 50px;
+        cursor: pointer;
+        margin: 10px;
+        box-shadow: 0 6px 0 #74a8db;
+        transition: transform 0.1s, box-shadow 0.1s;
+      }
+      .btn:active {
+        transform: translateY(6px);
+        box-shadow: 0 0 0 #74a8db;
+      }
+      .btn:hover {
+        background: #8ec5fc;
+      }
+      #hud {
+        padding: 20px;
+        display: none;
+      }
+      .bar-container {
+        width: 300px;
+        height: 20px;
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 10px;
+        margin-bottom: 10px;
+        overflow: hidden;
+        position: relative;
+      }
+      .health-fill {
+        height: 100%;
+        width: 100%;
+        background: #ff8fab;
+        transition: width 0.2s;
+      }
+      .stamina-fill {
+        height: 100%;
+        width: 100%;
+        background: #fde4cf;
+        transition: width 0.1s;
+      }
+      #boss-hud {
+        align-self: center;
+        margin-top: 20px;
+        text-align: center;
+        display: none;
+      }
+      #boss-name {
+        font-size: 1.2rem;
+        color: #555;
+        font-weight: bold;
+        margin-bottom: 5px;
+      }
+      #controls-hint {
+        position: absolute;
+        bottom: 20px;
+        left: 20px;
+        color: #555;
+        font-size: 0.9rem;
+        background: rgba(255, 255, 255, 0.5);
+        padding: 10px;
+        border-radius: 10px;
+      }
+      #win-screen {
+        display: none;
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(162, 210, 255, 0.8);
+        justify-content: center;
+        align-items: center;
+        flex-direction: column;
+        pointer-events: auto;
+        z-index: 20;
+      }
+    </style>
+  </head>
+  <body>
+    <style>
+      /* Minimal Floating Home Button */
+      .home-nav-btn {
+        position: fixed;
+        top: 15px;
+        left: 15px;
+        z-index: 10000; /* Ensure it sits above game UI/Canvases */
+        background: rgba(
+          30,
+          30,
+          30,
+          0.6
+        ); /* Dark semi-transparent for contrast */
+        color: #ffffff;
+        text-decoration: none;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+        font-size: 14px;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.2s ease;
+        backdrop-filter: blur(4px); /* Blurs background behind button */
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+
+      .home-nav-btn:hover {
+        background: rgba(30, 30, 30, 0.9);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      }
+
+      /* SVG Icon Style */
+      .home-nav-icon {
+        width: 16px;
+        height: 16px;
+      }
+    </style>
+
+    <!-- Link to your Hub (index.html) -->
+    <a href="index.html" class="home-nav-btn">
+      <svg
+        class="home-nav-icon"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+        <polyline points="9 22 9 12 15 12 15 22"></polyline>
+      </svg>
+      <span>Back to Hub</span>
+    </a>
+    <!-- Game Canvas container is created by Three.js -->
+
+    <div id="ui-layer">
+      <!-- HUD -->
+      <div id="hud">
+        <div style="color: #555; font-weight: bold">Ninja HP</div>
+        <div class="bar-container">
+          <div
+            id="player-hp"
+            class="health-fill"
+            style="background: #70e000"
+          ></div>
+        </div>
+        <div style="color: #555; font-weight: bold">Dash Stamina</div>
+        <div class="bar-container">
+          <div id="player-stamina" class="stamina-fill"></div>
+        </div>
+      </div>
+
+      <div id="boss-hud">
+        <div id="boss-name">MEGA CHONK (The Kaiju)</div>
+        <div class="bar-container" style="width: 500px; height: 30px">
+          <div
+            id="boss-hp"
+            class="health-fill"
+            style="background: #ef476f"
+          ></div>
+        </div>
+      </div>
+
+      <div id="controls-hint">
+        WASD: Move | SPACE: Jump (x2) | SHIFT: Dash | CLICK: Attack/Lock Mouse
+      </div>
+    </div>
+
+    <div id="main-menu">
+      <h1>Cozy Kaiju Hunter</h1>
+      <p style="font-size: 1.2rem; color: #666">A chill 3D Ninja adventure</p>
+      <button class="btn" id="start-btn">Start Hunt</button>
+      <button
+        class="btn"
+        id="build-btn"
+        style="background: #ffc8dd; box-shadow: 0 6px 0 #db9bb0"
+      >
+        Generate New World
+      </button>
+    </div>
+
+    <div id="win-screen">
+      <h1 id="win-msg">VICTORY!</h1>
+      <button class="btn" onclick="location.reload()">Play Again</button>
+    </div>
+
+    <!-- Three.js from CDN (Updated to 0.160.0 for correct path) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js"></script>
+
+    <script>
+      // --- CONFIGURATION & STATE ---
+      const COLORS = {
+        sky: 0xbfe3dd,
+        ground: 0xfff5e6,
+        player: 0x2ec4b6,
+        playerTrail: 0xcaffbf,
+        kaijuIdle: 0xff99c8,
+        kaijuCharge: 0xff006e,
+        kaijuStun: 0xa9def9,
+        obstacle: 0xffd6a5,
+      };
+
+      const GAME_STATE = {
+        MENU: 0,
+        PLAYING: 1,
+        GAMEOVER: 2,
+      };
+
+      let currentState = GAME_STATE.MENU;
+
+      // --- THREE.JS SETUP ---
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(COLORS.sky);
+      scene.fog = new THREE.Fog(COLORS.sky, 20, 100);
+
+      const camera = new THREE.PerspectiveCamera(
+        75,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        1000
+      );
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      document.body.appendChild(renderer.domElement);
+
+      // Lighting
+      const hemiLight = new THREE.HemisphereLight(0xffffff, 0xffffff, 0.6);
+      scene.add(hemiLight);
+
+      const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+      dirLight.position.set(50, 100, 50);
+      dirLight.castShadow = true;
+      dirLight.shadow.camera.top = 50;
+      dirLight.shadow.camera.bottom = -50;
+      dirLight.shadow.camera.left = -50;
+      dirLight.shadow.camera.right = 50;
+      dirLight.shadow.mapSize.width = 2048;
+      dirLight.shadow.mapSize.height = 2048;
+      scene.add(dirLight);
+
+      // --- INPUT HANDLING ---
+      const input = {
+        forward: false,
+        backward: false,
+        left: false,
+        right: false,
+        jump: false,
+        dash: false,
+        attack: false,
+      };
+      const mouse = new THREE.Vector2();
+
+      document.addEventListener("keydown", (e) => {
+        if (currentState !== GAME_STATE.PLAYING) return;
+        switch (e.code) {
+          case "KeyW":
+            input.forward = true;
+            break;
+          case "KeyS":
+            input.backward = true;
+            break;
+          case "KeyA":
+            input.left = true;
+            break;
+          case "KeyD":
+            input.right = true;
+            break;
+          case "Space":
+            if (!e.repeat) player.jump();
+            break;
+          case "ShiftLeft":
+            if (!e.repeat) player.dash();
+            break;
+        }
+      });
+
+      document.addEventListener("keyup", (e) => {
+        switch (e.code) {
+          case "KeyW":
+            input.forward = false;
+            break;
+          case "KeyS":
+            input.backward = false;
+            break;
+          case "KeyA":
+            input.left = false;
+            break;
+          case "KeyD":
+            input.right = false;
+            break;
+        }
+      });
+
+      document.addEventListener("mousedown", () => {
+        if (currentState === GAME_STATE.MENU) return;
+        if (document.pointerLockElement !== document.body) {
+          document.body.requestPointerLock();
+        } else {
+          player.attack();
+        }
+      });
+
+      document.addEventListener("mousemove", (e) => {
+        if (document.pointerLockElement === document.body) {
+          cameraRotation.y -= e.movementX * 0.002;
+          cameraRotation.x -= e.movementY * 0.002;
+          cameraRotation.x = Math.max(
+            -Math.PI / 3,
+            Math.min(Math.PI / 3, cameraRotation.x)
+          );
+        }
+      });
+
+      // --- CLASSES ---
+
+      // PARTICLE SYSTEM
+      class ParticleSystem {
+        constructor() {
+          this.particles = [];
+        }
+
+        emit(pos, color, count = 10) {
+          for (let i = 0; i < count; i++) {
+            const geo = new THREE.BoxGeometry(0.2, 0.2, 0.2);
+            const mat = new THREE.MeshPhongMaterial({ color: color });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.position.copy(pos);
+            mesh.position.x += (Math.random() - 0.5) * 2;
+            mesh.position.y += (Math.random() - 0.5) * 2;
+            mesh.position.z += (Math.random() - 0.5) * 2;
+
+            const vel = new THREE.Vector3(
+              Math.random() - 0.5,
+              Math.random() * 1,
+              Math.random() - 0.5
+            );
+
+            scene.add(mesh);
+            this.particles.push({ mesh, vel, life: 1.0 });
+          }
+        }
+
+        update(dt) {
+          for (let i = this.particles.length - 1; i >= 0; i--) {
+            const p = this.particles[i];
+            p.life -= dt;
+            p.vel.y -= 20 * dt; // Gravity
+            p.mesh.position.addScaledVector(p.vel, 10 * dt);
+            p.mesh.rotation.x += dt * 5;
+            p.mesh.scale.setScalar(p.life);
+
+            if (p.life <= 0) {
+              scene.remove(p.mesh);
+              p.mesh.geometry.dispose();
+              p.mesh.material.dispose();
+              this.particles.splice(i, 1);
+            }
+          }
+        }
+      }
+      const particles = new ParticleSystem();
+
+      // NINJA PLAYER
+      class Player {
+        constructor() {
+          this.mesh = new THREE.Group();
+
+          // Body
+          const bodyGeo = new THREE.CapsuleGeometry(0.4, 0.8, 4, 8);
+          const bodyMat = new THREE.MeshToonMaterial({ color: COLORS.player });
+          this.body = new THREE.Mesh(bodyGeo, bodyMat);
+          this.body.position.y = 0.8;
+          this.body.castShadow = true;
+
+          // Headband (Tail)
+          this.headband = new THREE.Mesh(
+            new THREE.BoxGeometry(0.1, 0.1, 1.5),
+            new THREE.MeshBasicMaterial({ color: 0xffffff })
+          );
+          this.headband.position.set(0, 1.4, -0.5);
+
+          // Eyes
+          const eyeGeo = new THREE.SphereGeometry(0.1);
+          const eyeMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+          const eyeL = new THREE.Mesh(eyeGeo, eyeMat);
+          eyeL.position.set(0.15, 1.3, 0.35);
+          const eyeR = new THREE.Mesh(eyeGeo, eyeMat);
+          eyeR.position.set(-0.15, 1.3, 0.35);
+
+          this.mesh.add(this.body, this.headband, eyeL, eyeR);
+          scene.add(this.mesh);
+
+          // Physics/State
+          this.velocity = new THREE.Vector3();
+          this.onGround = false;
+          this.jumpCount = 0;
+          this.maxJumps = 2;
+          this.speed = 10;
+          this.dashSpeed = 30;
+          this.isDashing = false;
+          this.dashTime = 0;
+          this.dashCooldown = 0;
+
+          this.maxHp = 100;
+          this.hp = 100;
+
+          // Attack
+          this.isAttacking = false;
+          this.attackTime = 0;
+          this.swordHitbox = new THREE.Box3();
+        }
+
+        update(dt, obstacles) {
+          // Movement Input
+          const forward = new THREE.Vector3(0, 0, -1).applyAxisAngle(
+            new THREE.Vector3(0, 1, 0),
+            cameraRotation.y
+          );
+          const right = new THREE.Vector3(1, 0, 0).applyAxisAngle(
+            new THREE.Vector3(0, 1, 0),
+            cameraRotation.y
+          );
+
+          let moveDir = new THREE.Vector3();
+          if (input.forward) moveDir.add(forward);
+          if (input.backward) moveDir.sub(forward);
+          if (input.right) moveDir.add(right);
+          if (input.left) moveDir.sub(right);
+
+          if (moveDir.length() > 0) moveDir.normalize();
+
+          // Dash Logic
+          if (this.isDashing) {
+            this.dashTime -= dt;
+            if (this.dashTime <= 0) {
+              this.isDashing = false;
+              this.velocity.set(0, this.velocity.y, 0); // Stop momentum
+            } else {
+              // Create trail
+              if (Math.random() > 0.5)
+                particles.emit(this.mesh.position, COLORS.playerTrail, 1);
+            }
+          } else {
+            this.dashCooldown -= dt;
+            // Standard movement
+            this.velocity.x = moveDir.x * this.speed;
+            this.velocity.z = moveDir.z * this.speed;
+          }
+
+          // Gravity
+          this.velocity.y -= 30 * dt;
+
+          // Apply Velocity
+          this.mesh.position.x += this.velocity.x * dt;
+          this.mesh.position.y += this.velocity.y * dt;
+          this.mesh.position.z += this.velocity.z * dt;
+
+          // Ground Collision
+          if (this.mesh.position.y < 0) {
+            this.mesh.position.y = 0;
+            this.velocity.y = 0;
+            this.onGround = true;
+            this.jumpCount = 0;
+          }
+
+          // Rotate character to face movement
+          if (moveDir.length() > 0.1 && !this.isDashing) {
+            const angle = Math.atan2(moveDir.x, moveDir.z);
+            // Smooth rotation
+            const q = new THREE.Quaternion().setFromAxisAngle(
+              new THREE.Vector3(0, 1, 0),
+              angle
+            );
+            this.mesh.quaternion.slerp(q, 10 * dt);
+          }
+
+          // Headband physics animation
+          this.headband.rotation.y = Math.sin(Date.now() * 0.01) * 0.5;
+          this.headband.rotation.x = -this.velocity.length() * 0.05;
+
+          // Attack Logic
+          if (this.isAttacking) {
+            this.attackTime -= dt;
+            this.mesh.rotation.y += 15 * dt; // Spin attack
+            if (this.attackTime <= 0) this.isAttacking = false;
+
+            // Hitbox
+            const swordPos = this.mesh.position
+              .clone()
+              .add(
+                this.mesh
+                  .getWorldDirection(new THREE.Vector3())
+                  .multiplyScalar(1.5)
+              );
+            if (kaiju && swordPos.distanceTo(kaiju.mesh.position) < 4) {
+              kaiju.takeDamage(2);
+              particles.emit(swordPos, 0xffffff, 2);
+            }
+          }
+
+          // Obstacle Collision (Simple sphere push)
+          obstacles.forEach((obs) => {
+            const dist = this.mesh.position.distanceTo(obs.position);
+            const minInfo = 1.5; // Player radius + obs radius approximation
+            if (dist < minInfo) {
+              const pushDir = new THREE.Vector3()
+                .subVectors(this.mesh.position, obs.position)
+                .normalize();
+              this.mesh.position.add(pushDir.multiplyScalar(minInfo - dist));
+            }
+          });
+
+          // Update UI
+          document.getElementById("player-hp").style.width =
+            (this.hp / this.maxHp) * 100 + "%";
+          const stamPct = Math.max(0, 100 - this.dashCooldown * 100); // rough visualization
+          document.getElementById("player-stamina").style.width = stamPct + "%";
+        }
+
+        jump() {
+          if (this.jumpCount < this.maxJumps) {
+            this.velocity.y = 12;
+            this.onGround = false;
+            this.jumpCount++;
+            // Visual flair
+            particles.emit(this.mesh.position, 0xffffff, 5);
+          }
+        }
+
+        dash() {
+          if (this.dashCooldown <= 0) {
+            this.isDashing = true;
+            this.dashTime = 0.2;
+            this.dashCooldown = 1.5;
+            const dir = this.mesh.getWorldDirection(new THREE.Vector3());
+            if (dir.length() === 0) dir.set(0, 0, -1);
+            this.velocity.copy(dir).multiplyScalar(this.dashSpeed);
+          }
+        }
+
+        attack() {
+          if (!this.isAttacking) {
+            this.isAttacking = true;
+            this.attackTime = 0.3;
+          }
+        }
+
+        takeDamage(amount) {
+          if (this.isDashing) return; // Invincible dashing
+          this.hp -= amount;
+          particles.emit(this.mesh.position, 0xff0000, 10);
+
+          // Knockback
+          const dir = new THREE.Vector3()
+            .subVectors(this.mesh.position, kaiju.mesh.position)
+            .normalize();
+          this.velocity.add(dir.multiplyScalar(20));
+          this.velocity.y = 10;
+
+          if (this.hp <= 0) endGame(false);
+        }
+      }
+
+      // KAIJU ENEMY
+      class Kaiju {
+        constructor() {
+          this.mesh = new THREE.Group();
+
+          // Cute round body
+          const bodyGeo = new THREE.IcosahedronGeometry(3, 1);
+          this.mat = new THREE.MeshStandardMaterial({
+            color: COLORS.kaijuIdle,
+            roughness: 0.4,
+          });
+          this.body = new THREE.Mesh(bodyGeo, this.mat);
+          this.body.position.y = 3;
+          this.body.castShadow = true;
+
+          // Tail
+          const tailGeo = new THREE.ConeGeometry(1, 4, 8);
+          this.tail = new THREE.Mesh(tailGeo, this.mat);
+          this.tail.rotation.x = -Math.PI / 2;
+          this.tail.position.set(0, 1, 3);
+
+          // Eyes
+          const eyeGeo = new THREE.SphereGeometry(0.4);
+          const eyeMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+          const eyeL = new THREE.Mesh(eyeGeo, eyeMat);
+          eyeL.position.set(1, 3.5, 2.2);
+          const eyeR = new THREE.Mesh(eyeGeo, eyeMat);
+          eyeR.position.set(-1, 3.5, 2.2);
+
+          this.mesh.add(this.body, this.tail, eyeL, eyeR);
+          scene.add(this.mesh);
+
+          this.hp = 500;
+          this.maxHp = 500;
+          this.state = "IDLE";
+          this.stateTimer = 0;
+          this.velocity = new THREE.Vector3();
+        }
+
+        update(dt, playerPos) {
+          const dist = this.mesh.position.distanceTo(playerPos);
+
+          // Simple AI State Machine
+          switch (this.state) {
+            case "IDLE":
+              this.lookAt(playerPos, dt);
+              this.stateTimer -= dt;
+              // Bobbing animation
+              this.body.position.y = 3 + Math.sin(Date.now() * 0.002) * 0.2;
+              if (this.stateTimer <= 0) {
+                this.switchState(Math.random() > 0.5 ? "CHASE" : "CHARGE");
+              }
+              break;
+
+            case "CHASE":
+              this.lookAt(playerPos, dt);
+              const dir = new THREE.Vector3()
+                .subVectors(playerPos, this.mesh.position)
+                .normalize();
+              this.mesh.position.add(dir.multiplyScalar(6 * dt)); // Run speed
+
+              // Hop animation
+              this.mesh.position.y = Math.abs(Math.sin(Date.now() * 0.01)) * 2;
+
+              if (dist < 6) this.switchState("SMASH");
+
+              this.stateTimer -= dt;
+              if (this.stateTimer <= 0) this.switchState("IDLE");
+              break;
+
+            case "CHARGE":
+              this.mat.color.setHex(COLORS.kaijuCharge);
+              // Windup
+              if (this.stateTimer > 1.5) {
+                this.lookAt(playerPos, dt * 5);
+              }
+              // Dash
+              else if (this.stateTimer > 0.5) {
+                const chargeDir = new THREE.Vector3(0, 0, 1).applyQuaternion(
+                  this.mesh.quaternion
+                );
+                this.mesh.position.add(chargeDir.multiplyScalar(20 * dt));
+                // Hitbox
+                if (dist < 4) player.takeDamage(20);
+              }
+              // Cooldown
+              else {
+                this.mat.color.setHex(COLORS.kaijuIdle);
+              }
+
+              this.stateTimer -= dt;
+              if (this.stateTimer <= 0) this.switchState("IDLE");
+              break;
+
+            case "SMASH":
+              // Jump up high and slam down
+              if (this.stateTimer > 1.0) {
+                // Up
+                this.mesh.position.y += 10 * dt;
+              } else if (this.stateTimer > 0.5) {
+                // Hover
+              } else {
+                // Slam
+                this.mesh.position.y -= 30 * dt;
+                if (this.mesh.position.y <= 0) {
+                  this.mesh.position.y = 0;
+                  // Shockwave
+                  particles.emit(this.mesh.position, 0xffd6a5, 30);
+                  if (dist < 10 && this.mesh.position.y <= 1)
+                    player.takeDamage(15);
+                  this.switchState("IDLE");
+                }
+              }
+              this.stateTimer -= dt;
+              break;
+          }
+
+          // Keep inside bounds
+          if (this.mesh.position.length() > 48) {
+            this.mesh.position.setLength(48);
+          }
+
+          // Update HUD
+          document.getElementById("boss-hp").style.width =
+            (this.hp / this.maxHp) * 100 + "%";
+        }
+
+        lookAt(target, dt) {
+          const targetPos = new THREE.Vector3(
+            target.x,
+            this.mesh.position.y,
+            target.z
+          );
+          const targetQuat = new THREE.Quaternion();
+          const m = new THREE.Matrix4().lookAt(
+            targetPos,
+            this.mesh.position,
+            new THREE.Vector3(0, 1, 0)
+          );
+          targetQuat.setFromRotationMatrix(m);
+          this.mesh.quaternion.slerp(targetQuat, 5 * dt);
+        }
+
+        switchState(newState) {
+          this.state = newState;
+          if (newState === "IDLE") this.stateTimer = 2;
+          if (newState === "CHASE") this.stateTimer = 4;
+          if (newState === "CHARGE") this.stateTimer = 2.5;
+          if (newState === "SMASH") this.stateTimer = 1.5;
+        }
+
+        takeDamage(amount) {
+          this.hp -= amount;
+          // Flash white
+          this.body.material.emissive.setHex(0xffffff);
+          setTimeout(() => {
+            this.body.material.emissive.setHex(0x000000);
+          }, 100);
+
+          if (this.hp <= 0) endGame(true);
+        }
+      }
+
+      // --- LEVEL GENERATION ---
+
+      let obstacles = [];
+      let ground;
+
+      function generateLevel() {
+        // Cleanup old level
+        if (ground) scene.remove(ground);
+        obstacles.forEach((o) => scene.remove(o));
+        obstacles = [];
+
+        // Ground
+        const groundGeo = new THREE.CylinderGeometry(50, 50, 2, 32);
+        const groundMat = new THREE.MeshStandardMaterial({
+          color: COLORS.ground,
+        });
+        ground = new THREE.Mesh(groundGeo, groundMat);
+        ground.position.y = -1;
+        ground.receiveShadow = true;
+        scene.add(ground);
+
+        // Procedural Decor
+        const obsGeo = new THREE.DodecahedronGeometry(1);
+        const obsMat = new THREE.MeshStandardMaterial({
+          color: COLORS.obstacle,
+        });
+        const treeGeo = new THREE.ConeGeometry(1, 3, 8);
+        const treeMat = new THREE.MeshStandardMaterial({ color: 0x95d5b2 });
+
+        // Random placement loop
+        for (let i = 0; i < 30; i++) {
+          // Random Polar coordinates to keep things inside the circle
+          const r = 10 + Math.random() * 35;
+          const theta = Math.random() * Math.PI * 2;
+          const x = r * Math.cos(theta);
+          const z = r * Math.sin(theta);
+
+          const type = Math.random();
+          let mesh;
+
+          if (type > 0.6) {
+            // Rock
+            mesh = new THREE.Mesh(obsGeo, obsMat);
+            mesh.scale.setScalar(1 + Math.random() * 2);
+            mesh.position.set(x, mesh.scale.y / 2, z);
+          } else {
+            // Tree
+            mesh = new THREE.Mesh(treeGeo, treeMat);
+            mesh.scale.setScalar(1 + Math.random() * 1.5);
+            mesh.position.set(x, mesh.scale.y / 2, z);
+          }
+
+          mesh.castShadow = true;
+          mesh.receiveShadow = true;
+          mesh.rotation.y = Math.random() * Math.PI;
+
+          scene.add(mesh);
+          obstacles.push(mesh);
+        }
+      }
+
+      // --- GAME LOOP & LOGIC ---
+
+      let player;
+      let kaiju;
+      let cameraRotation = { x: 0.3, y: 0 };
+      let cameraDistance = 10;
+      const clock = new THREE.Clock();
+
+      function startGame() {
+        // Clean up previous entities if any
+        if (player) scene.remove(player.mesh);
+        if (kaiju) scene.remove(kaiju.mesh);
+
+        generateLevel();
+
+        player = new Player();
+        kaiju = new Kaiju();
+
+        // Reset positions
+        player.mesh.position.set(0, 0, 15);
+        kaiju.mesh.position.set(0, 0, -15);
+
+        // UI
+        document.getElementById("main-menu").style.opacity = 0;
+        setTimeout(
+          () => (document.getElementById("main-menu").style.display = "none"),
+          500
+        );
+        document.getElementById("hud").style.display = "block";
+        document.getElementById("boss-hud").style.display = "block";
+        document.getElementById("win-screen").style.display = "none";
+
+        currentState = GAME_STATE.PLAYING;
+      }
+
+      function endGame(victory) {
+        currentState = GAME_STATE.GAMEOVER;
+        document.exitPointerLock();
+
+        const screen = document.getElementById("win-screen");
+        const msg = document.getElementById("win-msg");
+        screen.style.display = "flex";
+
+        if (victory) {
+          msg.innerText = "MISSION COMPLETE!";
+          msg.style.color = "#06d6a0";
+        } else {
+          msg.innerText = "TRY AGAIN!";
+          msg.style.color = "#ef476f";
+        }
+      }
+
+      function animate() {
+        requestAnimationFrame(animate);
+
+        const dt = Math.min(clock.getDelta(), 0.1); // Cap delta time
+
+        if (currentState === GAME_STATE.PLAYING) {
+          // Logic updates
+          player.update(dt, obstacles);
+          kaiju.update(dt, player.mesh.position);
+          particles.update(dt);
+
+          // Camera Orbit Logic
+          const targetPos = player.mesh.position
+            .clone()
+            .add(new THREE.Vector3(0, 2, 0));
+          const offset = new THREE.Vector3(0, 0, cameraDistance);
+
+          // Apply rotations
+          offset.applyAxisAngle(new THREE.Vector3(1, 0, 0), cameraRotation.x);
+          offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), cameraRotation.y);
+
+          const camPos = targetPos.clone().add(offset);
+
+          // Simple Camera Smoothing
+          camera.position.lerp(camPos, 0.1);
+          camera.lookAt(targetPos);
+        } else if (currentState === GAME_STATE.MENU) {
+          // Simple menu rotation
+          const t = Date.now() * 0.0005;
+          camera.position.set(Math.cos(t) * 30, 15, Math.sin(t) * 30);
+          camera.lookAt(0, 0, 0);
+        }
+
+        renderer.render(scene, camera);
+      }
+
+      // Init
+      document.getElementById("start-btn").addEventListener("click", startGame);
+      document.getElementById("build-btn").addEventListener("click", () => {
+        generateLevel();
+      });
+
+      // Initial decoration for menu
+      generateLevel();
+      animate();
+
+      // Window Resize
+      window.addEventListener("resize", () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+    </script>
+  </body>
+</html>

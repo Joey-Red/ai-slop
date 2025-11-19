@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Neon Void Runner</title>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        background-color: #050505;
+        font-family: "Courier New", Courier, monospace;
+        user-select: none;
+      }
+
+      #ui-layer {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        color: white;
+        z-index: 10;
+      }
+
+      #score-hud {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        font-size: 24px;
+        font-weight: bold;
+        color: #00ffff;
+        text-shadow: 0 0 10px #00ffff;
+      }
+
+      #distance-hud {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        font-size: 24px;
+        font-weight: bold;
+        color: #ff00ff;
+        text-shadow: 0 0 10px #ff00ff;
+      }
+
+      .menu-box {
+        background: rgba(0, 0, 0, 0.8);
+        border: 2px solid #fff;
+        padding: 40px;
+        border-radius: 10px;
+        box-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+        pointer-events: auto;
+        cursor: pointer;
+        transition: transform 0.1s;
+      }
+
+      .menu-box:hover {
+        transform: scale(1.02);
+        border-color: #00ffff;
+        box-shadow: 0 0 30px rgba(0, 255, 255, 0.4);
+      }
+
+      h1 {
+        margin: 0 0 20px 0;
+        font-size: 48px;
+        text-transform: uppercase;
+        letter-spacing: 4px;
+        background: linear-gradient(90deg, #00ffff, #ff00ff);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+
+      p {
+        font-size: 18px;
+        line-height: 1.5;
+      }
+
+      .blink {
+        animation: blinker 1.5s linear infinite;
+      }
+
+      @keyframes blinker {
+        50% {
+          opacity: 0;
+        }
+      }
+
+      #game-over {
+        display: none;
+      }
+      #start-screen {
+        display: flex;
+      }
+    </style>
+
+    <!-- Import Map for Three.js -->
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <style>
+      /* Minimal Floating Home Button */
+      .home-nav-btn {
+        position: fixed;
+        top: 15px;
+        left: 15px;
+        z-index: 10000; /* Ensure it sits above game UI/Canvases */
+        background: rgba(
+          30,
+          30,
+          30,
+          0.6
+        ); /* Dark semi-transparent for contrast */
+        color: #ffffff;
+        text-decoration: none;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+        font-size: 14px;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.2s ease;
+        backdrop-filter: blur(4px); /* Blurs background behind button */
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+
+      .home-nav-btn:hover {
+        background: rgba(30, 30, 30, 0.9);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      }
+
+      /* SVG Icon Style */
+      .home-nav-icon {
+        width: 16px;
+        height: 16px;
+      }
+    </style>
+
+    <!-- Link to your Hub (index.html) -->
+    <a href="index.html" class="home-nav-btn">
+      <svg
+        class="home-nav-icon"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+        <polyline points="9 22 9 12 15 12 15 22"></polyline>
+      </svg>
+      <span>Back to Hub</span>
+    </a>
+    <div id="ui-layer">
+      <div id="score-hud">SCORE: 0</div>
+      <div id="distance-hud">SPEED: 100%</div>
+
+      <div id="start-screen" class="menu-box">
+        <h1>NEON VOID</h1>
+        <p>MOUSE to Pilot</p>
+        <p class="blink">CLICK TO INITIALIZE</p>
+      </div>
+
+      <div id="game-over" class="menu-box">
+        <h1>SYSTEM FAILURE</h1>
+        <p id="final-score">SCORE: 0</p>
+        <p class="blink">CLICK TO REBOOT</p>
+      </div>
+    </div>
+
+    <script type="module">
+      import * as THREE from "three";
+      import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+      import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+      import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
+
+      // --- Game State ---
+      const state = {
+        isPlaying: false,
+        score: 0,
+        speed: 0,
+        baseSpeed: 60,
+        difficultyMultiplier: 1,
+        time: 0,
+        themeIndex: 0,
+      };
+
+      // --- Themes (Procedural Colors) ---
+      const themes = [
+        { name: "Cyber", fog: 0x050510, grid: 0xff00ff, obstacle: 0x00ffff },
+        { name: "Hazard", fog: 0x1a0500, grid: 0xffaa00, obstacle: 0xff0000 },
+        { name: "Matrix", fog: 0x001a05, grid: 0x00ff00, obstacle: 0xccffcc },
+        { name: "Deep", fog: 0x000020, grid: 0x0088ff, obstacle: 0xffffff },
+      ];
+
+      // --- Setup Three.js ---
+      const scene = new THREE.Scene();
+      scene.fog = new THREE.FogExp2(themes[0].fog, 0.015);
+
+      const camera = new THREE.PerspectiveCamera(
+        75,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        1000
+      );
+      camera.position.set(0, 2, 5);
+
+      const renderer = new THREE.WebGLRenderer({ antialias: false }); // False for performance with bloom
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.toneMapping = THREE.ReinhardToneMapping;
+      document.body.appendChild(renderer.domElement);
+
+      // --- Post Processing (Bloom) ---
+      const renderScene = new RenderPass(scene, camera);
+
+      const bloomPass = new UnrealBloomPass(
+        new THREE.Vector2(window.innerWidth, window.innerHeight),
+        1.5,
+        0.4,
+        0.85
+      );
+      bloomPass.threshold = 0;
+      bloomPass.strength = 2.0; // Very glowing
+      bloomPass.radius = 0.5;
+
+      const composer = new EffectComposer(renderer);
+      composer.addPass(renderScene);
+      composer.addPass(bloomPass);
+
+      // --- Lighting ---
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.1);
+      scene.add(ambientLight);
+
+      const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+      dirLight.position.set(0, 10, 5);
+      scene.add(dirLight);
+
+      // --- The Player (Ship) ---
+      const shipGroup = new THREE.Group();
+
+      // Hull
+      const geometry = new THREE.ConeGeometry(0.5, 2, 4); // Pyramid style
+      geometry.rotateX(Math.PI / 2);
+      geometry.rotateY(Math.PI / 4);
+      const material = new THREE.MeshStandardMaterial({
+        color: 0x222222,
+        roughness: 0.4,
+        metalness: 0.8,
+        emissive: 0x00ffff,
+        emissiveIntensity: 0.5,
+      });
+      const shipMesh = new THREE.Mesh(geometry, material);
+      shipGroup.add(shipMesh);
+
+      // Engine Glow
+      const engineGeo = new THREE.BoxGeometry(0.2, 0.2, 0.5);
+      const engineMat = new THREE.MeshBasicMaterial({ color: 0x00ffff });
+      const engine = new THREE.Mesh(engineGeo, engineMat);
+      engine.position.z = 1;
+      shipGroup.add(engine);
+
+      const engineLight = new THREE.PointLight(0x00ffff, 2, 10);
+      engineLight.position.set(0, 0, 1);
+      shipGroup.add(engineLight);
+
+      scene.add(shipGroup);
+
+      // --- The World (Moving Grid) ---
+      const planeSize = 200;
+      const divisions = 40;
+      const gridHelper = new THREE.GridHelper(
+        planeSize,
+        divisions,
+        themes[0].grid,
+        themes[0].grid
+      );
+      gridHelper.position.y = -2;
+      scene.add(gridHelper);
+
+      // Floor plane (black to hide stars below)
+      const floorGeo = new THREE.PlaneGeometry(200, 200);
+      const floorMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+      const floor = new THREE.Mesh(floorGeo, floorMat);
+      floor.rotation.x = -Math.PI / 2;
+      floor.position.y = -2.1;
+      scene.add(floor);
+
+      // --- Particle System (Stars/Debris passing by) ---
+      const starGeo = new THREE.BufferGeometry();
+      const starCount = 1000;
+      const starPos = new Float32Array(starCount * 3);
+      for (let i = 0; i < starCount * 3; i++) {
+        starPos[i] = (Math.random() - 0.5) * 100;
+      }
+      starGeo.setAttribute("position", new THREE.BufferAttribute(starPos, 3));
+      const starMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.1 });
+      const starSystem = new THREE.Points(starGeo, starMat);
+      scene.add(starSystem);
+
+      // --- Procedural Generation Logic ---
+      let obstacles = [];
+      const spawnZ = -100; // Spawn distance
+      const removeZ = 10; // Behind camera
+      let lastSpawnTime = 0;
+      let spawnRate = 1.0; // Seconds
+
+      // Types of Obstacle Shapes
+      const obsGeometries = [
+        new THREE.BoxGeometry(2, 10, 2), // Pillar
+        new THREE.BoxGeometry(10, 2, 2), // Horizontal Bar
+        new THREE.OctahedronGeometry(1.5), // Floating mine
+        new THREE.BoxGeometry(4, 4, 4), // Cube
+      ];
+
+      function createObstacleMaterial(color) {
+        return new THREE.MeshStandardMaterial({
+          color: 0x111111,
+          emissive: color,
+          emissiveIntensity: 1.5, // Glow
+          roughness: 0.1,
+          metalness: 0.9,
+          wireframe: false,
+        });
+      }
+
+      // --- PROCEDURAL PATTERNS ---
+      function spawnObstacleWave() {
+        const currentTheme = themes[state.themeIndex];
+        const mat = createObstacleMaterial(currentTheme.obstacle);
+
+        // Randomly choose a pattern type
+        const pattern = Math.floor(Math.random() * 4);
+
+        switch (pattern) {
+          case 0: // Random Scatter
+            for (let i = 0; i < 3; i++) {
+              const mesh = new THREE.Mesh(
+                obsGeometries[Math.floor(Math.random() * obsGeometries.length)],
+                mat
+              );
+              mesh.position.set(
+                (Math.random() - 0.5) * 30,
+                Math.random() * 10 - 2,
+                spawnZ - Math.random() * 20
+              );
+              mesh.rotation.set(Math.random(), Math.random(), Math.random());
+              mesh.userData = { type: "scatter", rotSpeed: Math.random() * 2 };
+              obstacles.push(mesh);
+              scene.add(mesh);
+            }
+            break;
+
+          case 1: // The Gate (Gap in middle)
+            const leftWall = new THREE.Mesh(
+              new THREE.BoxGeometry(20, 10, 2),
+              mat
+            );
+            leftWall.position.set(-15, 0, spawnZ);
+            obstacles.push(leftWall);
+            scene.add(leftWall);
+
+            const rightWall = new THREE.Mesh(
+              new THREE.BoxGeometry(20, 10, 2),
+              mat
+            );
+            rightWall.position.set(15, 0, spawnZ);
+            obstacles.push(rightWall);
+            scene.add(rightWall);
+
+            // Sometimes add a top bar
+            if (Math.random() > 0.5) {
+              const topBar = new THREE.Mesh(
+                new THREE.BoxGeometry(10, 2, 2),
+                mat
+              );
+              topBar.position.set(0, 5, spawnZ);
+              obstacles.push(topBar);
+              scene.add(topBar);
+            }
+            break;
+
+          case 2: // Tunnel Ring
+            const segments = 8;
+            const radius = 8;
+            // Leave one segment out for a "hole" to fly through
+            const holeIndex = Math.floor(Math.random() * segments);
+
+            for (let i = 0; i < segments; i++) {
+              if (i === holeIndex) continue;
+              const angle = (i / segments) * Math.PI * 2;
+              const mesh = new THREE.Mesh(new THREE.BoxGeometry(2, 2, 10), mat);
+              mesh.position.set(
+                Math.cos(angle) * radius,
+                Math.sin(angle) * radius,
+                spawnZ
+              );
+              mesh.lookAt(0, 0, spawnZ);
+              obstacles.push(mesh);
+              scene.add(mesh);
+            }
+            break;
+
+          case 3: // Rotating Blade
+            const core = new THREE.Mesh(new THREE.BoxGeometry(25, 1, 1), mat);
+            core.position.set(0, 0, spawnZ);
+            core.userData = {
+              type: "rotator",
+              rotSpeed: Math.random() > 0.5 ? 2 : -2,
+            };
+            obstacles.push(core);
+            scene.add(core);
+            break;
+        }
+      }
+
+      // --- Input Handling ---
+      const mouse = new THREE.Vector2();
+      const targetPos = new THREE.Vector2();
+
+      window.addEventListener("mousemove", (event) => {
+        // Normalize mouse -1 to 1
+        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+      });
+
+      function handleInput(deltaTime) {
+        // Map mouse to game bounds
+        targetPos.x = mouse.x * 12; // X bounds
+        targetPos.y = Math.max(-1, Math.min(10, mouse.y * 8 + 2)); // Y bounds (offset up)
+
+        // Smooth lerp movement
+        shipGroup.position.x +=
+          (targetPos.x - shipGroup.position.x) * 5 * deltaTime;
+        shipGroup.position.y +=
+          (targetPos.y - shipGroup.position.y) * 5 * deltaTime;
+
+        // Bank effect (roll)
+        shipGroup.rotation.z = -shipGroup.position.x * 0.05;
+        shipGroup.rotation.x = -(shipGroup.position.y - 2) * 0.05;
+      }
+
+      // --- Game Logic ---
+      function updateTheme() {
+        // Change theme every 1000 points
+        const newIndex = Math.floor(state.score / 1000) % themes.length;
+        if (newIndex !== state.themeIndex) {
+          state.themeIndex = newIndex;
+          const t = themes[newIndex];
+
+          // Tween colors (simplified for JS only)
+          scene.fog.color.setHex(t.fog);
+          gridHelper.material.color.setHex(t.grid);
+          shipMesh.material.emissive.setHex(t.obstacle); // Ship glows obstacle color
+        }
+      }
+
+      function checkCollisions() {
+        const shipBox = new THREE.Box3().setFromObject(shipMesh);
+        // Shrink hit box slightly to be forgiving
+        shipBox.min.addScalar(0.2);
+        shipBox.max.subScalar(0.2);
+
+        for (let obs of obstacles) {
+          const obsBox = new THREE.Box3().setFromObject(obs);
+          if (shipBox.intersectsBox(obsBox)) {
+            gameOver();
+            return;
+          }
+        }
+      }
+
+      function updateEnvironment(deltaTime) {
+        state.time += deltaTime;
+        state.speed = state.baseSpeed * state.difficultyMultiplier;
+
+        // Increase difficulty over time
+        state.difficultyMultiplier += 0.0005 * deltaTime;
+        spawnRate = Math.max(0.3, 1.0 - (state.difficultyMultiplier - 1));
+
+        // Move Obstacles
+        for (let i = obstacles.length - 1; i >= 0; i--) {
+          const obs = obstacles[i];
+          obs.position.z += state.speed * deltaTime;
+
+          // Rotate dynamic obstacles
+          if (obs.userData.rotSpeed) {
+            obs.rotation.z += obs.userData.rotSpeed * deltaTime;
+            if (obs.userData.type === "scatter") {
+              obs.rotation.x += deltaTime;
+              obs.rotation.y += deltaTime;
+            }
+          }
+
+          // Remove if behind camera
+          if (obs.position.z > removeZ) {
+            scene.remove(obs);
+            obstacles.splice(i, 1);
+            obs.geometry.dispose(); // Memory cleanup
+          }
+        }
+
+        // Move Grid (Infinite illusion)
+        gridHelper.position.z += state.speed * deltaTime;
+        if (gridHelper.position.z > 10) gridHelper.position.z = 0;
+
+        // Move Stars
+        const positions = starSystem.geometry.attributes.position.array;
+        for (let i = 2; i < positions.length; i += 3) {
+          positions[i] += state.speed * deltaTime * 2; // Stars move faster
+          if (positions[i] > 20) positions[i] = -200;
+        }
+        starSystem.geometry.attributes.position.needsUpdate = true;
+
+        // Spawning
+        if (state.time - lastSpawnTime > spawnRate) {
+          spawnObstacleWave();
+          lastSpawnTime = state.time;
+        }
+
+        // Score
+        state.score += Math.floor(state.speed * deltaTime);
+        document.getElementById(
+          "score-hud"
+        ).innerText = `SCORE: ${state.score}`;
+        document.getElementById(
+          "distance-hud"
+        ).innerText = `SPEED: ${Math.floor(state.difficultyMultiplier * 100)}%`;
+
+        updateTheme();
+      }
+
+      // --- Main Loop ---
+      const clock = new THREE.Clock();
+
+      function animate() {
+        requestAnimationFrame(animate);
+
+        const deltaTime = Math.min(clock.getDelta(), 0.1); // Cap delta to prevent glitches
+
+        if (state.isPlaying) {
+          handleInput(deltaTime);
+          updateEnvironment(deltaTime);
+          checkCollisions();
+        } else {
+          // Idle animation
+          shipGroup.rotation.z = Math.sin(Date.now() * 0.001) * 0.1;
+          shipGroup.position.y = 2 + Math.sin(Date.now() * 0.002) * 0.5;
+        }
+
+        composer.render();
+      }
+
+      // --- Game Control ---
+      function startGame() {
+        state.isPlaying = true;
+        state.score = 0;
+        state.speed = state.baseSpeed;
+        state.difficultyMultiplier = 1;
+        state.themeIndex = 0;
+
+        // Clear obstacles
+        obstacles.forEach((o) => scene.remove(o));
+        obstacles = [];
+
+        // Reset position
+        shipGroup.position.set(0, 2, 0);
+        shipGroup.rotation.set(0, 0, 0);
+
+        // UI
+        document.getElementById("start-screen").style.display = "none";
+        document.getElementById("game-over").style.display = "none";
+
+        // Reset visual theme
+        updateTheme();
+      }
+
+      function gameOver() {
+        state.isPlaying = false;
+        document.getElementById("game-over").style.display = "flex";
+        document.getElementById(
+          "final-score"
+        ).innerText = `FINAL SCORE: ${state.score}`;
+
+        // Explosion effect (Simple visual queue)
+        shipGroup.visible = false;
+        setTimeout(() => {
+          shipGroup.visible = true;
+        }, 100); // Flicker
+      }
+
+      // --- Event Listeners ---
+      document
+        .getElementById("start-screen")
+        .addEventListener("click", startGame);
+      document.getElementById("game-over").addEventListener("click", startGame);
+
+      window.addEventListener("resize", () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        composer.setSize(window.innerWidth, window.innerHeight);
+      });
+
+      // Start loop
+      animate();
+    </script>
+  </body>
+</html>

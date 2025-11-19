@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Battle Sandbox 3D</title>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        background-color: #1a1a1a;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        user-select: none;
+      }
+
+      #canvas-container {
+        width: 100vw;
+        height: 100vh;
+        position: absolute;
+        top: 0;
+        left: 0;
+        z-index: 1;
+      }
+
+      #ui-layer {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        z-index: 2;
+        background: rgba(0, 0, 0, 0.8);
+        padding: 15px;
+        border-radius: 8px;
+        color: white;
+        border: 1px solid #444;
+        max-width: 300px;
+        backdrop-filter: blur(5px);
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+      }
+
+      h1 {
+        margin: 0 0 10px 0;
+        font-size: 18px;
+        color: #4db8ff;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        border-bottom: 1px solid #444;
+        padding-bottom: 5px;
+      }
+
+      .stat-row {
+        display: flex;
+        justify-content: space-between;
+        font-size: 12px;
+        margin-bottom: 5px;
+        color: #aaa;
+      }
+
+      .stat-value {
+        color: #fff;
+        font-weight: bold;
+      }
+
+      .control-group {
+        margin-top: 15px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      button {
+        background: #333;
+        color: white;
+        border: 1px solid #555;
+        padding: 8px 12px;
+        cursor: pointer;
+        border-radius: 4px;
+        font-size: 12px;
+        transition: all 0.2s;
+        text-transform: uppercase;
+        font-weight: bold;
+      }
+
+      button:hover {
+        background: #444;
+        border-color: #777;
+      }
+
+      button:active {
+        transform: translateY(1px);
+      }
+
+      button.spawn-btn {
+        background: #2d5a2d;
+        border-color: #3d7a3d;
+      }
+      button.spawn-btn:hover {
+        background: #366e36;
+      }
+
+      button.clear-btn {
+        background: #5a2d2d;
+        border-color: #7a3d3d;
+      }
+      button.clear-btn:hover {
+        background: #6e3636;
+      }
+
+      .instructions {
+        margin-top: 15px;
+        font-size: 11px;
+        color: #666;
+        font-style: italic;
+        border-top: 1px solid #333;
+        padding-top: 5px;
+      }
+
+      #loading {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: white;
+        z-index: 10;
+        font-size: 24px;
+        pointer-events: none;
+      }
+    </style>
+    <!-- Load Three.js and OrbitControls -->
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <style>
+      /* Minimal Floating Home Button */
+      .home-nav-btn {
+        position: fixed;
+        top: 15px;
+        left: 15px;
+        z-index: 10000; /* Ensure it sits above game UI/Canvases */
+        background: rgba(
+          30,
+          30,
+          30,
+          0.6
+        ); /* Dark semi-transparent for contrast */
+        color: #ffffff;
+        text-decoration: none;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+        font-size: 14px;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.2s ease;
+        backdrop-filter: blur(4px); /* Blurs background behind button */
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+
+      .home-nav-btn:hover {
+        background: rgba(30, 30, 30, 0.9);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      }
+
+      /* SVG Icon Style */
+      .home-nav-icon {
+        width: 16px;
+        height: 16px;
+      }
+    </style>
+
+    <!-- Link to your Hub (index.html) -->
+    <a href="index.html" class="home-nav-btn">
+      <svg
+        class="home-nav-icon"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+        <polyline points="9 22 9 12 15 12 15 22"></polyline>
+      </svg>
+      <span>Back to Hub</span>
+    </a>
+    <div id="ui-layer">
+      <h1>Battle Sandbox</h1>
+
+      <div class="stat-row">
+        <span>Active Units:</span>
+        <span id="unit-count" class="stat-value">0</span>
+      </div>
+      <div class="stat-row">
+        <span>FPS:</span>
+        <span id="fps-counter" class="stat-value">60</span>
+      </div>
+
+      <div class="control-group">
+        <button class="spawn-btn" onclick="game.spawnBatch(1)">
+          Spawn 1 Random Unit
+        </button>
+        <button class="spawn-btn" onclick="game.spawnBatch(10)">
+          Spawn 10 Random Units
+        </button>
+        <button class="spawn-btn" onclick="game.spawnBatch(50)">
+          Spawn 50 Random Units
+        </button>
+        <button onclick="game.toggleAutoSpawn()">
+          Toggle Auto-Spawn: <span id="autospawn-status">OFF</span>
+        </button>
+        <button class="clear-btn" onclick="game.clearArena()">
+          Nuke Arena
+        </button>
+      </div>
+
+      <div class="instructions">
+        Left Click: Rotate Camera<br />
+        Right Click: Pan Camera<br />
+        Scroll: Zoom<br />
+        Units attack different colors automatically.
+      </div>
+    </div>
+
+    <div id="canvas-container"></div>
+    <div id="loading">Initializing Simulation...</div>
+
+    <script type="module">
+      import * as THREE from "three";
+      import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+
+      // --- UTILS ---
+      const randomRange = (min, max) => Math.random() * (max - min) + min;
+      const randomInt = (min, max) =>
+        Math.floor(Math.random() * (max - min + 1)) + min;
+
+      // Factions based on color hue
+      const FACTIONS = [
+        { name: "Crimson Legion", color: 0xff3333, hue: 0 },
+        { name: "Cobalt Guard", color: 0x3333ff, hue: 240 },
+        { name: "Emerald Swarm", color: 0x33ff33, hue: 120 },
+        { name: "Golden Horde", color: 0xffaa00, hue: 40 },
+      ];
+
+      // Procedural Texture Generator
+      class TextureGenerator {
+        static generateDigitalCamo(baseColorHex) {
+          const size = 64; // Low res for minecraft/retro feel
+          const canvas = document.createElement("canvas");
+          canvas.width = size;
+          canvas.height = size;
+          const ctx = canvas.getContext("2d");
+
+          const baseColor = new THREE.Color(baseColorHex);
+
+          // Fill base
+          ctx.fillStyle = `#${baseColor.getHexString()}`;
+          ctx.fillRect(0, 0, size, size);
+
+          // Add noise
+          for (let i = 0; i < 40; i++) {
+            const shade = Math.random() > 0.5 ? 1.2 : 0.8; // Lighter or darker
+            const noiseColor = baseColor.clone().multiplyScalar(shade);
+            ctx.fillStyle = `#${noiseColor.getHexString()}`;
+
+            const w = randomInt(4, 16);
+            const h = randomInt(4, 16);
+            const x = randomInt(0, size - w);
+            const y = randomInt(0, size - h);
+
+            ctx.fillRect(x, y, w, h);
+          }
+
+          const texture = new THREE.CanvasTexture(canvas);
+          texture.magFilter = THREE.NearestFilter; // Pixelated look
+          texture.minFilter = THREE.NearestFilter;
+          return texture;
+        }
+      }
+
+      // --- PARTICLE SYSTEM ---
+      class ParticleSystem {
+        constructor(scene) {
+          this.scene = scene;
+          this.particles = [];
+          this.geometry = new THREE.BoxGeometry(0.2, 0.2, 0.2);
+        }
+
+        emit(position, color, count = 5) {
+          const material = new THREE.MeshBasicMaterial({ color: color });
+          for (let i = 0; i < count; i++) {
+            const mesh = new THREE.Mesh(this.geometry, material);
+            mesh.position.copy(position);
+
+            // Random spread
+            mesh.position.x += randomRange(-0.5, 0.5);
+            mesh.position.y += randomRange(0, 1.0);
+            mesh.position.z += randomRange(-0.5, 0.5);
+
+            const velocity = new THREE.Vector3(
+              randomRange(-0.2, 0.2),
+              randomRange(0.2, 0.5),
+              randomRange(-0.2, 0.2)
+            );
+
+            this.particles.push({ mesh, velocity, life: 1.0 });
+            this.scene.add(mesh);
+          }
+        }
+
+        update() {
+          for (let i = this.particles.length - 1; i >= 0; i--) {
+            const p = this.particles[i];
+            p.life -= 0.02;
+
+            p.velocity.y -= 0.02; // Gravity
+            p.mesh.position.add(p.velocity);
+            p.mesh.rotation.x += 0.1;
+            p.mesh.rotation.z += 0.1;
+            p.mesh.scale.setScalar(p.life);
+
+            if (p.life <= 0 || p.mesh.position.y < 0) {
+              this.scene.remove(p.mesh);
+              p.mesh.geometry.dispose(); // Reuse geometry in real app, but simpler here
+              this.particles.splice(i, 1);
+            }
+          }
+        }
+      }
+
+      // --- UNIT CLASS ---
+      class Unit {
+        constructor(scene, factionIndex) {
+          this.scene = scene;
+          this.id = Math.random().toString(36).substr(2, 9);
+          this.dead = false;
+
+          // Stats
+          this.faction = FACTIONS[factionIndex];
+          this.maxHp = randomInt(80, 150);
+          this.hp = this.maxHp;
+          this.damage = randomInt(5, 15);
+          this.speed = randomRange(0.08, 0.15);
+          this.attackRange = 2.5;
+          this.attackCooldown = 0;
+          this.attackRate = randomInt(30, 60); // Frames between attacks
+
+          // Visual Setup
+          this.meshGroup = new THREE.Group();
+
+          // Generate Texture
+          const texture = TextureGenerator.generateDigitalCamo(
+            this.faction.color
+          );
+          const material = new THREE.MeshStandardMaterial({
+            map: texture,
+            roughness: 0.8,
+            metalness: 0.1,
+          });
+          const darkMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
+
+          // Body
+          const bodyGeo = new THREE.BoxGeometry(1, 1.5, 0.6);
+          this.body = new THREE.Mesh(bodyGeo, material);
+          this.body.position.y = 1.5; // Lift off ground
+          this.body.castShadow = true;
+          this.meshGroup.add(this.body);
+
+          // Head
+          const headGeo = new THREE.BoxGeometry(0.6, 0.6, 0.6);
+          this.head = new THREE.Mesh(headGeo, material);
+          this.head.position.y = 1.1;
+          this.body.add(this.head);
+
+          // Eyes (Visor)
+          const eyeGeo = new THREE.BoxGeometry(0.5, 0.15, 0.4);
+          const eyeMat = new THREE.MeshBasicMaterial({ color: 0x00ffff }); // Glowing eyes
+          this.eyes = new THREE.Mesh(eyeGeo, eyeMat);
+          this.eyes.position.set(0, 0, 0.2);
+          this.head.add(this.eyes);
+
+          // Arms
+          const limbGeo = new THREE.BoxGeometry(0.3, 1.2, 0.3);
+
+          this.armL = new THREE.Mesh(limbGeo, material);
+          this.armL.position.set(0.7, 0.2, 0);
+          this.body.add(this.armL);
+
+          this.armR = new THREE.Mesh(limbGeo, material);
+          this.armR.position.set(-0.7, 0.2, 0);
+          this.body.add(this.armR);
+
+          // Legs
+          this.legL = new THREE.Mesh(limbGeo, darkMat); // Pants
+          this.legL.position.set(0.3, -1.2, 0);
+          this.body.add(this.legL);
+
+          this.legR = new THREE.Mesh(limbGeo, darkMat);
+          this.legR.position.set(-0.3, -1.2, 0);
+          this.body.add(this.legR);
+
+          // Health Bar (Billboard)
+          const hpBgGeo = new THREE.PlaneGeometry(1.2, 0.15);
+          const hpBgMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+          this.hpBg = new THREE.Mesh(hpBgGeo, hpBgMat);
+          this.hpBg.position.y = 2.6;
+          this.meshGroup.add(this.hpBg);
+
+          const hpBarGeo = new THREE.PlaneGeometry(1.1, 0.1);
+          const hpBarMat = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+          this.hpBar = new THREE.Mesh(hpBarGeo, hpBarMat);
+          this.hpBar.position.z = 0.01; // Layer on top
+          this.hpBg.add(this.hpBar);
+
+          // Random Spawn Position
+          const spawnRange = 40;
+          this.meshGroup.position.set(
+            randomRange(-spawnRange, spawnRange),
+            0,
+            randomRange(-spawnRange, spawnRange)
+          );
+
+          // Random initial rotation
+          this.meshGroup.rotation.y = randomRange(0, Math.PI * 2);
+
+          this.scene.add(this.meshGroup);
+
+          // Animation State
+          this.walkCycle = 0;
+        }
+
+        takeDamage(amount) {
+          this.hp -= amount;
+
+          // Update HP Bar visual
+          const pct = Math.max(0, this.hp / this.maxHp);
+          this.hpBar.scale.x = pct;
+          this.hpBar.position.x = -0.55 * (1 - pct); // Keep left aligned
+          this.hpBar.material.color.setHSL(pct * 0.3, 1, 0.5); // Green to Red
+
+          // Flash effect
+          this.body.material.emissive.setHex(0xff0000);
+          setTimeout(() => {
+            if (!this.dead) this.body.material.emissive.setHex(0x000000);
+          }, 100);
+
+          if (this.hp <= 0) this.die();
+        }
+
+        die() {
+          this.dead = true;
+          // Fall over animation logic handled in update
+          // Turn grey
+          this.body.material.color.setHex(0x555555);
+          this.meshGroup.remove(this.hpBg); // Hide HP bar
+
+          // Remove from scene after delay
+          setTimeout(() => {
+            this.scene.remove(this.meshGroup);
+          }, 3000);
+        }
+
+        animate(isMoving, isAttacking) {
+          if (this.dead) {
+            // Death animation (tip over)
+            if (this.meshGroup.rotation.x > -1.5) {
+              this.meshGroup.rotation.x -= 0.1;
+              this.meshGroup.position.y -= 0.05;
+            }
+            return;
+          }
+
+          // Make HP bar always face camera
+          this.hpBg.lookAt(game.camera.position);
+
+          if (isMoving) {
+            this.walkCycle += 0.2;
+            // Swing legs
+            this.legL.rotation.x = Math.sin(this.walkCycle) * 0.5;
+            this.legR.rotation.x = Math.sin(this.walkCycle + Math.PI) * 0.5;
+
+            // Swing Arms
+            if (!isAttacking) {
+              this.armL.rotation.x = Math.sin(this.walkCycle + Math.PI) * 0.5;
+              this.armR.rotation.x = Math.sin(this.walkCycle) * 0.5;
+            }
+          } else {
+            // Reset to idle
+            this.legL.rotation.x = THREE.MathUtils.lerp(
+              this.legL.rotation.x,
+              0,
+              0.1
+            );
+            this.legR.rotation.x = THREE.MathUtils.lerp(
+              this.legR.rotation.x,
+              0,
+              0.1
+            );
+          }
+
+          if (isAttacking) {
+            // Simple chop animation
+            this.armR.rotation.x =
+              -Math.PI / 2 + Math.sin(Date.now() * 0.02) * 0.5;
+          } else {
+            if (!isMoving)
+              this.armR.rotation.x = THREE.MathUtils.lerp(
+                this.armR.rotation.x,
+                0,
+                0.1
+              );
+          }
+        }
+
+        update(allUnits, particles) {
+          if (this.dead) {
+            this.animate(false, false);
+            return;
+          }
+
+          let closestTarget = null;
+          let minDist = Infinity;
+
+          // Find nearest enemy
+          for (const other of allUnits) {
+            if (
+              other === this ||
+              other.dead ||
+              other.faction.name === this.faction.name
+            )
+              continue;
+
+            const dist = this.meshGroup.position.distanceTo(
+              other.meshGroup.position
+            );
+            if (dist < minDist) {
+              minDist = dist;
+              closestTarget = other;
+            }
+          }
+
+          let isMoving = false;
+          let isAttacking = false;
+
+          if (closestTarget) {
+            // Look at target
+            const targetPos = closestTarget.meshGroup.position.clone();
+            targetPos.y = this.meshGroup.position.y; // Stay level
+            this.meshGroup.lookAt(targetPos);
+
+            if (minDist > this.attackRange) {
+              // Move towards
+              this.meshGroup.translateZ(this.speed);
+              isMoving = true;
+            } else {
+              // Attack
+              isAttacking = true;
+              if (this.attackCooldown <= 0) {
+                this.attackCooldown = this.attackRate;
+                closestTarget.takeDamage(this.damage);
+                particles.emit(
+                  targetPos.clone().add(new THREE.Vector3(0, 1.5, 0)),
+                  0xff0000,
+                  3
+                ); // Blood
+              }
+            }
+          }
+
+          if (this.attackCooldown > 0) this.attackCooldown--;
+
+          this.animate(isMoving, isAttacking);
+        }
+      }
+
+      // --- MAIN GAME ENGINE ---
+      class Game {
+        constructor() {
+          this.container = document.getElementById("canvas-container");
+          this.units = [];
+          this.autoSpawn = false;
+          this.autoSpawnTimer = 0;
+
+          this.initThree();
+          this.initEnvironment();
+          this.particles = new ParticleSystem(this.scene);
+
+          // Start Loop
+          document.getElementById("loading").style.display = "none";
+          this.animate();
+
+          // Handle resize
+          window.addEventListener("resize", () => this.onWindowResize(), false);
+
+          // Make game accessible globally for UI
+          window.game = this;
+        }
+
+        initThree() {
+          this.scene = new THREE.Scene();
+          this.scene.background = new THREE.Color(0x1a1a1a);
+          this.scene.fog = new THREE.Fog(0x1a1a1a, 20, 100);
+
+          this.camera = new THREE.PerspectiveCamera(
+            60,
+            window.innerWidth / window.innerHeight,
+            0.1,
+            1000
+          );
+          this.camera.position.set(0, 30, 50);
+
+          this.renderer = new THREE.WebGLRenderer({ antialias: true });
+          this.renderer.setSize(window.innerWidth, window.innerHeight);
+          this.renderer.shadowMap.enabled = true;
+          this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+          this.container.appendChild(this.renderer.domElement);
+
+          this.controls = new OrbitControls(
+            this.camera,
+            this.renderer.domElement
+          );
+          this.controls.enableDamping = true;
+          this.controls.dampingFactor = 0.05;
+          this.controls.maxPolarAngle = Math.PI / 2 - 0.1; // Don't go below ground
+        }
+
+        initEnvironment() {
+          // Lights
+          const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+          this.scene.add(ambientLight);
+
+          const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+          dirLight.position.set(50, 80, 50);
+          dirLight.castShadow = true;
+          dirLight.shadow.camera.top = 50;
+          dirLight.shadow.camera.bottom = -50;
+          dirLight.shadow.camera.left = -50;
+          dirLight.shadow.camera.right = 50;
+          dirLight.shadow.mapSize.width = 2048;
+          dirLight.shadow.mapSize.height = 2048;
+          this.scene.add(dirLight);
+
+          // Ground Grid
+          const gridHelper = new THREE.GridHelper(100, 50, 0x444444, 0x222222);
+          this.scene.add(gridHelper);
+
+          // Floor Plane (to receive shadows)
+          const planeGeo = new THREE.PlaneGeometry(100, 100);
+          const planeMat = new THREE.MeshStandardMaterial({
+            color: 0x1a1a1a,
+            roughness: 1,
+          });
+          const plane = new THREE.Mesh(planeGeo, planeMat);
+          plane.rotation.x = -Math.PI / 2;
+          plane.position.y = -0.1;
+          plane.receiveShadow = true;
+          this.scene.add(plane);
+        }
+
+        spawnBatch(count) {
+          for (let i = 0; i < count; i++) {
+            const factionIndex = randomInt(0, FACTIONS.length - 1);
+            this.units.push(new Unit(this.scene, factionIndex));
+          }
+          this.updateUI();
+        }
+
+        clearArena() {
+          this.units.forEach((u) => this.scene.remove(u.meshGroup));
+          this.units = [];
+          this.particles.particles.forEach((p) => this.scene.remove(p.mesh));
+          this.particles.particles = [];
+          this.updateUI();
+        }
+
+        toggleAutoSpawn() {
+          this.autoSpawn = !this.autoSpawn;
+          const statusEl = document.getElementById("autospawn-status");
+          statusEl.innerText = this.autoSpawn ? "ON" : "OFF";
+          statusEl.style.color = this.autoSpawn ? "#00ff00" : "#666";
+        }
+
+        updateUI() {
+          document.getElementById("unit-count").innerText = this.units.filter(
+            (u) => !u.dead
+          ).length;
+        }
+
+        onWindowResize() {
+          this.camera.aspect = window.innerWidth / window.innerHeight;
+          this.camera.updateProjectionMatrix();
+          this.renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        animate() {
+          requestAnimationFrame(() => this.animate());
+
+          const delta = 0.016; // Approx 60fps
+
+          this.controls.update();
+          this.particles.update();
+
+          // Game Logic
+          // Clean up dead units fully removed from scene
+          this.units = this.units.filter((u) => {
+            if (u.dead && !u.meshGroup.parent) return false;
+            return true;
+          });
+
+          // AI Update
+          this.units.forEach((unit) => unit.update(this.units, this.particles));
+
+          // Auto Spawn Logic
+          if (this.autoSpawn) {
+            this.autoSpawnTimer++;
+            if (this.autoSpawnTimer > 60 && this.units.length < 50) {
+              this.spawnBatch(1);
+              this.autoSpawnTimer = 0;
+            }
+          }
+
+          // FPS Counter (rough approximation)
+          if (Math.random() > 0.95) {
+            document.getElementById("fps-counter").innerText = Math.round(
+              1000 / (performance.now() - this.lastTime || 16)
+            );
+            this.updateUI();
+          }
+          this.lastTime = performance.now();
+
+          this.renderer.render(this.scene, this.camera);
+        }
+      }
+
+      // Initialize
+      window.onload = () => {
+        new Game();
+      };
+    </script>
+  </body>
+</html>
