@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Grand Theft Auto: Vice Prototype</title>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        background-color: #1a1a1a;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        user-select: none;
+      }
+      canvas {
+        display: block;
+      }
+      #ui-layer {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+      }
+      .hud-element {
+        position: absolute;
+        color: white;
+        text-shadow: 2px 2px 0 #000;
+        font-weight: bold;
+      }
+      #wanted-level {
+        top: 20px;
+        right: 20px;
+        font-size: 24px;
+        display: flex;
+      }
+      .star {
+        color: #333; /* Inactive */
+        margin-left: 5px;
+        font-size: 30px;
+      }
+      .star.active {
+        color: #ffcc00; /* Active */
+      }
+      #health-bar-container {
+        top: 20px;
+        left: 20px;
+        width: 200px;
+        height: 20px;
+        background: rgba(0, 0, 0, 0.5);
+        border: 2px solid #fff;
+        border-radius: 10px;
+        overflow: hidden;
+      }
+      #health-bar {
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, #ff4d4d, #ff0000);
+      }
+      #ammo {
+        top: 50px;
+        right: 20px;
+        font-size: 24px;
+        color: #ccc;
+      }
+      #message-area {
+        bottom: 10%;
+        width: 100%;
+        text-align: center;
+        font-size: 24px;
+        color: #fff;
+        text-shadow: 0 0 5px #000;
+        opacity: 0;
+        transition: opacity 0.5s;
+      }
+      #controls-hint {
+        bottom: 10px;
+        left: 10px;
+        font-size: 14px;
+        color: rgba(255, 255, 255, 0.7);
+        text-align: left;
+      }
+      .key {
+        background: #333;
+        padding: 2px 6px;
+        border-radius: 4px;
+        border: 1px solid #555;
+        font-family: monospace;
+      }
+    </style>
+  </head>
+  <body>
+    <style>
+      /* Minimal Floating Home Button */
+      .home-nav-btn {
+        position: fixed;
+        top: 15px;
+        left: 15px;
+        z-index: 10000; /* Ensure it sits above game UI/Canvases */
+        background: rgba(
+          30,
+          30,
+          30,
+          0.6
+        ); /* Dark semi-transparent for contrast */
+        color: #ffffff;
+        text-decoration: none;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+        font-size: 14px;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.2s ease;
+        backdrop-filter: blur(4px); /* Blurs background behind button */
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+
+      .home-nav-btn:hover {
+        background: rgba(30, 30, 30, 0.9);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      }
+
+      /* SVG Icon Style */
+      .home-nav-icon {
+        width: 16px;
+        height: 16px;
+      }
+    </style>
+
+    <!-- Link to your Hub (index.html) -->
+    <a href="index.html" class="home-nav-btn">
+      <svg
+        class="home-nav-icon"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+        <polyline points="9 22 9 12 15 12 15 22"></polyline>
+      </svg>
+      <span>Back to Hub</span>
+    </a>
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="ui-layer">
+      <div id="health-bar-container"><div id="health-bar"></div></div>
+      <div id="wanted-level">
+        <span class="star">★</span><span class="star">★</span
+        ><span class="star">★</span><span class="star">★</span
+        ><span class="star">★</span>
+      </div>
+      <div id="ammo">∞ / ∞</div>
+      <div id="message-area">WASTED</div>
+      <div id="controls-hint">
+        <span class="key">WASD</span> Move/Drive &nbsp;
+        <span class="key">SHIFT</span> Sprint &nbsp;
+        <span class="key">F</span> Enter/Exit Car &nbsp;
+        <span class="key">LMB</span> Shoot &nbsp;
+        <span class="key">SPACE</span> Brake
+      </div>
+    </div>
+
+    <script>
+      /* --- GAME ENGINE & CONSTANTS --- */
+      const canvas = document.getElementById("gameCanvas");
+      const ctx = canvas.getContext("2d", { alpha: false }); // Optimize
+      const uiHealth = document.getElementById("health-bar");
+      const uiStars = document.querySelectorAll(".star");
+      const uiMessage = document.getElementById("message-area");
+
+      let SCREEN_WIDTH = window.innerWidth;
+      let SCREEN_HEIGHT = window.innerHeight;
+
+      const TILE_SIZE = 100;
+      const WORLD_WIDTH = 40; // Tiles
+      const WORLD_HEIGHT = 40; // Tiles
+      const MAP_WIDTH = WORLD_WIDTH * TILE_SIZE;
+      const MAP_HEIGHT = WORLD_HEIGHT * TILE_SIZE;
+
+      // Palette (Vice City Vibe)
+      const COLORS = {
+        grass: "#2d4c3b", // Darker organic green
+        water: "#006994",
+        road: "#3a3a3a",
+        roadLine: "#b0b0b0",
+        sidewalk: "#6e6e6e",
+        building: ["#f4a460", "#e9967a", "#87ceeb", "#98fb98", "#ffb6c1"], // Art deco pastel
+        player: "#fff",
+        playerSkin: "#ffccaa",
+        blood: "#cc0000",
+        police: "#000000",
+      };
+
+      // Inputs
+      const keys = {};
+      const mouse = { x: 0, y: 0, leftDown: false };
+
+      window.addEventListener("resize", () => {
+        SCREEN_WIDTH = window.innerWidth;
+        SCREEN_HEIGHT = window.innerHeight;
+        canvas.width = SCREEN_WIDTH;
+        canvas.height = SCREEN_HEIGHT;
+      });
+      canvas.width = SCREEN_WIDTH;
+      canvas.height = SCREEN_HEIGHT;
+
+      window.addEventListener("keydown", (e) => (keys[e.code] = true));
+      window.addEventListener("keyup", (e) => {
+        keys[e.code] = false;
+        if (e.code === "KeyF") player.tryEnterVehicle();
+      });
+      window.addEventListener("mousemove", (e) => {
+        mouse.x = e.clientX;
+        mouse.y = e.clientY;
+      });
+      window.addEventListener("mousedown", () => (mouse.leftDown = true));
+      window.addEventListener("mouseup", () => (mouse.leftDown = false));
+
+      /* --- MATH UTILS --- */
+      const MathUtils = {
+        dist: (x1, y1, x2, y2) => Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2),
+        angle: (x1, y1, x2, y2) => Math.atan2(y2 - y1, x2 - x1),
+        lerp: (a, b, t) => a + (b - a) * t,
+        clamp: (val, min, max) => Math.max(min, Math.min(max, val)),
+        rand: (min, max) => Math.random() * (max - min) + min,
+        rectIntersect: (r1, r2) =>
+          !(
+            r2.left > r1.right ||
+            r2.right < r1.left ||
+            r2.top > r1.bottom ||
+            r2.bottom < r1.top
+          ),
+      };
+
+      /* --- WORLD GENERATION --- */
+      const map = []; // 2D Grid: 0=Grass, 1=RoadV, 2=RoadH, 3=Intersection, 4=Building, 5=Water
+      const buildings = []; // Collision rects
+      const roads = []; // Spawn points for cars
+
+      function generateWorld() {
+        // Initialize grass
+        for (let y = 0; y < WORLD_HEIGHT; y++) {
+          map[y] = [];
+          for (let x = 0; x < WORLD_WIDTH; x++) {
+            map[y][x] = 0;
+          }
+        }
+
+        // Create Grid of Roads
+        const blockSize = 5;
+        for (let y = 2; y < WORLD_HEIGHT - 2; y++) {
+          for (let x = 2; x < WORLD_WIDTH - 2; x++) {
+            if (x % blockSize === 0 || y % blockSize === 0) {
+              if (x % blockSize === 0 && y % blockSize === 0) map[y][x] = 3;
+              else if (x % blockSize === 0) map[y][x] = 1;
+              else map[y][x] = 2;
+              roads.push({
+                x: x * TILE_SIZE + TILE_SIZE / 2,
+                y: y * TILE_SIZE + TILE_SIZE / 2,
+              });
+            } else {
+              // Random Building placement in blocks, keeping some space
+              if (Math.random() > 0.3) {
+                map[y][x] = 4;
+                buildings.push({
+                  x: x * TILE_SIZE,
+                  y: y * TILE_SIZE,
+                  w: TILE_SIZE,
+                  h: TILE_SIZE,
+                  color:
+                    COLORS.building[
+                      Math.floor(Math.random() * COLORS.building.length)
+                    ],
+                });
+              }
+            }
+          }
+        }
+      }
+
+      /* --- CLASSES --- */
+
+      class Camera {
+        constructor() {
+          this.x = 0;
+          this.y = 0;
+        }
+        follow(target) {
+          // Smooth camera
+          let targetX = target.x - SCREEN_WIDTH / 2;
+          let targetY = target.y - SCREEN_HEIGHT / 2;
+
+          // Look ahead if driving
+          if (target.vehicle) {
+            targetX +=
+              Math.cos(target.vehicle.angle) * target.vehicle.speed * 20;
+            targetY +=
+              Math.sin(target.vehicle.angle) * target.vehicle.speed * 20;
+          }
+
+          this.x = MathUtils.lerp(this.x, targetX, 0.1);
+          this.y = MathUtils.lerp(this.y, targetY, 0.1);
+
+          // Map bounds
+          this.x = MathUtils.clamp(this.x, 0, MAP_WIDTH - SCREEN_WIDTH);
+          this.y = MathUtils.clamp(this.y, 0, MAP_HEIGHT - SCREEN_HEIGHT);
+        }
+      }
+
+      class Particle {
+        constructor(x, y, type) {
+          this.x = x;
+          this.y = y;
+          this.type = type; // 'blood', 'smoke', 'tire', 'fire'
+          this.life = 1.0;
+          this.angle = Math.random() * Math.PI * 2;
+          this.speed = Math.random() * 2;
+
+          if (type === "tire") {
+            this.life = 3.0; // Lasts longer
+            this.speed = 0;
+          }
+        }
+        update() {
+          this.x += Math.cos(this.angle) * this.speed;
+          this.y += Math.sin(this.angle) * this.speed;
+          this.life -= 0.02;
+          if (this.type === "smoke" || this.type === "fire") {
+            this.speed *= 0.95;
+            this.life -= 0.03;
+          }
+        }
+        draw(ctx) {
+          ctx.globalAlpha = this.life;
+          if (this.type === "blood") {
+            ctx.fillStyle = COLORS.blood;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, 3, 0, Math.PI * 2);
+            ctx.fill();
+          } else if (this.type === "smoke") {
+            ctx.fillStyle = "#555";
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, 5 + (1 - this.life) * 10, 0, Math.PI * 2);
+            ctx.fill();
+          } else if (this.type === "fire") {
+            ctx.fillStyle = Math.random() > 0.5 ? "#ffcc00" : "#ff4400";
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, 4 + (1 - this.life) * 5, 0, Math.PI * 2);
+            ctx.fill();
+          } else if (this.type === "tire") {
+            ctx.fillStyle = "#111";
+            ctx.fillRect(this.x, this.y, 4, 4);
+          }
+          ctx.globalAlpha = 1.0;
+        }
+      }
+
+      class Bullet {
+        constructor(x, y, angle, owner) {
+          this.x = x;
+          this.y = y;
+          this.angle = angle;
+          this.speed = 25;
+          this.owner = owner; // 'player' or 'enemy'
+          this.active = true;
+          this.life = 60;
+        }
+        update() {
+          this.x += Math.cos(this.angle) * this.speed;
+          this.y += Math.sin(this.angle) * this.speed;
+          this.life--;
+          if (this.life <= 0) this.active = false;
+
+          // Collision with buildings
+          for (let b of buildings) {
+            if (
+              this.x > b.x &&
+              this.x < b.x + b.w &&
+              this.y > b.y &&
+              this.y < b.y + b.h
+            ) {
+              this.active = false;
+              particles.push(new Particle(this.x, this.y, "smoke"));
+              return;
+            }
+          }
+
+          // Collision with Cars
+          for (let c of vehicles) {
+            if (MathUtils.dist(this.x, this.y, c.x, c.y) < 25) {
+              this.active = false;
+              c.health -= 10;
+              particles.push(new Particle(this.x, this.y, "fire"));
+              if (c.health <= 0 && !c.dead) {
+                c.explode();
+              }
+              return;
+            }
+          }
+
+          // Collision with Pedestrians
+          if (this.owner === "player") {
+            for (let p of peds) {
+              if (!p.dead && MathUtils.dist(this.x, this.y, p.x, p.y) < 15) {
+                p.takeDamage(100); // Instakill peds
+                this.active = false;
+                return;
+              }
+            }
+          }
+
+          // Collision with Player
+          if (this.owner === "enemy") {
+            if (MathUtils.dist(this.x, this.y, player.x, player.y) < 15) {
+              player.takeDamage(10);
+              this.active = false;
+            }
+          }
+        }
+        draw(ctx) {
+          ctx.strokeStyle = "#ffff00";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(this.x, this.y);
+          ctx.lineTo(
+            this.x - Math.cos(this.angle) * 10,
+            this.y - Math.sin(this.angle) * 10
+          );
+          ctx.stroke();
+        }
+      }
+
+      class Vehicle {
+        constructor(x, y, type = "civilian") {
+          this.x = x;
+          this.y = y;
+          this.type = type; // 'civilian', 'police', 'sports'
+          this.angle = Math.random() * Math.PI * 2;
+          this.speed = 0;
+          this.maxSpeed = type === "sports" ? 18 : type === "police" ? 16 : 12;
+          this.accel = type === "sports" ? 0.3 : 0.2;
+          this.friction = 0.96;
+          this.turnSpeed = 0.06;
+
+          this.width = 24;
+          this.length = 48;
+          this.color =
+            type === "police"
+              ? "#fff"
+              : COLORS.building[
+                  Math.floor(Math.random() * COLORS.building.length)
+                ];
+
+          this.driver = null;
+          this.health = 100;
+          this.dead = false;
+
+          // AI Stuffs
+          this.targetX = x;
+          this.targetY = y;
+          this.aiState = "idle";
+          this.siren = false;
+          this.sirenTimer = 0;
+        }
+
+        explode() {
+          this.dead = true;
+          this.color = "#333";
+          for (let i = 0; i < 20; i++)
+            particles.push(new Particle(this.x, this.y, "fire"));
+          for (let i = 0; i < 20; i++)
+            particles.push(new Particle(this.x, this.y, "smoke"));
+          if (this.driver === player) {
+            player.exitVehicle(true); // Force exit
+            player.takeDamage(50);
+          }
+        }
+
+        update() {
+          if (this.dead) return;
+
+          // Physics
+          this.speed *= this.friction;
+          this.x += Math.cos(this.angle) * this.speed;
+          this.y += Math.sin(this.angle) * this.speed;
+
+          // Drift particles
+          if (Math.abs(this.speed) > 5 && Math.random() > 0.5) {
+            // Simple drift check logic would be better but random is okay for visual noise
+            // particles.push(new Particle(this.x - Math.cos(this.angle)*20, this.y - Math.sin(this.angle)*20, 'tire'));
+          }
+
+          // Wall Collisions
+          for (let b of buildings) {
+            // Simple circle-rect collision for performance
+            let nearestX = Math.max(b.x, Math.min(this.x, b.x + b.w));
+            let nearestY = Math.max(b.y, Math.min(this.y, b.y + b.h));
+            let dist = MathUtils.dist(this.x, this.y, nearestX, nearestY);
+
+            if (dist < 20) {
+              // Collision
+              this.speed *= -0.5; // Bounce
+              this.x -= Math.cos(this.angle) * 5;
+              this.y -= Math.sin(this.angle) * 5;
+              this.health -= Math.abs(this.speed) * 2;
+              if (this.health <= 0) this.explode();
+            }
+          }
+
+          // AI Logic
+          if (this.driver !== player && this.type !== "parked") {
+            if (
+              this.type === "police" &&
+              player.wantedLevel > 0 &&
+              !player.dead
+            ) {
+              // Chase Player
+              let angleToPlayer = MathUtils.angle(
+                this.x,
+                this.y,
+                player.x,
+                player.y
+              );
+              let diff = angleToPlayer - this.angle;
+              // Normalize angle
+              while (diff < -Math.PI) diff += Math.PI * 2;
+              while (diff > Math.PI) diff -= Math.PI * 2;
+
+              if (diff > 0.1) this.angle += this.turnSpeed;
+              else if (diff < -0.1) this.angle -= this.turnSpeed;
+
+              if (MathUtils.dist(this.x, this.y, player.x, player.y) > 100) {
+                this.speed += this.accel;
+              }
+              this.siren = true;
+            } else {
+              // Civilian Wander (very basic)
+              this.speed += this.accel * 0.5;
+              if (Math.random() < 0.02) this.angle += Math.random() - 0.5;
+            }
+            if (this.speed > this.maxSpeed * 0.6)
+              this.speed = this.maxSpeed * 0.6;
+          }
+
+          if (this.siren) {
+            this.sirenTimer++;
+          }
+        }
+
+        draw(ctx) {
+          ctx.save();
+          ctx.translate(this.x, this.y);
+          ctx.rotate(this.angle);
+
+          // Shadow
+          ctx.fillStyle = "rgba(0,0,0,0.3)";
+          ctx.fillRect(
+            -this.length / 2 + 5,
+            -this.width / 2 + 5,
+            this.length,
+            this.width
+          );
+
+          // Body
+          ctx.fillStyle = this.color;
+          ctx.fillRect(
+            -this.length / 2,
+            -this.width / 2,
+            this.length,
+            this.width
+          );
+
+          // Roof/Windshield
+          ctx.fillStyle = "#111";
+          ctx.fillRect(
+            -this.length / 4,
+            -this.width / 2 + 2,
+            this.length / 2,
+            this.width - 4
+          );
+
+          // Lights
+          ctx.fillStyle = "#ffffaa"; // Headlights
+          ctx.fillRect(this.length / 2 - 2, -this.width / 2 + 2, 2, 6);
+          ctx.fillRect(this.length / 2 - 2, this.width / 2 - 8, 2, 6);
+
+          ctx.fillStyle = "#cc0000"; // Taillights
+          ctx.fillRect(-this.length / 2, -this.width / 2 + 2, 2, 6);
+          ctx.fillRect(-this.length / 2, this.width / 2 - 8, 2, 6);
+
+          // Siren
+          if (this.type === "police") {
+            ctx.fillStyle =
+              Math.floor(this.sirenTimer / 10) % 2 === 0
+                ? "#ff0000"
+                : "#0000ff";
+            ctx.fillRect(-5, -5, 10, 10);
+          }
+
+          ctx.restore();
+        }
+      }
+
+      class Human {
+        constructor(x, y, type = "ped") {
+          this.x = x;
+          this.y = y;
+          this.type = type; // 'player', 'ped', 'cop'
+          this.speed = 3;
+          this.angle = 0;
+          this.health = 100;
+          this.dead = false;
+          this.vehicle = null;
+          this.weaponDelay = 0;
+
+          // Player Stats
+          this.wantedLevel = 0;
+          this.wantedScore = 0; // Internal counter
+        }
+
+        takeDamage(amount) {
+          if (this.dead || this.vehicle) return;
+          this.health -= amount;
+          particles.push(new Particle(this.x, this.y, "blood"));
+          if (this.health <= 0) {
+            this.health = 0;
+            this.dead = true;
+            if (this.type === "ped" || this.type === "cop") {
+              // Create corpse graphic? For now just stop drawing or lie down
+            }
+            if (this.type === "player") {
+              uiMessage.style.opacity = 1;
+              uiMessage.style.color = "#cc0000";
+              uiMessage.innerText = "WASTED";
+            }
+          }
+        }
+
+        tryEnterVehicle() {
+          if (this.dead) return;
+          if (this.vehicle) {
+            this.exitVehicle();
+          } else {
+            // Find nearest car
+            let nearest = null;
+            let minDst = 100; // Increased detection range (was 60)
+            for (let c of vehicles) {
+              let d = MathUtils.dist(this.x, this.y, c.x, c.y);
+              if (d < minDst && !c.dead) {
+                minDst = d;
+                nearest = c;
+              }
+            }
+            if (nearest) {
+              this.vehicle = nearest;
+              this.vehicle.driver = this;
+              this.x = nearest.x;
+              this.y = nearest.y;
+
+              // Stealing logic
+              if (nearest.type === "police") this.addWanted(1);
+              else if (Math.random() > 0.5) this.addWanted(1); // Witnessed
+            }
+          }
+        }
+
+        exitVehicle(forced = false) {
+          if (!this.vehicle) return;
+          this.x = this.vehicle.x - 30;
+          this.y = this.vehicle.y;
+          this.vehicle.driver = null;
+          this.vehicle = null;
+        }
+
+        addWanted(amount) {
+          if (this.type !== "player") return;
+          this.wantedScore += amount;
+          // Simple threshold for stars
+          if (this.wantedScore > 10) this.wantedLevel = 1;
+          if (this.wantedScore > 30) this.wantedLevel = 2;
+          if (this.wantedScore > 60) this.wantedLevel = 3;
+          if (this.wantedScore > 100) this.wantedLevel = 4;
+          if (this.wantedScore > 200) this.wantedLevel = 5;
+
+          // Update UI
+          uiStars.forEach((s, i) => {
+            if (i < this.wantedLevel) s.classList.add("active");
+            else s.classList.remove("active");
+          });
+        }
+
+        update() {
+          if (this.dead) return;
+
+          if (this.vehicle) {
+            // Driving Controls
+            this.x = this.vehicle.x;
+            this.y = this.vehicle.y;
+
+            if (this.type === "player") {
+              if (keys["KeyW"] || keys["ArrowUp"])
+                this.vehicle.speed += this.vehicle.accel;
+              if (keys["KeyS"] || keys["ArrowDown"])
+                this.vehicle.speed -= this.vehicle.accel;
+              if (keys["Space"]) this.vehicle.speed *= 0.9; // Brake
+
+              if (Math.abs(this.vehicle.speed) > 0.5) {
+                let dir = this.vehicle.speed > 0 ? 1 : -1;
+                if (keys["KeyA"] || keys["ArrowLeft"])
+                  this.vehicle.angle -= this.vehicle.turnSpeed * dir;
+                if (keys["KeyD"] || keys["ArrowRight"])
+                  this.vehicle.angle += this.vehicle.turnSpeed * dir;
+              }
+            }
+            return; // Skip foot movement
+          }
+
+          // On Foot Movement
+          let dx = 0;
+          let dy = 0;
+          let moveSpeed = keys["ShiftLeft"] ? 5 : 3;
+
+          if (this.type === "player") {
+            if (keys["KeyW"] || keys["ArrowUp"]) dy = -1;
+            if (keys["KeyS"] || keys["ArrowDown"]) dy = 1;
+            if (keys["KeyA"] || keys["ArrowLeft"]) dx = -1;
+            if (keys["KeyD"] || keys["ArrowRight"]) dx = 1;
+
+            // Shooting
+            if (mouse.leftDown && this.weaponDelay <= 0) {
+              let shootAngle = MathUtils.angle(
+                this.x - camera.x,
+                this.y - camera.y,
+                mouse.x,
+                mouse.y
+              );
+              bullets.push(new Bullet(this.x, this.y, shootAngle, "player"));
+              this.weaponDelay = 10; // Fire rate
+              this.addWanted(0.5); // Shooting causes wanted level
+            }
+            this.weaponDelay--;
+
+            // Aim body towards mouse
+            this.angle = MathUtils.angle(
+              this.x - camera.x,
+              this.y - camera.y,
+              mouse.x,
+              mouse.y
+            );
+          } else if (this.type === "ped") {
+            // Wander
+            if (Math.random() < 0.02) this.angle = Math.random() * Math.PI * 2;
+            dx = Math.cos(this.angle) * 0.5;
+            dy = Math.sin(this.angle) * 0.5;
+
+            // Run from gunshots
+            if (player.weaponDelay > 5) {
+              moveSpeed = 6;
+              this.angle = MathUtils.angle(player.x, player.y, this.x, this.y); // Run away
+            }
+          }
+
+          if (dx !== 0 || dy !== 0) {
+            if (this.type === "player") {
+              // Normalize diagonal
+              let len = Math.sqrt(dx * dx + dy * dy);
+              dx = (dx / len) * moveSpeed;
+              dy = (dy / len) * moveSpeed;
+            } else {
+              this.x += dx;
+              this.y += dy;
+            }
+
+            // Collision with Buildings
+            let newX = this.x + dx;
+            let newY = this.y + dy;
+            let col = false;
+            for (let b of buildings) {
+              if (
+                newX > b.x &&
+                newX < b.x + b.w &&
+                newY > b.y &&
+                newY < b.y + b.h
+              )
+                col = true;
+            }
+            if (!col) {
+              this.x = newX;
+              this.y = newY;
+            }
+          }
+        }
+
+        draw(ctx) {
+          if (this.dead || this.vehicle) return;
+
+          ctx.save();
+          ctx.translate(this.x, this.y);
+          ctx.rotate(this.angle);
+
+          // Shoulders
+          ctx.fillStyle =
+            this.type === "cop"
+              ? "#000066"
+              : this.type === "player"
+              ? "#00aadd"
+              : "#559955";
+          ctx.fillRect(-10, -6, 20, 12);
+
+          // Head
+          ctx.fillStyle = COLORS.playerSkin;
+          ctx.beginPath();
+          ctx.arc(0, 0, 6, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Arms / Gun
+          if (this.type === "player") {
+            ctx.fillStyle = "#000"; // Gun
+            ctx.fillRect(5, 2, 12, 3);
+          }
+
+          ctx.restore();
+        }
+      }
+
+      /* --- INITIALIZATION --- */
+      generateWorld();
+      const camera = new Camera();
+      const player = new Human(200, 200, "player");
+      const vehicles = [];
+      const peds = [];
+      const bullets = [];
+      const particles = [];
+
+      // Spawn random cars
+      for (let i = 0; i < 20; i++) {
+        let r = roads[Math.floor(Math.random() * roads.length)];
+        vehicles.push(new Vehicle(r.x, r.y));
+      }
+
+      // Spawn random peds
+      for (let i = 0; i < 30; i++) {
+        let bx = Math.random() * MAP_WIDTH;
+        let by = Math.random() * MAP_HEIGHT;
+        peds.push(new Human(bx, by, "ped"));
+      }
+
+      /* --- GAME LOOP --- */
+      function spawnPolice() {
+        // Only spawn if wanted level is high and not too many cops
+        let copCount = vehicles.filter((v) => v.type === "police").length;
+        if (player.wantedLevel > 0 && copCount < player.wantedLevel * 2) {
+          // Spawn near player but off screen
+          let angle = Math.random() * Math.PI * 2;
+          let dist = 600;
+          let sx = player.x + Math.cos(angle) * dist;
+          let sy = player.y + Math.sin(angle) * dist;
+
+          // Ensure within map
+          sx = MathUtils.clamp(sx, 100, MAP_WIDTH - 100);
+          sy = MathUtils.clamp(sy, 100, MAP_HEIGHT - 100);
+
+          let copCar = new Vehicle(sx, sy, "police");
+          let copDriver = new Human(sx, sy, "cop");
+          vehicles.push(copCar);
+          copDriver.vehicle = copCar;
+          copCar.driver = copDriver;
+          peds.push(copDriver); // Store driver reference mainly
+        }
+      }
+
+      function update() {
+        player.update();
+        camera.follow(player);
+        spawnPolice();
+
+        // Update entities
+        vehicles.forEach((v) => v.update());
+        peds.forEach((p) => p.update());
+        bullets.forEach((b, i) => {
+          b.update();
+          if (!b.active) bullets.splice(i, 1);
+        });
+        particles.forEach((p, i) => {
+          p.update();
+          if (p.life <= 0) particles.splice(i, 1);
+        });
+
+        // Player Health Regen (Slow)
+        if (player.health < 50 && player.health > 0) player.health += 0.01;
+        uiHealth.style.width = player.health + "%";
+      }
+
+      function draw() {
+        ctx.fillStyle = "#1a1a1a"; // BG
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.save();
+        ctx.translate(-camera.x, -camera.y);
+
+        // 1. Draw Map
+        // Optimization: Only draw visible tiles
+        let startCol = Math.floor(camera.x / TILE_SIZE);
+        let endCol = startCol + canvas.width / TILE_SIZE + 1;
+        let startRow = Math.floor(camera.y / TILE_SIZE);
+        let endRow = startRow + canvas.height / TILE_SIZE + 1;
+
+        for (let y = startRow; y <= endRow; y++) {
+          for (let x = startCol; x <= endCol; x++) {
+            if (y >= 0 && y < WORLD_HEIGHT && x >= 0 && x < WORLD_WIDTH) {
+              let tile = map[y][x];
+              let tx = x * TILE_SIZE;
+              let ty = y * TILE_SIZE;
+
+              if (tile === 0) {
+                ctx.fillStyle = COLORS.grass;
+                ctx.fillRect(tx, ty, TILE_SIZE, TILE_SIZE);
+              } else if (tile === 1 || tile === 2 || tile === 3) {
+                ctx.fillStyle = COLORS.road;
+                ctx.fillRect(tx, ty, TILE_SIZE, TILE_SIZE);
+
+                // Road Markings
+                ctx.fillStyle = COLORS.roadLine;
+                if (tile === 1) ctx.fillRect(tx + 48, ty, 4, TILE_SIZE); // Vert
+                if (tile === 2) ctx.fillRect(tx, ty + 48, TILE_SIZE, 4); // Horz
+              } else if (tile === 4) {
+                // Should already be handled by buildings array for drawing,
+                // but draw ground first
+                ctx.fillStyle = "#222"; // Concrete base
+                ctx.fillRect(tx, ty, TILE_SIZE, TILE_SIZE);
+              }
+            }
+          }
+        }
+
+        // 2. Draw Particles (Ground level, like tire tracks)
+        particles.filter((p) => p.type === "tire").forEach((p) => p.draw(ctx));
+
+        // 3. Draw Buildings (Simple extrusion effect)
+        buildings.forEach((b) => {
+          // Shadow
+          ctx.fillStyle = "rgba(0,0,0,0.4)";
+          ctx.fillRect(b.x + 10, b.y + 10, b.w, b.h);
+          // Base
+          ctx.fillStyle = b.color;
+          ctx.fillRect(b.x, b.y, b.w, b.h);
+          // Roof detail
+          ctx.fillStyle = "rgba(255,255,255,0.1)";
+          ctx.fillRect(b.x + 5, b.y + 5, b.w - 10, b.h - 10);
+        });
+
+        // 4. Draw Entities (Sorted by Y for fake depth)
+        // FIXED: Added player to the renderList so they are visible
+        let renderList = [...vehicles, ...peds, player];
+        renderList.sort((a, b) => a.y - b.y);
+        renderList.forEach((e) => e.draw(ctx));
+
+        // 5. Draw Bullets & Air Particles
+        bullets.forEach((b) => b.draw(ctx));
+        particles.filter((p) => p.type !== "tire").forEach((p) => p.draw(ctx));
+
+        ctx.restore();
+      }
+
+      function gameLoop() {
+        update();
+        draw();
+        requestAnimationFrame(gameLoop);
+      }
+
+      // Start
+      gameLoop();
+    </script>
+  </body>
+</html>
