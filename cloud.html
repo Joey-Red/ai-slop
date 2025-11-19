@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cloud Garden - The Coziest Game</title>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        background-color: #ffecd2; /* Fallback */
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        user-select: none;
+      }
+      #canvas-container {
+        width: 100vw;
+        height: 100vh;
+        display: block;
+      }
+      #ui {
+        position: absolute;
+        bottom: 30px;
+        width: 100%;
+        text-align: center;
+        color: #7c7c7c;
+        pointer-events: none;
+        font-size: 14px;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        opacity: 0.8;
+        transition: opacity 2s;
+      }
+      .fade-out {
+        opacity: 0 !important;
+      }
+      /* Simple loading overlay */
+      #loader {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: #ffecd2;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        color: #88606e;
+        font-size: 20px;
+        z-index: 999;
+        transition: opacity 1s ease-out;
+      }
+    </style>
+  </head>
+  <body>
+    <style>
+      /* Minimal Floating Home Button */
+      .home-nav-btn {
+        position: fixed;
+        top: 15px;
+        left: 15px;
+        z-index: 10000; /* Ensure it sits above game UI/Canvases */
+        background: rgba(
+          30,
+          30,
+          30,
+          0.6
+        ); /* Dark semi-transparent for contrast */
+        color: #ffffff;
+        text-decoration: none;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+        font-size: 14px;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.2s ease;
+        backdrop-filter: blur(4px); /* Blurs background behind button */
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+
+      .home-nav-btn:hover {
+        background: rgba(30, 30, 30, 0.9);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      }
+
+      /* SVG Icon Style */
+      .home-nav-icon {
+        width: 16px;
+        height: 16px;
+      }
+    </style>
+
+    <!-- Link to your Hub (index.html) -->
+    <a href="index.html" class="home-nav-btn">
+      <svg
+        class="home-nav-icon"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+        <polyline points="9 22 9 12 15 12 15 22"></polyline>
+      </svg>
+      <span>Back to Hub</span>
+    </a>
+    <div id="loader">Preparing your garden...</div>
+    <div id="canvas-container"></div>
+    <div id="ui">
+      Move mouse to guide the Wisp &bull; Hover over lights to plant life &bull;
+      Drag to look around
+    </div>
+
+    <!-- Import Three.js from CDN -->
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+      }
+    </script>
+
+    <script type="module">
+      import * as THREE from "three";
+      import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+
+      // --- CONFIGURATION & PALETTE ---
+      const PALETTE = {
+        skyTop: 0xffecd2,
+        skyBottom: 0xfc6767,
+        ground: 0x85dcb, // Soft green
+        groundShadow: 0x63b598,
+        water: 0xa2d9ff,
+        treeTrunk: 0xc2a286,
+        leaves: [0xffb7b2, 0xffdac1, 0xe2f0cb, 0xb5ead7, 0xc7ceea], // Pastel rainbow
+        wisp: 0xfffae3,
+      };
+
+      // --- GLOBALS ---
+      let scene, camera, renderer, controls;
+      let playerWisp, raycaster, mouse, groundMesh;
+      let seeds = [];
+      let trees = [];
+      let clouds = [];
+      let time = 0;
+
+      // Game State
+      const worldRadius = 60;
+      const targetPos = new THREE.Vector3();
+
+      init();
+      animate();
+
+      function init() {
+        // 1. SCENE SETUP
+        scene = new THREE.Scene();
+        // Soft fog for coziness
+        scene.fog = new THREE.FogExp2(PALETTE.skyTop, 0.012);
+        scene.background = new THREE.Color(PALETTE.skyTop);
+
+        // 2. CAMERA
+        camera = new THREE.PerspectiveCamera(
+          60,
+          window.innerWidth / window.innerHeight,
+          0.1,
+          1000
+        );
+        camera.position.set(0, 40, 60);
+        camera.lookAt(0, 0, 0);
+
+        // 3. RENDERER
+        renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        document
+          .getElementById("canvas-container")
+          .appendChild(renderer.domElement);
+
+        // 4. CONTROLS
+        controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.maxPolarAngle = Math.PI / 2 - 0.1; // Don't go below ground
+        controls.minDistance = 20;
+        controls.maxDistance = 120;
+        controls.enablePan = false;
+
+        // 5. LIGHTING
+        const hemiLight = new THREE.HemisphereLight(
+          PALETTE.skyTop,
+          PALETTE.groundShadow,
+          0.8
+        );
+        scene.add(hemiLight);
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(50, 80, 30);
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.width = 2048;
+        dirLight.shadow.mapSize.height = 2048;
+        dirLight.shadow.camera.near = 0.1;
+        dirLight.shadow.camera.far = 200;
+        dirLight.shadow.camera.left = -70;
+        dirLight.shadow.camera.right = 70;
+        dirLight.shadow.camera.top = 70;
+        dirLight.shadow.camera.bottom = -70;
+        scene.add(dirLight);
+
+        // 6. WORLD GENERATION
+        createGround();
+        createSea();
+        createClouds();
+
+        // 7. PLAYER
+        createPlayer();
+
+        // 8. INTERACTION SETUP
+        raycaster = new THREE.Raycaster();
+        mouse = new THREE.Vector2();
+        window.addEventListener("mousemove", onMouseMove);
+        window.addEventListener("resize", onWindowResize);
+
+        // 9. SPAWN INITIAL SEEDS
+        for (let i = 0; i < 5; i++) spawnSeed();
+
+        // Remove loader
+        setTimeout(() => {
+          const loader = document.getElementById("loader");
+          loader.style.opacity = 0;
+          setTimeout(() => loader.remove(), 1000);
+        }, 1000);
+      }
+
+      function createGround() {
+        // A soft, rounded island
+        const geometry = new THREE.CylinderGeometry(
+          worldRadius,
+          worldRadius * 0.8,
+          15,
+          64,
+          4
+        );
+
+        // Noise displacement for a natural look (simple vertex manipulation)
+        const posAttribute = geometry.attributes.position;
+        for (let i = 0; i < posAttribute.count; i++) {
+          const x = posAttribute.getX(i);
+          const y = posAttribute.getY(i);
+          const z = posAttribute.getZ(i);
+
+          // Only displace the top surface
+          if (y > 0) {
+            const noise = Math.sin(x * 0.1) * Math.cos(z * 0.1) * 1.5;
+            posAttribute.setY(i, y + noise);
+          }
+        }
+        geometry.computeVertexNormals();
+
+        const material = new THREE.MeshStandardMaterial({
+          color: 0xa8e6cf,
+          roughness: 0.8,
+          metalness: 0.0,
+          flatShading: false,
+        });
+
+        groundMesh = new THREE.Mesh(geometry, material);
+        groundMesh.receiveShadow = true;
+        groundMesh.position.y = -7.5;
+        scene.add(groundMesh);
+      }
+
+      function createSea() {
+        // A stylized plane below
+        const geometry = new THREE.PlaneGeometry(500, 500, 20, 20);
+        const material = new THREE.MeshStandardMaterial({
+          color: PALETTE.water,
+          transparent: true,
+          opacity: 0.6,
+          roughness: 0.2,
+        });
+        const sea = new THREE.Mesh(geometry, material);
+        sea.rotation.x = -Math.PI / 2;
+        sea.position.y = -20;
+        scene.add(sea);
+      }
+
+      function createPlayer() {
+        // The Wisp
+        const geometry = new THREE.SphereGeometry(0.8, 16, 16);
+        const material = new THREE.MeshBasicMaterial({ color: PALETTE.wisp });
+        playerWisp = new THREE.Mesh(geometry, material);
+
+        // Glow light
+        const light = new THREE.PointLight(0xffaa00, 1, 15);
+        playerWisp.add(light);
+
+        scene.add(playerWisp);
+      }
+
+      function createClouds() {
+        const geom = new THREE.DodecahedronGeometry(1, 0);
+        const mat = new THREE.MeshStandardMaterial({
+          color: 0xffffff,
+          flatShading: true,
+          transparent: true,
+          opacity: 0.8,
+        });
+
+        for (let i = 0; i < 20; i++) {
+          const cloud = new THREE.Group();
+
+          // Make a puffy cloud from 3-5 blobs
+          const blobs = Math.floor(Math.random() * 3) + 3;
+          for (let j = 0; j < blobs; j++) {
+            const mesh = new THREE.Mesh(geom, mat);
+            mesh.position.set(
+              (Math.random() - 0.5) * 2,
+              (Math.random() - 0.5) * 1,
+              (Math.random() - 0.5) * 2
+            );
+            const scale = Math.random() * 2 + 1;
+            mesh.scale.set(scale, scale, scale);
+            cloud.add(mesh);
+          }
+
+          // Position randomly in sky
+          const angle = Math.random() * Math.PI * 2;
+          const radius = 60 + Math.random() * 40;
+          cloud.position.set(
+            Math.cos(angle) * radius,
+            20 + Math.random() * 20,
+            Math.sin(angle) * radius
+          );
+
+          cloud.userData = {
+            speed: 0.001 + Math.random() * 0.002,
+            angle: angle,
+            radius: radius,
+          };
+
+          clouds.push(cloud);
+          scene.add(cloud);
+        }
+      }
+
+      function spawnSeed() {
+        // Find a random spot on the island
+        const angle = Math.random() * Math.PI * 2;
+        const r = Math.random() * (worldRadius - 5);
+        const x = Math.cos(angle) * r;
+        const z = Math.sin(angle) * r;
+
+        // Visual marker
+        const geometry = new THREE.OctahedronGeometry(0.5, 0);
+        const material = new THREE.MeshBasicMaterial({
+          color: 0xffffff,
+          wireframe: true,
+        });
+        const seed = new THREE.Mesh(geometry, material);
+        seed.position.set(x, 2, z);
+
+        // Animation data
+        seed.userData = {
+          floatOffset: Math.random() * 100,
+          active: true,
+        };
+
+        scene.add(seed);
+        seeds.push(seed);
+      }
+
+      function growTree(position) {
+        // Create a group for the tree
+        const tree = new THREE.Group();
+        tree.position.copy(position);
+        tree.position.y = 0; // Anchor to ground
+
+        // Trunk
+        const trunkH = 2 + Math.random() * 3;
+        const trunkGeom = new THREE.CylinderGeometry(0.2, 0.4, trunkH, 6);
+        const trunkMat = new THREE.MeshStandardMaterial({
+          color: PALETTE.treeTrunk,
+          flatShading: true,
+        });
+        const trunk = new THREE.Mesh(trunkGeom, trunkMat);
+        trunk.position.y = trunkH / 2;
+        trunk.castShadow = true;
+        trunk.receiveShadow = true;
+        tree.add(trunk);
+
+        // Leaves (Puffy sphere clusters)
+        const color =
+          PALETTE.leaves[Math.floor(Math.random() * PALETTE.leaves.length)];
+        const leavesMat = new THREE.MeshStandardMaterial({
+          color: color,
+          flatShading: true,
+        });
+        const leavesGeom = new THREE.IcosahedronGeometry(1, 1);
+
+        const clumps = 3 + Math.floor(Math.random() * 3);
+        for (let i = 0; i < clumps; i++) {
+          const leaf = new THREE.Mesh(leavesGeom, leavesMat);
+          leaf.position.set(
+            (Math.random() - 0.5) * 1.5,
+            trunkH + Math.random() * 1.5,
+            (Math.random() - 0.5) * 1.5
+          );
+          const s = 0.8 + Math.random() * 0.8;
+          leaf.scale.set(0, 0, 0); // Start scale 0 for animation
+          leaf.userData = { targetScale: s, currentScale: 0, delay: i * 5 }; // Animation props
+
+          leaf.castShadow = true;
+          leaf.receiveShadow = true;
+          tree.add(leaf);
+        }
+
+        scene.add(tree);
+        trees.push(tree);
+
+        // Respawn a new seed elsewhere to keep game going infinite
+        if (seeds.length < 10) {
+          setTimeout(spawnSeed, 2000); // Delay new seed
+        }
+      }
+
+      function onMouseMove(event) {
+        // Normalized mouse coordinates
+        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+        // Raycast to find where on the ground the mouse is pointing
+        raycaster.setFromCamera(mouse, camera);
+        const intersects = raycaster.intersectObject(groundMesh);
+
+        if (intersects.length > 0) {
+          const point = intersects[0].point;
+          // Smoothly move target to that point, keep y slightly above ground
+          targetPos.copy(point);
+          targetPos.y = 2.5;
+        }
+      }
+
+      function onWindowResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      }
+
+      function animate() {
+        requestAnimationFrame(animate);
+        time += 0.01;
+
+        // 1. MOVE PLAYER
+        // Lerp player position towards target (smooth movement)
+        playerWisp.position.lerp(targetPos, 0.05);
+
+        // Add idle hover "bobbing"
+        playerWisp.position.y += Math.sin(time * 2) * 0.02;
+
+        // 2. ANIMATE SEEDS
+        for (let i = seeds.length - 1; i >= 0; i--) {
+          const seed = seeds[i];
+          if (!seed.userData.active) continue;
+
+          // Bob and Rotate
+          seed.rotation.y += 0.02;
+          seed.position.y =
+            2 + Math.sin(time * 2 + seed.userData.floatOffset) * 0.5;
+
+          // Check collision with player
+          const dist = playerWisp.position.distanceTo(seed.position);
+          if (dist < 2.0) {
+            // COLLECTED!
+            growTree(seed.position);
+
+            // Remove seed visual
+            scene.remove(seed);
+            seeds.splice(i, 1);
+
+            // Trigger UI fade out after first interaction
+            document.getElementById("ui").classList.add("fade-out");
+          }
+        }
+
+        // 3. ANIMATE TREES (Growth pop-in)
+        trees.forEach((tree) => {
+          tree.children.forEach((child) => {
+            if (child.userData.targetScale) {
+              // Logic for leaves popping in
+              if (child.userData.delay > 0) {
+                child.userData.delay--;
+              } else {
+                // Elastic growth
+                const k = 0.1;
+                const d =
+                  child.userData.targetScale - child.userData.currentScale;
+                child.userData.currentScale += d * k;
+                const s = child.userData.currentScale;
+                child.scale.set(s, s, s);
+              }
+            }
+          });
+        });
+
+        // 4. ANIMATE CLOUDS
+        clouds.forEach((cloud) => {
+          cloud.userData.angle += cloud.userData.speed;
+          cloud.position.x =
+            Math.cos(cloud.userData.angle) * cloud.userData.radius;
+          cloud.position.z =
+            Math.sin(cloud.userData.angle) * cloud.userData.radius;
+          cloud.rotation.y += 0.001;
+        });
+
+        controls.update();
+        renderer.render(scene, camera);
+      }
+    </script>
+  </body>
+</html>

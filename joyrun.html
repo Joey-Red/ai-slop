@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ben's Joy Run</title>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        background-color: #87ceeb;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        user-select: none;
+      }
+
+      #ui-container {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+      }
+
+      #header {
+        padding: 20px;
+        text-align: center;
+        color: white;
+        text-shadow: 2px 2px 0px rgba(0, 0, 0, 0.2);
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 2.5rem;
+        letter-spacing: 2px;
+      }
+
+      #score-board {
+        font-size: 1.5rem;
+        font-weight: bold;
+      }
+
+      #meter-container {
+        width: 300px;
+        height: 30px;
+        background: rgba(255, 255, 255, 0.3);
+        border-radius: 15px;
+        margin: 10px auto;
+        overflow: hidden;
+        border: 3px solid white;
+      }
+
+      #happy-meter {
+        width: 0%;
+        height: 100%;
+        background: linear-gradient(
+          90deg,
+          #ff9a9e 0%,
+          #fad0c4 99%,
+          #fad0c4 100%
+        );
+        transition: width 0.2s;
+      }
+
+      #message-area {
+        height: 50px;
+        font-size: 1.2rem;
+        color: #fff;
+        font-weight: bold;
+        margin-top: 10px;
+        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+      }
+
+      #overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        pointer-events: auto;
+        backdrop-filter: blur(5px);
+        z-index: 10;
+      }
+
+      #start-card {
+        background: white;
+        padding: 40px;
+        border-radius: 20px;
+        text-align: center;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        max-width: 400px;
+        width: 80%;
+      }
+
+      button {
+        background: #ffd700;
+        border: none;
+        padding: 15px 30px;
+        font-size: 1.2rem;
+        font-weight: bold;
+        color: #d35400;
+        border-radius: 50px;
+        cursor: pointer;
+        transition: transform 0.1s, background 0.2s;
+        margin-top: 20px;
+        box-shadow: 0 5px 0 #d35400;
+      }
+
+      button:active {
+        transform: translateY(5px);
+        box-shadow: none;
+      }
+
+      button:hover {
+        background: #ffe44d;
+      }
+
+      .hidden {
+        display: none !important;
+      }
+    </style>
+  </head>
+  <body>
+    <style>
+      /* Minimal Floating Home Button */
+      .home-nav-btn {
+        position: fixed;
+        top: 15px;
+        left: 15px;
+        z-index: 10000; /* Ensure it sits above game UI/Canvases */
+        background: rgba(
+          30,
+          30,
+          30,
+          0.6
+        ); /* Dark semi-transparent for contrast */
+        color: #ffffff;
+        text-decoration: none;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+        font-size: 14px;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.2s ease;
+        backdrop-filter: blur(4px); /* Blurs background behind button */
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+
+      .home-nav-btn:hover {
+        background: rgba(30, 30, 30, 0.9);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      }
+
+      /* SVG Icon Style */
+      .home-nav-icon {
+        width: 16px;
+        height: 16px;
+      }
+    </style>
+
+    <!-- Link to your Hub (index.html) -->
+    <a href="index.html" class="home-nav-btn">
+      <svg
+        class="home-nav-icon"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+        <polyline points="9 22 9 12 15 12 15 22"></polyline>
+      </svg>
+      <span>Back to Hub</span>
+    </a>
+    <!-- UI Overlay -->
+    <div id="ui-container">
+      <div id="header">
+        <div id="score-board">Score: <span id="score">0</span></div>
+        <div id="meter-container">
+          <div id="happy-meter"></div>
+        </div>
+        <div>HAPPINESS METER</div>
+        <div id="message-area">Let's cheer up, Ben!</div>
+      </div>
+    </div>
+
+    <!-- Start/Game Over Screen -->
+    <div id="overlay">
+      <div id="start-card">
+        <h2 id="card-title">Hi Ben!</h2>
+        <p id="card-text">You seem a bit down. Let's collect some happiness!</p>
+        <p><i>Use your mouse or finger to move.</i></p>
+        <button id="start-btn">Let's Go!</button>
+      </div>
+    </div>
+
+    <!-- Three.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <script>
+      // --- Global Variables ---
+      let scene, camera, renderer;
+      let player;
+      let gameActive = false;
+      let score = 0;
+      let happiness = 0; // 0 to 100
+      let speed = 0.5;
+      let objects = []; // Holds obstacles and collectibles
+      let particles = []; // Holds explosion particles
+      let lastSpawn = 0;
+      let frameId;
+
+      // Motivational Messages for Ben
+      const messages = [
+        "You're doing great, Ben!",
+        "Keep smiling!",
+        "Look at you go!",
+        "Awesome!",
+        "Ben is the best!",
+        "Nothing can stop you!",
+        "Pure joy!",
+        "Fantastic!",
+      ];
+
+      // --- Initialization ---
+      function init() {
+        // Scene Setup
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x87ceeb); // Sky Blue
+        scene.fog = new THREE.Fog(0x87ceeb, 10, 60);
+
+        // Camera
+        camera = new THREE.PerspectiveCamera(
+          60,
+          window.innerWidth / window.innerHeight,
+          0.1,
+          1000
+        );
+        camera.position.set(0, 5, 10);
+        camera.lookAt(0, 0, -5);
+
+        // Renderer
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        document.body.appendChild(renderer.domElement);
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(10, 20, 10);
+        dirLight.castShadow = true;
+        dirLight.shadow.camera.left = -20;
+        dirLight.shadow.camera.right = 20;
+        dirLight.shadow.camera.top = 20;
+        dirLight.shadow.camera.bottom = -20;
+        scene.add(dirLight);
+
+        // Floor (Infinite runner style)
+        const geometry = new THREE.PlaneGeometry(200, 200);
+        const material = new THREE.MeshPhongMaterial({
+          color: 0x7cfc00, // Lawn Green
+          shininess: 0,
+        });
+        const floor = new THREE.Mesh(geometry, material);
+        floor.rotation.x = -Math.PI / 2;
+        floor.position.y = -1;
+        floor.receiveShadow = true;
+        scene.add(floor);
+
+        // Create Ben (The Player)
+        createPlayer();
+
+        // Event Listeners
+        window.addEventListener("resize", onWindowResize, false);
+        document.addEventListener("mousemove", onMouseMove, false);
+        document.addEventListener("touchmove", onTouchMove, { passive: false });
+
+        document
+          .getElementById("start-btn")
+          .addEventListener("click", startGame);
+
+        // Start Animation Loop
+        animate();
+      }
+
+      function createPlayer() {
+        player = new THREE.Group();
+
+        // Head
+        const headGeo = new THREE.SphereGeometry(1, 32, 32);
+        const headMat = new THREE.MeshPhongMaterial({ color: 0xffd700 }); // Gold/Yellow
+        const head = new THREE.Mesh(headGeo, headMat);
+        head.castShadow = true;
+        player.add(head);
+
+        // Eyes
+        const eyeGeo = new THREE.SphereGeometry(0.15, 16, 16);
+        const eyeMat = new THREE.MeshLambertMaterial({ color: 0x000000 });
+
+        const leftEye = new THREE.Mesh(eyeGeo, eyeMat);
+        leftEye.position.set(-0.3, 0.2, 0.85);
+        player.add(leftEye);
+
+        const rightEye = new THREE.Mesh(eyeGeo, eyeMat);
+        rightEye.position.set(0.3, 0.2, 0.85);
+        player.add(rightEye);
+
+        // Smile (Torus segment)
+        const smileGeo = new THREE.TorusGeometry(0.3, 0.05, 16, 100, Math.PI);
+        const smileMat = new THREE.MeshLambertMaterial({ color: 0x000000 });
+        const smile = new THREE.Mesh(smileGeo, smileMat);
+        smile.rotation.x = Math.PI; // Flip to smile
+        smile.position.set(0, -0.1, 0.85);
+        player.add(smile);
+
+        scene.add(player);
+        player.position.y = 0.5;
+      }
+
+      // --- Game Logic ---
+
+      function startGame() {
+        document.getElementById("overlay").classList.add("hidden");
+        resetGame();
+        gameActive = true;
+      }
+
+      function resetGame() {
+        score = 0;
+        happiness = 50;
+        speed = 0.4;
+        updateUI();
+
+        // Clear objects
+        objects.forEach((obj) => scene.remove(obj.mesh));
+        objects = [];
+
+        player.position.x = 0;
+
+        // Reset messages
+        document.getElementById("message-area").innerText = "Let's go Ben!";
+      }
+
+      function gameOver() {
+        gameActive = false;
+        document.getElementById("overlay").classList.remove("hidden");
+        document.getElementById("card-title").innerText = "Run Complete!";
+        document.getElementById(
+          "card-text"
+        ).innerText = `You collected ${score} happiness points, Ben! Want to try again?`;
+        document.getElementById("start-btn").innerText = "Play Again";
+      }
+
+      function spawnObject() {
+        const xPos = Math.random() * 14 - 7; // Random X between -7 and 7
+        const zPos = -60; // Spawn far away
+
+        let mesh;
+        let type;
+
+        const rand = Math.random();
+
+        if (rand > 0.3) {
+          // Good Object (70% chance)
+          type = "good";
+          if (Math.random() > 0.5) {
+            // Star
+            const geo = new THREE.IcosahedronGeometry(0.7, 0);
+            const mat = new THREE.MeshPhongMaterial({
+              color: 0xffff00,
+              emissive: 0x444400,
+            });
+            mesh = new THREE.Mesh(geo, mat);
+          } else {
+            // Heart (approximated by two spheres and a cone, or just a red cube for simplicity in code)
+            // Let's use a Red Octahedron
+            const geo = new THREE.OctahedronGeometry(0.7, 0);
+            const mat = new THREE.MeshPhongMaterial({
+              color: 0xff69b4,
+              emissive: 0x440022,
+            });
+            mesh = new THREE.Mesh(geo, mat);
+          }
+        } else {
+          // Bad Object (Gloomy Cloud)
+          type = "bad";
+          const geo = new THREE.DodecahedronGeometry(0.8, 0);
+          const mat = new THREE.MeshPhongMaterial({ color: 0x808080 });
+          mesh = new THREE.Mesh(geo, mat);
+        }
+
+        mesh.position.set(xPos, 0.5, zPos);
+        mesh.castShadow = true;
+        scene.add(mesh);
+
+        objects.push({ mesh: mesh, type: type, active: true });
+      }
+
+      function createExplosion(position, color) {
+        for (let i = 0; i < 15; i++) {
+          const geo = new THREE.BoxGeometry(0.2, 0.2, 0.2);
+          const mat = new THREE.MeshBasicMaterial({ color: color });
+          const particle = new THREE.Mesh(geo, mat);
+
+          particle.position.copy(position);
+
+          // Random velocity
+          particle.userData.velocity = new THREE.Vector3(
+            (Math.random() - 0.5) * 0.5,
+            (Math.random() - 0.5) * 0.5 + 0.5, // Tend upwards
+            (Math.random() - 0.5) * 0.5
+          );
+
+          scene.add(particle);
+          particles.push(particle);
+        }
+      }
+
+      // --- Input Handling ---
+
+      function onMouseMove(event) {
+        if (!gameActive) return;
+
+        // Normalize mouse position to -1 to 1
+        const mouseX = (event.clientX / window.innerWidth) * 2 - 1;
+
+        // Map to world coordinates (Limit movement width)
+        const targetX = mouseX * 8;
+
+        // Smoothly move player
+        player.position.x = targetX;
+      }
+
+      function onTouchMove(event) {
+        if (!gameActive) return;
+        event.preventDefault();
+        const touchX = (event.touches[0].clientX / window.innerWidth) * 2 - 1;
+        player.position.x = touchX * 8;
+      }
+
+      function onWindowResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      }
+
+      function updateUI() {
+        document.getElementById("score").innerText = score;
+        const meter = document.getElementById("happy-meter");
+        meter.style.width = happiness + "%";
+
+        // Change color based on happiness
+        if (happiness < 30) meter.style.background = "#ff6b6b";
+        else if (happiness < 70) meter.style.background = "#feca57";
+        else meter.style.background = "#1dd1a1";
+      }
+
+      function showRandomMessage() {
+        const msg = messages[Math.floor(Math.random() * messages.length)];
+        const el = document.getElementById("message-area");
+        el.innerText = msg;
+
+        // Simple text pop effect
+        el.style.transform = "scale(1.2)";
+        setTimeout(() => {
+          el.style.transform = "scale(1)";
+        }, 200);
+      }
+
+      // --- Main Loop ---
+
+      function animate() {
+        requestAnimationFrame(animate);
+
+        if (gameActive) {
+          // Spawn Objects
+          lastSpawn++;
+          if (lastSpawn > 60 / speed) {
+            // Spawn rate increases with speed
+            spawnObject();
+            lastSpawn = 0;
+          }
+
+          // Speed increase over time
+          speed += 0.0001;
+
+          // Bobbing animation for Ben
+          player.position.y = 0.5 + Math.sin(Date.now() * 0.005) * 0.2;
+
+          // Rotate player slightly based on X movement
+          player.rotation.z = -player.position.x * 0.05;
+          player.rotation.y = -player.position.x * 0.05;
+
+          // Move Objects & Collision
+          for (let i = objects.length - 1; i >= 0; i--) {
+            let obj = objects[i];
+            obj.mesh.position.z += speed;
+            obj.mesh.rotation.x += 0.02;
+            obj.mesh.rotation.y += 0.02;
+
+            // Collision Detection
+            if (
+              obj.active &&
+              obj.mesh.position.z > -2 &&
+              obj.mesh.position.z < 2
+            ) {
+              const distance = player.position.distanceTo(obj.mesh.position);
+
+              if (distance < 1.5) {
+                obj.active = false;
+                scene.remove(obj.mesh);
+
+                if (obj.type === "good") {
+                  score += 10;
+                  happiness = Math.min(100, happiness + 10);
+                  createExplosion(obj.mesh.position, 0xffff00);
+                  showRandomMessage();
+                } else {
+                  happiness = Math.max(0, happiness - 25);
+                  createExplosion(obj.mesh.position, 0x555555);
+                  document.getElementById("message-area").innerText =
+                    "Shake it off, Ben!";
+                }
+
+                updateUI();
+                objects.splice(i, 1);
+                continue;
+              }
+            }
+
+            // Remove if passed camera
+            if (obj.mesh.position.z > 10) {
+              scene.remove(obj.mesh);
+              objects.splice(i, 1);
+            }
+          }
+
+          // Win/Loss check
+          if (happiness <= 0) {
+            gameOver();
+          }
+          if (happiness >= 100) {
+            document.getElementById("message-area").innerText =
+              "SUPER HAPPY BEN MODE!";
+            score += 1; // Bonus points for being max happy
+          }
+        } else {
+          // Idle animation
+          if (player) player.rotation.y += 0.01;
+        }
+
+        // Update Particles
+        for (let i = particles.length - 1; i >= 0; i--) {
+          let p = particles[i];
+          p.position.add(p.userData.velocity);
+          p.userData.velocity.y -= 0.02; // Gravity
+          p.scale.multiplyScalar(0.9); // Shrink
+
+          if (p.scale.x < 0.01) {
+            scene.remove(p);
+            particles.splice(i, 1);
+          }
+        }
+
+        renderer.render(scene, camera);
+      }
+
+      // Run Init
+      init();
+    </script>
+  </body>
+</html>

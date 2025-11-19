@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>QWOP-a-Pede 3D</title>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background-color: #87ceeb;
+        user-select: none;
+      }
+      #ui-layer {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+      }
+      #menu {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.8);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        pointer-events: auto;
+        z-index: 10;
+        color: white;
+      }
+      h1 {
+        font-size: 4rem;
+        margin-bottom: 10px;
+        color: #ff9900;
+        text-shadow: 2px 2px #000;
+      }
+      .btn-group {
+        display: flex;
+        gap: 20px;
+        margin-top: 30px;
+      }
+      button {
+        padding: 15px 30px;
+        font-size: 1.2rem;
+        background: #fff;
+        border: none;
+        cursor: pointer;
+        border-radius: 5px;
+        transition: transform 0.2s, background 0.2s;
+        font-weight: bold;
+      }
+      button:hover {
+        transform: scale(1.05);
+        background: #ff9900;
+        color: white;
+      }
+
+      #hud {
+        padding: 20px;
+        display: flex;
+        justify-content: space-between;
+        color: white;
+        text-shadow: 1px 1px 3px black;
+        font-size: 1.5rem;
+        font-weight: bold;
+      }
+      #controls-hint {
+        text-align: center;
+        padding-bottom: 20px;
+        color: rgba(255, 255, 255, 0.8);
+        text-shadow: 1px 1px 2px black;
+      }
+      .key {
+        display: inline-block;
+        background: #eee;
+        color: #333;
+        padding: 5px 10px;
+        border-radius: 4px;
+        margin: 0 2px;
+        font-family: monospace;
+        font-weight: bold;
+        box-shadow: 0 2px 0 #999;
+      }
+      #progress-bar {
+        position: absolute;
+        top: 0;
+        left: 0;
+        height: 10px;
+        background: #ff9900;
+        width: 0%;
+        transition: width 0.5s;
+      }
+      #win-screen {
+        display: none;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(0, 0, 0, 0.9);
+        padding: 40px;
+        border-radius: 10px;
+        text-align: center;
+        color: white;
+        z-index: 20;
+      }
+    </style>
+    <!-- Load Three.js and Cannon.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.6.2/cannon.min.js"></script>
+  </head>
+  <body>
+    <style>
+      /* Minimal Floating Home Button */
+      .home-nav-btn {
+        position: fixed;
+        top: 15px;
+        left: 15px;
+        z-index: 10000; /* Ensure it sits above game UI/Canvases */
+        background: rgba(
+          30,
+          30,
+          30,
+          0.6
+        ); /* Dark semi-transparent for contrast */
+        color: #ffffff;
+        text-decoration: none;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+        font-size: 14px;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.2s ease;
+        backdrop-filter: blur(4px); /* Blurs background behind button */
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+
+      .home-nav-btn:hover {
+        background: rgba(30, 30, 30, 0.9);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      }
+
+      /* SVG Icon Style */
+      .home-nav-icon {
+        width: 16px;
+        height: 16px;
+      }
+    </style>
+
+    <!-- Link to your Hub (index.html) -->
+    <a href="index.html" class="home-nav-btn">
+      <svg
+        class="home-nav-icon"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+        <polyline points="9 22 9 12 15 12 15 22"></polyline>
+      </svg>
+      <span>Back to Hub</span>
+    </a>
+    <div id="ui-layer">
+      <div id="progress-bar"></div>
+      <div id="hud">
+        <div id="distance">0.0 m</div>
+        <div id="animal-name">Choose Animal</div>
+      </div>
+      <div id="controls-hint">
+        Controls: <span class="key">Q</span> / <span class="key">W</span> (Front
+        Legs) &nbsp;|&nbsp; <span class="key">O</span> /
+        <span class="key">P</span> (Back Legs) &nbsp;|&nbsp;
+        <span class="key">R</span> (Reset)
+      </div>
+    </div>
+
+    <div id="menu">
+      <h1>QWOP-a-PEDE</h1>
+      <p>Race to 50 meters. Don't fall over. It's harder than it looks.</p>
+      <div class="btn-group">
+        <button onclick="startGame('dog')">🐶 Dog</button>
+        <button onclick="startGame('giraffe')">🦒 Giraffe</button>
+        <button onclick="startGame('elephant')">🐘 Elephant</button>
+        <button onclick="startGame('pig')">🐷 Pig</button>
+      </div>
+    </div>
+
+    <div id="win-screen">
+      <h1 id="win-msg">FINISHED!</h1>
+      <button onclick="location.reload()">Play Again</button>
+    </div>
+
+    <script>
+      // --- CONFIGURATION ---
+      const WORLD_SCALE = 1; // Physics scale
+      const FINISH_LINE = 50;
+      let GAME_ACTIVE = false;
+
+      // --- THREE JS GLOBALS ---
+      let scene, camera, renderer;
+      let clock, mixer;
+      let terrainMeshes = [];
+
+      // --- CANNON JS GLOBALS ---
+      let world;
+      let physicsBodies = []; // { mesh: Mesh, body: Body }
+      let groundBody;
+      let groundMaterial, animalMaterial;
+
+      // --- PLAYER STATE ---
+      let player = {
+        bodies: [],
+        constraints: [],
+        motors: { front: null, back: null },
+        rootBody: null,
+        type: "dog",
+      };
+
+      // --- AI RIVAL ---
+      let rival = {
+        mesh: null,
+        distance: 0,
+        speed: 0,
+        hopOffset: 0,
+      };
+
+      // --- INPUT ---
+      const keys = {
+        q: false,
+        w: false,
+        o: false,
+        p: false,
+      };
+
+      // --- INIT ---
+      function init() {
+        // 1. Setup Scene
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x87ceeb);
+        scene.fog = new THREE.Fog(0x87ceeb, 20, 100);
+
+        // 2. Setup Camera
+        camera = new THREE.PerspectiveCamera(
+          45,
+          window.innerWidth / window.innerHeight,
+          0.1,
+          500
+        );
+        camera.position.set(20, 5, 0);
+        camera.lookAt(0, 2, 0);
+
+        // 3. Setup Renderer
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.shadowMap.enabled = true;
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // 4. Lights
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(50, 100, 50);
+        dirLight.castShadow = true;
+        dirLight.shadow.camera.left = -50;
+        dirLight.shadow.camera.right = 50;
+        dirLight.shadow.camera.top = 50;
+        dirLight.shadow.camera.bottom = -50;
+        dirLight.shadow.mapSize.width = 2048;
+        dirLight.shadow.mapSize.height = 2048;
+        scene.add(dirLight);
+
+        // 5. Physics World
+        world = new CANNON.World();
+        world.gravity.set(0, -9.82, 0);
+        world.broadphase = new CANNON.NaiveBroadphase();
+        world.solver.iterations = 20; // Higher for stability
+
+        // Materials
+        groundMaterial = new CANNON.Material();
+        animalMaterial = new CANNON.Material();
+        const matContact = new CANNON.ContactMaterial(
+          groundMaterial,
+          animalMaterial,
+          {
+            friction: 0.8, // High friction for traction
+            restitution: 0.0, // No bouncing
+          }
+        );
+        world.addContactMaterial(matContact);
+
+        clock = new THREE.Clock();
+
+        createEnvironment();
+        setupInputs();
+
+        animate();
+      }
+
+      function createEnvironment() {
+        // Ground Physics
+        const groundShape = new CANNON.Plane();
+        groundBody = new CANNON.Body({ mass: 0, material: groundMaterial });
+        groundBody.addShape(groundShape);
+        groundBody.quaternion.setFromAxisAngle(
+          new CANNON.Vec3(1, 0, 0),
+          -Math.PI / 2
+        );
+        world.addBody(groundBody);
+
+        // Ground Visuals - Grass
+        const planeGeo = new THREE.PlaneGeometry(500, 100);
+        const planeMat = new THREE.MeshStandardMaterial({ color: 0x55aa55 });
+        const planeMesh = new THREE.Mesh(planeGeo, planeMat);
+        planeMesh.rotation.x = -Math.PI / 2;
+        planeMesh.receiveShadow = true;
+        scene.add(planeMesh);
+
+        // Tracks (Visual)
+        const trackGeo = new THREE.PlaneGeometry(500, 4);
+        const trackMat = new THREE.MeshStandardMaterial({ color: 0x8b4513 }); // Dirt
+
+        // Player Track
+        const track1 = new THREE.Mesh(trackGeo, trackMat);
+        track1.rotation.x = -Math.PI / 2;
+        track1.position.y = 0.01;
+        track1.position.z = 0;
+        track1.receiveShadow = true;
+        scene.add(track1);
+
+        // Rival Track
+        const track2 = new THREE.Mesh(trackGeo, trackMat);
+        track2.rotation.x = -Math.PI / 2;
+        track2.position.y = 0.01;
+        track2.position.z = -8;
+        track2.receiveShadow = true;
+        scene.add(track2);
+
+        // Finish Line
+        const finishGeo = new THREE.BoxGeometry(1, 6, 20);
+        const finishMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
+        // Checkered pattern logic handled by texture normally, simplifying to white pillars + banner
+        const leftPillar = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.2, 0.2, 5),
+          new THREE.MeshStandardMaterial({ color: 0x333333 })
+        );
+        leftPillar.position.set(FINISH_LINE, 2.5, 5);
+        scene.add(leftPillar);
+        const rightPillar = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.2, 0.2, 5),
+          new THREE.MeshStandardMaterial({ color: 0x333333 })
+        );
+        rightPillar.position.set(FINISH_LINE, 2.5, -15);
+        scene.add(rightPillar);
+
+        const bannerGeo = new THREE.PlaneGeometry(20, 1);
+        const bannerMat = new THREE.MeshBasicMaterial({
+          color: 0xff0000,
+          side: THREE.DoubleSide,
+        });
+        const banner = new THREE.Mesh(bannerGeo, bannerMat);
+        banner.position.set(FINISH_LINE, 4.5, -5);
+        banner.rotation.y = Math.PI / 2;
+        scene.add(banner);
+
+        // Scenery (Trees & Clouds)
+        for (let i = 0; i < 30; i++) {
+          // Trees
+          const x = Math.random() * 100 - 20;
+          const z = Math.random() * 30 + 5; // Foreground
+          createTree(x, z);
+          createTree(x, -z - 15); // Background
+        }
+
+        // Clouds
+        for (let i = 0; i < 10; i++) {
+          const cloud = new THREE.Mesh(
+            new THREE.SphereGeometry(3 + Math.random() * 2, 8, 8),
+            new THREE.MeshBasicMaterial({
+              color: 0xffffff,
+              transparent: true,
+              opacity: 0.8,
+            })
+          );
+          cloud.position.set(
+            Math.random() * 100 - 20,
+            15 + Math.random() * 10,
+            Math.random() * 40 - 20
+          );
+          cloud.scale.x = 2;
+          scene.add(cloud);
+        }
+      }
+
+      function createTree(x, z) {
+        const trunkGeo = new THREE.CylinderGeometry(0.3, 0.5, 2);
+        const trunkMat = new THREE.MeshStandardMaterial({ color: 0x4a3c31 });
+        const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+        trunk.position.set(x, 1, z);
+        trunk.castShadow = true;
+
+        const leavesGeo = new THREE.ConeGeometry(2, 4, 8);
+        const leavesMat = new THREE.MeshStandardMaterial({ color: 0x228b22 });
+        const leaves = new THREE.Mesh(leavesGeo, leavesMat);
+        leaves.position.y = 3;
+        trunk.add(leaves);
+
+        scene.add(trunk);
+      }
+
+      // --- ANIMAL GENERATION ---
+      function createBox(x, y, z, w, h, d, mass, color) {
+        const shape = new CANNON.Box(new CANNON.Vec3(w / 2, h / 2, d / 2));
+        const body = new CANNON.Body({ mass: mass, material: animalMaterial });
+        body.addShape(shape);
+        body.position.set(x, y, z);
+        body.linearDamping = 0.5;
+        body.angularDamping = 0.5;
+        world.addBody(body);
+
+        const geo = new THREE.BoxGeometry(w, h, d);
+        const mat = new THREE.MeshStandardMaterial({ color: color });
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.castShadow = true;
+        scene.add(mesh);
+
+        physicsBodies.push({ mesh, body });
+        return body;
+      }
+
+      function startGame(type) {
+        document.getElementById("menu").style.display = "none";
+        document.getElementById("animal-name").innerText = type.toUpperCase();
+        GAME_ACTIVE = true;
+
+        player.type = type;
+
+        // Reset Physics
+        physicsBodies.forEach((pb) => {
+          world.removeBody(pb.body);
+          scene.remove(pb.mesh);
+        });
+        physicsBodies = [];
+        player.bodies = [];
+        player.constraints = [];
+
+        // Animal Specs
+        let specs = {
+          // x,y,z dims, density, legLength, color
+          dog: {
+            body: [1.5, 0.6, 0.7],
+            mass: 10,
+            legLen: 0.8,
+            legThick: 0.2,
+            color: 0x8b4513,
+            height: 1.5,
+          },
+          giraffe: {
+            body: [1.8, 1.2, 0.9],
+            mass: 30,
+            legLen: 2.5,
+            legThick: 0.25,
+            color: 0xffd700,
+            height: 3.5,
+            neck: true,
+          },
+          elephant: {
+            body: [2.5, 1.8, 1.5],
+            mass: 50,
+            legLen: 1.4,
+            legThick: 0.5,
+            color: 0x777777,
+            height: 2.2,
+          },
+          pig: {
+            body: [1.4, 0.8, 0.8],
+            mass: 15,
+            legLen: 0.5,
+            legThick: 0.25,
+            color: 0xffc0cb,
+            height: 1.0,
+          },
+        };
+
+        const s = specs[type];
+        const startX = 0;
+        const startY = s.height + s.legLen / 2; // Adjusted height start
+
+        // 1. Torso
+        const torso = createBox(
+          startX,
+          startY,
+          0,
+          s.body[0],
+          s.body[1],
+          s.body[2],
+          s.mass,
+          s.color
+        );
+        player.rootBody = torso;
+
+        // Head (Visual Only attached to torso via simple constraint or just child mesh)
+        // For physics stability, we'll make the head a separate body rigidly attached
+        const headSize = s.body[1] * 0.8;
+        const head = createBox(
+          startX + s.body[0] / 2 + headSize / 2,
+          startY + (s.neck ? 1.5 : 0.2),
+          0,
+          headSize,
+          headSize,
+          headSize,
+          s.mass / 4,
+          s.color
+        );
+
+        // Connect Head to Body
+        const neckConstraint = new CANNON.LockConstraint(torso, head);
+        world.addConstraint(neckConstraint);
+        player.constraints.push(neckConstraint);
+
+        // 2. Legs
+        // We need 4 legs. FL, FR, BL, BR.
+        const legW = s.legThick;
+        const legH = s.legLen;
+        const legD = s.legThick;
+
+        const legs = [];
+
+        // Positions relative to body center
+        const xOffsets = [s.body[0] / 2 - 0.2, -s.body[0] / 2 + 0.2]; // Front, Back
+        const zOffsets = [s.body[2] / 2, -s.body[2] / 2]; // Left, Right (physically z is depth)
+
+        // Create 4 Legs
+        // Indices: 0: FL, 1: FR, 2: BL, 3: BR
+        // Actually, let's do: 0: Front-Zpos, 1: Front-Zneg, 2: Back-Zpos, 3: Back-Zneg
+
+        for (let i = 0; i < 2; i++) {
+          // Front/Back
+          for (let j = 0; j < 2; j++) {
+            // Left/Right
+            const lx = startX + xOffsets[i];
+            const ly = startY - s.body[1] / 2 - legH / 2;
+            const lz = zOffsets[j];
+
+            const leg = createBox(
+              lx,
+              ly,
+              lz,
+              legW,
+              legH,
+              legD,
+              s.mass / 4,
+              s.color
+            );
+            legs.push(leg);
+
+            // Hinge Constraint
+            // Pivot on body:
+            const pivotBody = new CANNON.Vec3(
+              xOffsets[i],
+              -s.body[1] / 2,
+              zOffsets[j]
+            );
+            // Pivot on leg:
+            const pivotLeg = new CANNON.Vec3(0, legH / 2, 0);
+
+            // Axis of rotation: Z axis (sideways relative to screen)
+            const axis = new CANNON.Vec3(0, 0, 1);
+
+            const hinge = new CANNON.HingeConstraint(torso, leg, {
+              pivotA: pivotBody,
+              pivotB: pivotLeg,
+              axisA: axis,
+              axisB: axis,
+              maxForce: 1e6,
+            });
+
+            // Enable motors
+            hinge.enableMotor();
+            hinge.motorEquation.stiffness = 1e6;
+            hinge.motorEquation.relaxation = 10;
+
+            // Fixed: Removed setLimits as it is not supported in this version of Cannon.js
+            // allowing free rotation adds to the QWOP chaos.
+
+            world.addConstraint(hinge);
+            player.constraints.push(hinge);
+          }
+        }
+
+        // Store specific motors for keys
+        // 0, 1 are Front. 2, 3 are Back.
+        player.motors.front = [player.constraints[1], player.constraints[2]];
+
+        player.motors.back = [player.constraints[3], player.constraints[4]];
+
+        createRival();
+      }
+
+      function createRival() {
+        if (rival.mesh) scene.remove(rival.mesh);
+
+        // Simple group for rival
+        rival.mesh = new THREE.Group();
+
+        // Simple mesh representation (Cow?)
+        const bodyGeo = new THREE.BoxGeometry(1.8, 1, 1);
+        const mat = new THREE.MeshStandardMaterial({ color: 0xffffff }); // White cow
+        const body = new THREE.Mesh(bodyGeo, mat);
+
+        // Spots
+        const spot = new THREE.Mesh(
+          new THREE.BoxGeometry(0.5, 0.1, 1.01),
+          new THREE.MeshStandardMaterial({ color: 0x000000 })
+        );
+        body.add(spot);
+
+        const head = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.6), mat);
+        head.position.set(1.2, 0.5, 0);
+
+        // Legs (visual only)
+        const legGeo = new THREE.BoxGeometry(0.3, 1, 0.3);
+        const l1 = new THREE.Mesh(legGeo, mat);
+        l1.position.set(0.6, -0.8, 0.4);
+        const l2 = new THREE.Mesh(legGeo, mat);
+        l2.position.set(0.6, -0.8, -0.4);
+        const l3 = new THREE.Mesh(legGeo, mat);
+        l3.position.set(-0.6, -0.8, 0.4);
+        const l4 = new THREE.Mesh(legGeo, mat);
+        l4.position.set(-0.6, -0.8, -0.4);
+
+        rival.mesh.add(body);
+        rival.mesh.add(head);
+        rival.mesh.add(l1);
+        rival.mesh.add(l2);
+        rival.mesh.add(l3);
+        rival.mesh.add(l4);
+
+        rival.mesh.position.set(0, 2, -8);
+        scene.add(rival.mesh);
+
+        // Randomize rival stats
+        rival.speed = 0.05 + Math.random() * 0.05; // Slower than a good player, faster than a bad one
+        rival.distance = 0;
+      }
+
+      function setupInputs() {
+        window.addEventListener("keydown", (e) => {
+          const key = e.key.toLowerCase();
+          if (keys.hasOwnProperty(key)) keys[key] = true;
+          if (key === "r" && GAME_ACTIVE) {
+            startGame(player.type); // Reset
+          }
+        });
+        window.addEventListener("keyup", (e) => {
+          const key = e.key.toLowerCase();
+          if (keys.hasOwnProperty(key)) keys[key] = false;
+        });
+      }
+
+      function updatePhysics() {
+        if (!GAME_ACTIVE || !player.rootBody) return;
+
+        // Added safety check to prevent crash if motors aren't ready
+        if (!player.motors.front || !player.motors.back) return;
+
+        world.step(1 / 60);
+
+        // Sync Meshes
+        for (let i = 0; i < physicsBodies.length; i++) {
+          physicsBodies[i].mesh.position.copy(physicsBodies[i].body.position);
+          physicsBodies[i].mesh.quaternion.copy(
+            physicsBodies[i].body.quaternion
+          );
+        }
+
+        // Motor Logic
+        const speed = 5; // Rad/s
+        const force = 200;
+
+        // Front Legs Control (Q/W)
+        let frontTarget = 0;
+        if (keys.q) frontTarget = speed;
+        else if (keys.w) frontTarget = -speed;
+        else frontTarget = 0;
+
+        player.motors.front.forEach((m) => {
+          if (frontTarget !== 0) {
+            m.enableMotor();
+            m.setMotorSpeed(frontTarget);
+          } else {
+            m.disableMotor(); // Let them swing freely if not pressed, or hold? QWOP usually holds.
+            // Let's try disable for chaos, or set speed 0 to hold position.
+            m.enableMotor();
+            m.setMotorSpeed(0);
+          }
+        });
+
+        // Back Legs Control (O/P)
+        let backTarget = 0;
+        if (keys.o) backTarget = speed;
+        else if (keys.p) backTarget = -speed;
+        else backTarget = 0;
+
+        player.motors.back.forEach((m) => {
+          if (backTarget !== 0) {
+            m.enableMotor();
+            m.setMotorSpeed(backTarget);
+          } else {
+            m.enableMotor();
+            m.setMotorSpeed(0);
+          }
+        });
+      }
+
+      function updateGameLogic() {
+        if (!GAME_ACTIVE || !player.rootBody) return;
+
+        // 1. Update Camera
+        const pPos = player.rootBody.position;
+        // Smooth follow
+        const targetCamX = pPos.x + 15;
+        camera.position.x += (targetCamX - camera.position.x) * 0.1;
+        camera.position.y = 6;
+        camera.lookAt(pPos.x, 2, 0);
+
+        // 2. Update HUD
+        const dist = Math.max(0, pPos.x).toFixed(1);
+        document.getElementById("distance").innerText = dist + " m";
+
+        const progress = Math.min(100, (pPos.x / FINISH_LINE) * 100);
+        document.getElementById("progress-bar").style.width = progress + "%";
+
+        // 3. Win Condition
+        if (pPos.x > FINISH_LINE) {
+          GAME_ACTIVE = false;
+          document.getElementById(
+            "win-msg"
+          ).innerText = `VICTORY!\n${player.type.toUpperCase()} WINS!`;
+          document.getElementById("win-screen").style.display = "block";
+        }
+
+        // 4. Rival AI Update
+        rival.distance += rival.speed;
+        rival.mesh.position.x = rival.distance;
+
+        // Goofy Hop Animation
+        const time = Date.now() * 0.005;
+        rival.mesh.position.y = 2 + Math.abs(Math.sin(time * 2)) * 0.5;
+        rival.mesh.rotation.z = Math.sin(time * 2) * 0.1; // Wiggle
+        rival.mesh.rotation.x = Math.cos(time * 3) * 0.1; // Nod
+
+        // Rival Win?
+        // Only show lose screen if player is way behind? Nah, just let them race.
+      }
+
+      function animate() {
+        requestAnimationFrame(animate);
+        updatePhysics();
+        updateGameLogic();
+        renderer.render(scene, camera);
+      }
+
+      // Start
+      init();
+
+      // Resize handler
+      window.addEventListener("resize", () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+    </script>
+  </body>
+</html>
