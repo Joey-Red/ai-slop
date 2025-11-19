@@ -1,0 +1,982 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Office Smash: Printer "Repair"</title>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        background: #1a1a1a;
+        font-family: "Courier New", Courier, monospace;
+      }
+
+      #ui {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+      }
+
+      #top-bar {
+        padding: 20px;
+        display: flex;
+        justify-content: space-between;
+        background: linear-gradient(to bottom, rgba(0, 0, 0, 0.8), transparent);
+        color: white;
+        font-weight: bold;
+        font-size: 24px;
+      }
+
+      #happiness-container {
+        position: absolute;
+        bottom: 30px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 400px;
+        text-align: center;
+      }
+
+      #happiness-label {
+        color: #ffd700;
+        font-size: 20px;
+        margin-bottom: 5px;
+        text-shadow: 2px 2px 0 #000;
+        font-weight: bold;
+      }
+
+      #happiness-bar {
+        width: 100%;
+        height: 30px;
+        background: rgba(0, 0, 0, 0.6);
+        border: 3px solid #fff;
+        border-radius: 15px;
+        overflow: hidden;
+        position: relative;
+      }
+
+      #happiness-fill {
+        width: 0%;
+        height: 100%;
+        background: linear-gradient(90deg, #ffeb3b, #ff9800, #ff5722);
+        transition: width 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      }
+
+      #crosshair {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 10px;
+        height: 10px;
+        background: white;
+        border-radius: 50%;
+        transform: translate(-50%, -50%);
+        mix-blend-mode: difference;
+        pointer-events: none;
+      }
+
+      #start-screen {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 10;
+        pointer-events: all;
+      }
+
+      h1 {
+        font-size: 48px;
+        color: #ff5722;
+        text-shadow: 4px 4px 0 #000;
+        margin: 0;
+      }
+      p {
+        font-size: 20px;
+        color: #ddd;
+        max-width: 600px;
+        text-align: center;
+        line-height: 1.6;
+      }
+      .blink {
+        animation: blink 1s infinite;
+      }
+      @keyframes blink {
+        50% {
+          opacity: 0.5;
+        }
+      }
+
+      .floating-text {
+        position: absolute;
+        color: white;
+        font-weight: bold;
+        pointer-events: none;
+        text-shadow: 1px 1px 2px black;
+        font-size: 14px;
+        opacity: 0;
+        transition: opacity 0.3s;
+      }
+    </style>
+  </head>
+  <body>
+    <style>
+      /* Minimal Floating Home Button */
+      .home-nav-btn {
+        position: fixed;
+        top: 15px;
+        left: 15px;
+        z-index: 10000; /* Ensure it sits above game UI/Canvases */
+        background: rgba(
+          30,
+          30,
+          30,
+          0.6
+        ); /* Dark semi-transparent for contrast */
+        color: #ffffff;
+        text-decoration: none;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+        font-size: 14px;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.2s ease;
+        backdrop-filter: blur(4px); /* Blurs background behind button */
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+
+      .home-nav-btn:hover {
+        background: rgba(30, 30, 30, 0.9);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      }
+
+      /* SVG Icon Style */
+      .home-nav-icon {
+        width: 16px;
+        height: 16px;
+      }
+    </style>
+
+    <!-- Link to your Hub (index.html) -->
+    <a href="index.html" class="home-nav-btn">
+      <svg
+        class="home-nav-icon"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+        <polyline points="9 22 9 12 15 12 15 22"></polyline>
+      </svg>
+      <span>Back to Hub</span>
+    </a>
+    <div id="ui">
+      <div id="top-bar">
+        <div id="level-display">OFFICE LEVEL 1</div>
+        <div id="task-display">
+          PRINTERS REMAINING: <span id="printer-count">0</span>
+        </div>
+      </div>
+      <div id="happiness-container">
+        <div id="happiness-label">HAPPINESS</div>
+        <div id="happiness-bar"><div id="happiness-fill"></div></div>
+      </div>
+    </div>
+
+    <div id="crosshair"></div>
+
+    <div id="start-screen">
+      <h1>PRINTER REPAIR SIMULATOR</h1>
+      <p>
+        The office called. The printers are broken again.<br />Go "fix" them.
+      </p>
+      <br />
+      <p class="blink">CLICK TO START SHIFT</p>
+      <p style="font-size: 14px; margin-top: 20px; color: #888">
+        WASD to Move | CLICK to Smash
+      </p>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <script>
+      // --- Configuration ---
+      const CONFIG = {
+        moveSpeed: 8,
+        lookSpeed: 0.002,
+        batReach: 3.5,
+        gravity: 30,
+        jumpForce: 10,
+        colors: {
+          floor: 0x999999,
+          wall: 0xdddddd,
+          ceiling: 0xeeeeee,
+          printer: 0xdddddd,
+          printerDark: 0x333333,
+          bat: 0x8b4513,
+        },
+      };
+
+      // --- Global Variables ---
+      let scene, camera, renderer;
+      let player = {
+        pos: new THREE.Vector3(0, 1.7, 0),
+        vel: new THREE.Vector3(),
+        pitch: 0,
+        yaw: 0,
+        canJump: false,
+      };
+      let input = { w: false, a: false, s: false, d: false, space: false };
+      let bat, batPivot;
+      let isAttacking = false;
+      let attackTimer = 0;
+      let printers = [];
+      let particles = [];
+      let level = 1;
+      let printersRemaining = 0;
+      let totalPrinters = 0;
+      let happiness = 0;
+      let lastTime = performance.now();
+      let isPaused = true;
+
+      // --- Initialization ---
+      function init() {
+        // Renderer
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        document.body.appendChild(renderer.domElement);
+
+        // Scene
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xcccccc);
+        scene.fog = new THREE.Fog(0xcccccc, 5, 30);
+
+        // Camera (FPS)
+        camera = new THREE.PerspectiveCamera(
+          75,
+          window.innerWidth / window.innerHeight,
+          0.1,
+          100
+        );
+
+        // Lighting
+        const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambient);
+
+        // Audio Listener (Mock audio setup)
+        // We won't use real audio files to keep it single-file, but visual feedback acts as sound.
+
+        // Setup Input
+        setupInput();
+
+        // Create Player Weapon
+        createBat();
+
+        // Start Level 1
+        loadLevel(1);
+
+        animate();
+      }
+
+      // --- Level Generation ---
+      function loadLevel(lvl) {
+        level = lvl;
+        document.getElementById(
+          "level-display"
+        ).innerText = `OFFICE LEVEL ${level}`;
+
+        // Clear existing level
+        // Remove everything except camera/bat/lights
+        for (let i = scene.children.length - 1; i >= 0; i--) {
+          const obj = scene.children[i];
+          if (obj !== camera && !obj.isLight && obj !== batPivot) {
+            scene.remove(obj);
+          }
+        }
+        printers = [];
+        particles = [];
+
+        // Room Dimensions based on level
+        const width = 15 + level * 5;
+        const depth = 15 + level * 5;
+        const height = 4;
+
+        // Floor
+        const floorGeo = new THREE.PlaneGeometry(width, depth);
+        const floorMat = new THREE.MeshStandardMaterial({
+          color: CONFIG.colors.floor,
+          roughness: 0.8,
+        });
+        const floor = new THREE.Mesh(floorGeo, floorMat);
+        floor.rotation.x = -Math.PI / 2;
+        floor.receiveShadow = true;
+        scene.add(floor);
+
+        // Ceiling
+        const ceilGeo = new THREE.PlaneGeometry(width, depth);
+        const ceilMat = new THREE.MeshStandardMaterial({
+          color: CONFIG.colors.ceiling,
+        });
+        const ceil = new THREE.Mesh(ceilGeo, ceilMat);
+        ceil.rotation.x = Math.PI / 2;
+        ceil.position.y = height;
+        scene.add(ceil);
+
+        // Walls
+        const wallMat = new THREE.MeshStandardMaterial({
+          color: CONFIG.colors.wall,
+        });
+        const createWall = (w, h, d, x, y, z) => {
+          const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), wallMat);
+          mesh.position.set(x, y, z);
+          mesh.receiveShadow = true;
+          scene.add(mesh);
+        };
+        createWall(width, height, 1, 0, height / 2, -depth / 2); // Back
+        createWall(width, height, 1, 0, height / 2, depth / 2); // Front
+        createWall(1, height, depth, -width / 2, height / 2, 0); // Left
+        createWall(1, height, depth, width / 2, height / 2, 0); // Right
+
+        // Lights
+        const numLights = Math.ceil(width / 10);
+        for (let x = -width / 3; x <= width / 3; x += 10) {
+          for (let z = -depth / 3; z <= depth / 3; z += 10) {
+            const light = new THREE.PointLight(0xffffff, 0.5, 15);
+            light.position.set(x, height - 0.5, z);
+            light.castShadow = true;
+            scene.add(light);
+
+            // Ceiling fixture visual
+            const fix = new THREE.Mesh(
+              new THREE.BoxGeometry(2, 0.1, 2),
+              new THREE.MeshBasicMaterial({ color: 0xffffff })
+            );
+            fix.position.set(x, height - 0.05, z);
+            scene.add(fix);
+          }
+        }
+
+        // Generate Desks & Printers
+        const printerCount = 2 + level * 2;
+        printersRemaining = printerCount;
+        totalPrinters = printerCount;
+        updateUI();
+
+        for (let i = 0; i < printerCount; i++) {
+          // Random position, avoid center spawn
+          let px = (Math.random() - 0.5) * (width - 4);
+          let pz = (Math.random() - 0.5) * (depth - 4);
+          if (Math.abs(px) < 2 && Math.abs(pz) < 2) px += 4; // Clear spawn
+
+          createDeskSetup(px, pz);
+        }
+
+        // Generate NPCs
+        const npcCount = 2 + level;
+        for (let i = 0; i < npcCount; i++) {
+          let nx = (Math.random() - 0.5) * (width - 4);
+          let nz = (Math.random() - 0.5) * (depth - 4);
+          createNPC(nx, nz);
+        }
+
+        // Reset Player
+        player.pos.set(0, 1.7, 0);
+        player.vel.set(0, 0, 0);
+        happiness = 0;
+        document.getElementById("happiness-fill").style.width = "0%";
+      }
+
+      function createDeskSetup(x, z) {
+        const group = new THREE.Group();
+        group.position.set(x, 0, z);
+        group.rotation.y = Math.random() * Math.PI * 2;
+
+        // Desk
+        const deskMat = new THREE.MeshStandardMaterial({ color: 0x8b5a2b });
+        const deskTop = new THREE.Mesh(
+          new THREE.BoxGeometry(2, 0.1, 1),
+          deskMat
+        );
+        deskTop.position.y = 0.8;
+        deskTop.castShadow = true;
+        deskTop.receiveShadow = true;
+        group.add(deskTop);
+
+        // Legs
+        const legGeo = new THREE.BoxGeometry(0.1, 0.8, 0.1);
+        const legMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
+        const l1 = new THREE.Mesh(legGeo, legMat);
+        l1.position.set(-0.9, 0.4, -0.4);
+        group.add(l1);
+        const l2 = new THREE.Mesh(legGeo, legMat);
+        l2.position.set(0.9, 0.4, -0.4);
+        group.add(l2);
+        const l3 = new THREE.Mesh(legGeo, legMat);
+        l3.position.set(-0.9, 0.4, 0.4);
+        group.add(l3);
+        const l4 = new THREE.Mesh(legGeo, legMat);
+        l4.position.set(0.9, 0.4, 0.4);
+        group.add(l4);
+
+        // Printer (The Enemy)
+        const pWidth = 0.6;
+        const pHeight = 0.4;
+        const pDepth = 0.5;
+
+        const pGroup = new THREE.Group();
+        pGroup.position.set(0.4, 0.8 + pHeight / 2, 0);
+        // Allow random rotation on desk
+        pGroup.rotation.y = (Math.random() - 0.5) * 0.5;
+
+        // Main Body
+        const body = new THREE.Mesh(
+          new THREE.BoxGeometry(pWidth, pHeight, pDepth),
+          new THREE.MeshStandardMaterial({ color: 0xeeeeee })
+        );
+        body.castShadow = true;
+        pGroup.add(body);
+
+        // Top Tray
+        const tray = new THREE.Mesh(
+          new THREE.BoxGeometry(pWidth, 0.05, pDepth * 0.8),
+          new THREE.MeshStandardMaterial({ color: 0x333333 })
+        );
+        tray.position.y = pHeight / 2 + 0.025;
+        pGroup.add(tray);
+
+        // Paper Stack
+        const paper = new THREE.Mesh(
+          new THREE.BoxGeometry(0.2, 0.1, 0.3),
+          new THREE.MeshStandardMaterial({ color: 0xffffff })
+        );
+        paper.position.set(0, pHeight / 2 + 0.05, 0);
+        pGroup.add(paper);
+
+        // Collision Box wrapper for game logic
+        pGroup.userData = { type: "printer", hp: 3, id: Math.random() };
+        group.add(pGroup);
+        printers.push(pGroup); // Store reference for collision
+
+        // Add Desk Group to scene
+        scene.add(group);
+
+        // Chair
+        const chair = new THREE.Mesh(
+          new THREE.BoxGeometry(0.5, 0.5, 0.5),
+          new THREE.MeshStandardMaterial({ color: 0x333366 })
+        );
+        chair.position.set(
+          x - Math.sin(group.rotation.y),
+          0.25,
+          z - Math.cos(group.rotation.y)
+        );
+        chair.rotation.y = group.rotation.y;
+        scene.add(chair);
+      }
+
+      function createNPC(x, z) {
+        // Simple Capsule Human
+        const mat = new THREE.MeshStandardMaterial({ color: 0x3366cc });
+        const geo = new THREE.CylinderGeometry(0.3, 0.3, 1.6, 8);
+        const npc = new THREE.Mesh(geo, mat);
+        npc.position.set(x, 0.8, z);
+        npc.castShadow = true;
+        scene.add(npc);
+
+        const head = new THREE.Mesh(
+          new THREE.SphereGeometry(0.25),
+          new THREE.MeshStandardMaterial({ color: 0xffccaa })
+        );
+        head.position.y = 0.95;
+        npc.add(head);
+
+        // Floating "!" or Chat
+        const canvas = document.createElement("canvas");
+        canvas.width = 128;
+        canvas.height = 64;
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = "white";
+        ctx.font = "bold 24px Arial";
+        ctx.fillText("Fix it!", 10, 40);
+        const tex = new THREE.CanvasTexture(canvas);
+        const spriteMat = new THREE.SpriteMaterial({ map: tex });
+        const sprite = new THREE.Sprite(spriteMat);
+        sprite.position.set(0, 1.5, 0);
+        sprite.scale.set(2, 1, 1);
+        npc.add(sprite);
+
+        // Simple Animation Data
+        npc.userData = { type: "npc", startY: 0.8, offset: Math.random() * 10 };
+
+        // Add to generic world objects if needed, but purely visual for now
+        scene.add(npc);
+
+        // Add logic to update function
+        printers.push(npc); // Add to array just so we can loop over it for animation updates easily, ignore collision logic
+      }
+
+      function createBat() {
+        batPivot = new THREE.Group();
+        camera.add(batPivot);
+
+        // Weapon Group
+        bat = new THREE.Group();
+        bat.position.set(0.5, -0.5, -1); // Default position
+        bat.rotation.set(0.2, -0.2, 0);
+        batPivot.add(bat);
+
+        // Handle
+        const handleGeo = new THREE.CylinderGeometry(0.04, 0.03, 0.6, 8);
+        const handleMat = new THREE.MeshStandardMaterial({ color: 0xd2b48c });
+        const handle = new THREE.Mesh(handleGeo, handleMat);
+        handle.rotation.x = Math.PI / 2;
+        bat.add(handle);
+
+        // Barrel
+        const barrelGeo = new THREE.CylinderGeometry(0.08, 0.04, 0.8, 8);
+        const barrelMat = new THREE.MeshStandardMaterial({ color: 0x8b4513 });
+        const barrel = new THREE.Mesh(barrelGeo, barrelMat);
+        barrel.rotation.x = Math.PI / 2;
+        barrel.position.z = -0.7;
+        bat.add(barrel);
+
+        // Tape
+        const tapeGeo = new THREE.CylinderGeometry(0.041, 0.041, 0.2, 8);
+        const tapeMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+        const tape = new THREE.Mesh(tapeGeo, tapeMat);
+        tape.rotation.x = Math.PI / 2;
+        tape.position.z = -0.1;
+        bat.add(tape);
+      }
+
+      // --- Input Setup ---
+      function setupInput() {
+        document.addEventListener("keydown", (e) => {
+          switch (e.key.toLowerCase()) {
+            case "w":
+              input.w = true;
+              break;
+            case "a":
+              input.a = true;
+              break;
+            case "s":
+              input.s = true;
+              break;
+            case "d":
+              input.d = true;
+              break;
+            case " ":
+              input.space = true;
+              break;
+          }
+        });
+        document.addEventListener("keyup", (e) => {
+          switch (e.key.toLowerCase()) {
+            case "w":
+              input.w = false;
+              break;
+            case "a":
+              input.a = false;
+              break;
+            case "s":
+              input.s = false;
+              break;
+            case "d":
+              input.d = false;
+              break;
+            case " ":
+              input.space = false;
+              break;
+          }
+        });
+
+        document.addEventListener("mousemove", (e) => {
+          if (isPaused) return;
+          player.yaw -= e.movementX * CONFIG.lookSpeed;
+          player.pitch -= e.movementY * CONFIG.lookSpeed;
+          player.pitch = Math.max(
+            -Math.PI / 2,
+            Math.min(Math.PI / 2, player.pitch)
+          );
+        });
+
+        document.addEventListener("mousedown", () => {
+          if (isPaused) {
+            document.body.requestPointerLock();
+            return;
+          }
+          swingBat();
+        });
+
+        document.addEventListener("pointerlockchange", () => {
+          isPaused = document.pointerLockElement !== document.body;
+          document.getElementById("start-screen").style.display = isPaused
+            ? "flex"
+            : "none";
+        });
+      }
+
+      // --- Game Logic ---
+
+      function swingBat() {
+        if (isAttacking) return;
+        isAttacking = true;
+        attackTimer = 0;
+
+        // Raycast Hit Detection
+        const raycaster = new THREE.Raycaster();
+        raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+        raycaster.far = CONFIG.batReach;
+
+        // Get intersectable objects (printers)
+        // Note: Printers are Groups, raycaster intersects Mesh. Need recursive check.
+        const intersectables = printers
+          .filter((p) => p.userData.type === "printer")
+          .map((p) => p.children)
+          .flat();
+        const intersects = raycaster.intersectObjects(intersectables);
+
+        if (intersects.length > 0) {
+          const hitObj = intersects[0].object;
+          const printerGroup = hitObj.parent; // The group has userData
+
+          // Delay hit effect slightly to match animation swing
+          setTimeout(() => {
+            damagePrinter(printerGroup, intersects[0].point);
+            shakeCamera(0.2);
+          }, 150);
+        }
+      }
+
+      function damagePrinter(printer, point) {
+        if (printer.userData.hp <= 0) return;
+
+        printer.userData.hp--;
+
+        // Visual Feedack
+        spawnParticles(point, 15);
+        spawnConfetti(point, 5); // Paper flying
+
+        // Flash
+        printer.children.forEach((c) => {
+          if (c.material && c.material.emissive) {
+            const old = c.material.emissive.getHex();
+            c.material.emissive.setHex(0xff0000);
+            setTimeout(() => c.material.emissive.setHex(old), 100);
+          }
+        });
+
+        // Tilt printer randomly
+        printer.rotation.z = (Math.random() - 0.5) * 0.5;
+        printer.rotation.x = (Math.random() - 0.5) * 0.5;
+
+        if (printer.userData.hp <= 0) {
+          destroyPrinter(printer);
+        } else {
+          // Increase happiness slightly for hit
+          addHappiness(5);
+        }
+      }
+
+      function destroyPrinter(printer) {
+        addHappiness(20);
+        printersRemaining--;
+        updateUI();
+
+        // Big explosion
+        spawnParticles(printer.position, 50);
+        spawnConfetti(printer.position, 20);
+
+        // Remove printer mesh, replace with debris
+        scene.remove(printer.parent); // Remove from desk group? No, printer is child of desk group usually.
+        // Actually printer was added to desk group.
+        printer.parent.remove(printer);
+
+        // Remove from logic array
+        const idx = printers.indexOf(printer);
+        if (idx > -1) printers.splice(idx, 1);
+
+        // Spawn broken parts debris (Mock physics)
+        for (let i = 0; i < 3; i++) {
+          const debris = new THREE.Mesh(
+            new THREE.BoxGeometry(0.3, 0.1, 0.3),
+            new THREE.MeshStandardMaterial({ color: 0x333333 })
+          );
+          debris.position.copy(printer.getWorldPosition(new THREE.Vector3()));
+          debris.position.y += 0.5;
+          scene.add(debris);
+
+          // Simple gravity physics data
+          particles.push({
+            mesh: debris,
+            vel: new THREE.Vector3(
+              (Math.random() - 0.5) * 5,
+              Math.random() * 5,
+              (Math.random() - 0.5) * 5
+            ),
+            life: 3, // stay for 3 seconds
+            gravity: true,
+            rot: new THREE.Vector3(Math.random(), Math.random(), Math.random()),
+          });
+        }
+
+        if (printersRemaining <= 0) {
+          setTimeout(() => {
+            alert(`OFFICE CLEARED! PROMOTION! \nNext Level: ${level + 1}`);
+            loadLevel(level + 1);
+          }, 1000);
+        }
+      }
+
+      function addHappiness(amount) {
+        happiness += amount;
+        if (happiness > 100) happiness = 100;
+        const bar = document.getElementById("happiness-fill");
+        bar.style.width = `${
+          (happiness / (totalPrinters * 20 + totalPrinters * 3 * 5)) * 100
+        }%`; // Rough scaling
+        // Actually just make it fill based on % of level complete
+        const totalPoints = totalPrinters * (3 * 5 + 20); // hits + destroy
+        const currentPoints = (totalPrinters - printersRemaining) * 20; // simplified tracking
+        // Just fill it up visually for fun, non-linear
+        bar.style.width = Math.min(100, parseFloat(bar.style.width) + 5) + "%";
+      }
+
+      function spawnParticles(pos, count) {
+        const geometry = new THREE.BoxGeometry(0.05, 0.05, 0.05);
+        const material = new THREE.MeshBasicMaterial({ color: 0xffaa00 });
+
+        for (let i = 0; i < count; i++) {
+          const mesh = new THREE.Mesh(geometry, material);
+          mesh.position.copy(pos);
+          scene.add(mesh);
+
+          particles.push({
+            mesh: mesh,
+            vel: new THREE.Vector3(
+              (Math.random() - 0.5) * 8,
+              (Math.random() - 0.5) * 8 + 2,
+              (Math.random() - 0.5) * 8
+            ),
+            life: 0.5 + Math.random() * 0.5,
+            gravity: true,
+          });
+        }
+      }
+
+      function spawnConfetti(pos, count) {
+        const geometry = new THREE.PlaneGeometry(0.1, 0.15);
+        const material = new THREE.MeshBasicMaterial({
+          color: 0xffffff,
+          side: THREE.DoubleSide,
+        });
+
+        for (let i = 0; i < count; i++) {
+          const mesh = new THREE.Mesh(geometry, material);
+          mesh.position.copy(pos);
+          mesh.rotation.set(Math.random(), Math.random(), Math.random());
+          scene.add(mesh);
+
+          particles.push({
+            mesh: mesh,
+            vel: new THREE.Vector3(
+              (Math.random() - 0.5) * 4,
+              Math.random() * 4,
+              (Math.random() - 0.5) * 4
+            ),
+            life: 2.0,
+            gravity: true,
+            drag: 0.95,
+            rot: new THREE.Vector3(
+              Math.random() * 0.2,
+              Math.random() * 0.2,
+              Math.random() * 0.2
+            ),
+          });
+        }
+      }
+
+      function updateUI() {
+        document.getElementById("printer-count").innerText = printersRemaining;
+      }
+
+      let shakeIntensity = 0;
+      function shakeCamera(amount) {
+        shakeIntensity = amount;
+      }
+
+      // --- Animation Loop ---
+      function animate() {
+        requestAnimationFrame(animate);
+
+        const time = performance.now();
+        const delta = (time - lastTime) / 1000;
+        lastTime = time;
+
+        if (isPaused) return;
+
+        // -- Movement Physics --
+        // Forward/Right vectors relative to yaw
+        const fwd = new THREE.Vector3(
+          -Math.sin(player.yaw),
+          0,
+          -Math.cos(player.yaw)
+        );
+        const right = new THREE.Vector3(
+          -Math.cos(player.yaw),
+          0,
+          Math.sin(player.yaw)
+        );
+
+        const moveDir = new THREE.Vector3();
+        if (input.w) moveDir.add(fwd);
+        if (input.s) moveDir.sub(fwd);
+        if (input.d) moveDir.sub(right);
+        if (input.a) moveDir.add(right);
+
+        if (moveDir.lengthSq() > 0) moveDir.normalize();
+
+        // Apply Movement
+        player.vel.x = moveDir.x * CONFIG.moveSpeed;
+        player.vel.z = moveDir.z * CONFIG.moveSpeed;
+
+        // Jump & Gravity
+        if (input.space && player.canJump) {
+          player.vel.y = CONFIG.jumpForce;
+          player.canJump = false;
+        }
+
+        player.vel.y -= CONFIG.gravity * delta;
+
+        // Integration
+        player.pos.add(player.vel.clone().multiplyScalar(delta));
+
+        // Floor Collision
+        if (player.pos.y < 1.7) {
+          player.pos.y = 1.7;
+          player.vel.y = 0;
+          player.canJump = true;
+        }
+
+        // -- Camera Update --
+        camera.position.copy(player.pos);
+
+        // Screen Shake
+        if (shakeIntensity > 0) {
+          camera.position.add(
+            new THREE.Vector3(
+              (Math.random() - 0.5) * shakeIntensity,
+              (Math.random() - 0.5) * shakeIntensity,
+              (Math.random() - 0.5) * shakeIntensity
+            )
+          );
+          shakeIntensity *= 0.9;
+          if (shakeIntensity < 0.001) shakeIntensity = 0;
+        }
+
+        // Look Rotation
+        const target = new THREE.Vector3(
+          -Math.sin(player.yaw) * Math.cos(player.pitch),
+          Math.sin(player.pitch),
+          -Math.cos(player.yaw) * Math.cos(player.pitch)
+        );
+        camera.lookAt(camera.position.clone().add(target));
+
+        // -- Bat Animation --
+        if (isAttacking) {
+          attackTimer += delta * 10; // Speed of swing
+
+          // Simple swing curve
+          // Start: 0.2, -0.2, 0
+          // Mid: -0.5, 0.5, 1
+          // End: 0.2, -0.2, 0
+
+          if (attackTimer < Math.PI) {
+            bat.rotation.z = Math.sin(attackTimer) * -1.5; // Swing down/forward
+            bat.position.x = 0.5 - Math.sin(attackTimer) * 0.5;
+            bat.position.z = -1 - Math.sin(attackTimer) * 0.5;
+          } else {
+            isAttacking = false;
+            bat.rotation.set(0.2, -0.2, 0);
+            bat.position.set(0.5, -0.5, -1);
+          }
+        } else {
+          // Idle Sway
+          bat.position.y = -0.5 + Math.sin(time * 0.005) * 0.02;
+          bat.rotation.z = Math.sin(time * 0.005) * 0.05;
+        }
+
+        // -- Particles --
+        for (let i = particles.length - 1; i >= 0; i--) {
+          const p = particles[i];
+          p.life -= delta;
+          if (p.gravity) p.vel.y -= CONFIG.gravity * delta;
+          if (p.drag) p.vel.multiplyScalar(p.drag);
+
+          p.mesh.position.add(p.vel.clone().multiplyScalar(delta));
+          if (p.rot) {
+            p.mesh.rotation.x += p.rot.x;
+            p.mesh.rotation.y += p.rot.y;
+          }
+
+          // Floor collision for particles
+          if (p.mesh.position.y < 0) {
+            p.mesh.position.y = 0;
+            p.vel.y *= -0.5; // Bounce
+            p.vel.x *= 0.8; // Friction
+            p.vel.z *= 0.8;
+          }
+
+          if (p.life <= 0) {
+            scene.remove(p.mesh);
+            particles.splice(i, 1);
+          }
+        }
+
+        // -- NPC Animation --
+        printers.forEach((obj) => {
+          if (obj.userData && obj.userData.type === "npc") {
+            // Bob up and down
+            obj.position.y =
+              obj.userData.startY +
+              Math.sin(time * 0.005 + obj.userData.offset) * 0.05;
+            // Look at player
+            obj.lookAt(player.pos.x, obj.position.y, player.pos.z);
+          }
+        });
+
+        renderer.render(scene, camera);
+      }
+
+      window.addEventListener("resize", () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+
+      init();
+    </script>
+  </body>
+</html>

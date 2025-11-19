@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>High Seas Pirate Battle</title>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        background-color: #87ceeb;
+        font-family: "Courier New", Courier, monospace;
+      }
+      #ui-layer {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        user-select: none;
+      }
+      #hud {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        color: white;
+        text-shadow: 2px 2px 0 #000;
+        font-size: 20px;
+      }
+      .health-bar-container {
+        position: absolute;
+        width: 50px;
+        height: 6px;
+        background: #333;
+        border: 1px solid white;
+        display: none; /* Hidden by default, shown via JS */
+      }
+      .health-fill {
+        height: 100%;
+        background: #00ff00;
+        width: 100%;
+        transition: width 0.2s;
+      }
+      .enemy-health .health-fill {
+        background: #ff0000;
+      }
+
+      #game-over {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+        color: white;
+        text-shadow: 4px 4px 0 #000;
+        display: none;
+        pointer-events: auto;
+      }
+      h1 {
+        font-size: 60px;
+        margin: 0;
+      }
+      button {
+        background: #8b4513;
+        color: white;
+        border: 2px solid #deb887;
+        padding: 15px 30px;
+        font-size: 24px;
+        cursor: pointer;
+        font-family: inherit;
+        margin-top: 20px;
+      }
+      button:hover {
+        background: #a0522d;
+      }
+      #controls-hint {
+        position: absolute;
+        bottom: 20px;
+        width: 100%;
+        text-align: center;
+        color: white;
+        text-shadow: 1px 1px 0 #000;
+        opacity: 0.8;
+      }
+    </style>
+  </head>
+  <body>
+    <style>
+      /* Minimal Floating Home Button */
+      .home-nav-btn {
+        position: fixed;
+        top: 15px;
+        left: 15px;
+        z-index: 10000; /* Ensure it sits above game UI/Canvases */
+        background: rgba(
+          30,
+          30,
+          30,
+          0.6
+        ); /* Dark semi-transparent for contrast */
+        color: #ffffff;
+        text-decoration: none;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+        font-size: 14px;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.2s ease;
+        backdrop-filter: blur(4px); /* Blurs background behind button */
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+
+      .home-nav-btn:hover {
+        background: rgba(30, 30, 30, 0.9);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      }
+
+      /* SVG Icon Style */
+      .home-nav-icon {
+        width: 16px;
+        height: 16px;
+      }
+    </style>
+
+    <!-- Link to your Hub (index.html) -->
+    <a href="index.html" class="home-nav-btn">
+      <svg
+        class="home-nav-icon"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+        <polyline points="9 22 9 12 15 12 15 22"></polyline>
+      </svg>
+      <span>Back to Hub</span>
+    </a>
+    <!-- UI Layer -->
+    <div id="ui-layer">
+      <div id="hud">
+        <div>Score: <span id="score">0</span></div>
+        <div>Hull Integrity: <span id="player-hp">100</span>%</div>
+      </div>
+      <div id="controls-hint">WASD to Sail | SPACE to Shoot</div>
+    </div>
+
+    <!-- Game Over Screen -->
+    <div id="game-over">
+      <h1 id="go-title">GAME OVER</h1>
+      <p id="go-msg"></p>
+      <button onclick="location.reload()">Sail Again</button>
+    </div>
+
+    <!-- Three.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <script>
+      /**
+       * CONFIGURATION & GLOBALS
+       */
+      const SCENE_SIZE = 600;
+      const PLAYER_SPEED = 0.4;
+      const TURN_SPEED = 0.03;
+      const CANNON_SPEED = 1.5;
+      const CANNON_COOLDOWN = 40; // Frames
+      const ENEMY_COUNT = 6;
+
+      let scene, camera, renderer;
+      let water;
+      let player;
+      let enemies = [];
+      let cannonballs = [];
+      let particles = [];
+      let sharks = [];
+      let islands = [];
+
+      // Game State
+      let score = 0;
+      let isGameOver = false;
+      let frameCount = 0;
+
+      // Inputs
+      const keys = { w: false, a: false, s: false, d: false, space: false };
+
+      /**
+       * SETUP
+       */
+      function init() {
+        // 1. Scene Setup
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x87ceeb);
+        scene.fog = new THREE.Fog(0x87ceeb, 50, 250);
+
+        camera = new THREE.PerspectiveCamera(
+          60,
+          window.innerWidth / window.innerHeight,
+          0.1,
+          1000
+        );
+
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        document.body.appendChild(renderer.domElement);
+
+        // 2. Lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(100, 100, 50);
+        dirLight.castShadow = true;
+        dirLight.shadow.camera.left = -100;
+        dirLight.shadow.camera.right = 100;
+        dirLight.shadow.camera.top = 100;
+        dirLight.shadow.camera.bottom = -100;
+        scene.add(dirLight);
+
+        // 3. Water
+        const waterGeo = new THREE.PlaneGeometry(
+          SCENE_SIZE * 2,
+          SCENE_SIZE * 2,
+          50,
+          50
+        );
+        const waterMat = new THREE.MeshPhongMaterial({
+          color: 0x006994,
+          shininess: 60,
+          flatShading: true,
+        });
+        water = new THREE.Mesh(waterGeo, waterMat);
+        water.rotation.x = -Math.PI / 2;
+        water.receiveShadow = true;
+        scene.add(water);
+
+        // 4. Generate World
+        generateIslands();
+        generateSharks();
+
+        // 5. Create Player
+        player = createShip(true);
+        scene.add(player.mesh);
+
+        // 6. Create Enemies
+        for (let i = 0; i < ENEMY_COUNT; i++) {
+          spawnEnemy();
+        }
+
+        // 7. Event Listeners
+        window.addEventListener("resize", onWindowResize, false);
+        document.addEventListener("keydown", (e) => handleKey(e, true));
+        document.addEventListener("keyup", (e) => handleKey(e, false));
+
+        // Start Loop
+        animate();
+      }
+
+      /**
+       * FACTORIES
+       */
+
+      function createShip(isPlayer) {
+        const group = new THREE.Group();
+
+        // Colors
+        const hullColor = isPlayer ? 0x8b4513 : 0x5c0000; // Brown vs Dark Red
+        const sailColor = isPlayer ? 0xffffff : 0x333333; // White vs Dark Grey
+
+        // Hull
+        const hullGeo = new THREE.BoxGeometry(2, 1.5, 5);
+        // Taper the front of the hull slightly for a "boat" look
+        const positionAttribute = hullGeo.attributes.position;
+        for (let i = 0; i < positionAttribute.count; i++) {
+          const z = positionAttribute.getZ(i);
+          if (z > 1) {
+            // Front of ship
+            positionAttribute.setX(i, positionAttribute.getX(i) * 0.5);
+          }
+        }
+        hullGeo.computeVertexNormals();
+
+        const hull = new THREE.Mesh(
+          hullGeo,
+          new THREE.MeshLambertMaterial({ color: hullColor })
+        );
+        hull.position.y = 0.5;
+        hull.castShadow = true;
+        group.add(hull);
+
+        // Deck details
+        const cabin = new THREE.Mesh(
+          new THREE.BoxGeometry(1.8, 1, 2),
+          new THREE.MeshLambertMaterial({ color: hullColor })
+        );
+        cabin.position.set(0, 1.2, -1);
+        group.add(cabin);
+
+        // Mast
+        const mast = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.1, 0.1, 8),
+          new THREE.MeshLambertMaterial({ color: 0x5d4037 })
+        );
+        mast.position.set(0, 4, 0.5);
+        group.add(mast);
+
+        // Sail
+        const sailGeo = new THREE.BoxGeometry(3, 5, 0.1);
+        const sail = new THREE.Mesh(
+          sailGeo,
+          new THREE.MeshLambertMaterial({ color: sailColor })
+        );
+        sail.position.set(0, 4.5, 0.8);
+        group.add(sail);
+
+        // Cannon (Visual)
+        const cannon = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.2, 0.2, 1.5),
+          new THREE.MeshLambertMaterial({ color: 0x000000 })
+        );
+        cannon.rotation.x = Math.PI / 2;
+        cannon.position.set(0, 1, 2.2); // Front facing
+        group.add(cannon);
+
+        // Health Bar Element
+        const hpDiv = document.createElement("div");
+        hpDiv.className =
+          "health-bar-container " +
+          (isPlayer ? "player-health" : "enemy-health");
+        hpDiv.innerHTML = '<div class="health-fill"></div>';
+        document.body.appendChild(hpDiv);
+
+        // Object Wrapper
+        return {
+          mesh: group,
+          hp: 100,
+          maxHp: 100,
+          velocity: 0,
+          cooldown: 0,
+          isPlayer: isPlayer,
+          hpElement: hpDiv,
+          isDead: false,
+        };
+      }
+
+      function spawnEnemy() {
+        const enemy = createShip(false);
+        // Random position away from player
+        let x, z;
+        do {
+          x = (Math.random() - 0.5) * (SCENE_SIZE - 50);
+          z = (Math.random() - 0.5) * (SCENE_SIZE - 50);
+        } while (Math.sqrt(x * x + z * z) < 40); // Keep min distance from center
+
+        enemy.mesh.position.set(x, 0, z);
+        enemy.mesh.rotation.y = Math.random() * Math.PI * 2;
+        scene.add(enemy.mesh);
+        enemies.push(enemy);
+      }
+
+      function generateIslands() {
+        for (let i = 0; i < 15; i++) {
+          const height = 5 + Math.random() * 10;
+          const geo = new THREE.ConeGeometry(3 + Math.random() * 5, height, 7);
+          const mat = new THREE.MeshLambertMaterial({
+            color: 0x228b22,
+            flatShading: true,
+          });
+          const island = new THREE.Mesh(geo, mat);
+
+          // Random Pos
+          let x = (Math.random() - 0.5) * SCENE_SIZE;
+          let z = (Math.random() - 0.5) * SCENE_SIZE;
+
+          // Don't spawn on player start
+          if (Math.abs(x) < 20 && Math.abs(z) < 20) continue;
+
+          island.position.set(x, height / 2 - 1, z);
+          scene.add(island);
+          islands.push({ mesh: island, radius: 6 }); // Simple collision radius
+        }
+      }
+
+      function generateSharks() {
+        const finGeo = new THREE.BufferGeometry();
+        const vertices = new Float32Array([
+          0,
+          1,
+          0, // tip
+          -0.5,
+          0,
+          0.5, // back left
+          0.5,
+          0,
+          0.5, // back right
+          0,
+          0,
+          -0.5, // front
+        ]);
+        finGeo.setAttribute("position", new THREE.BufferAttribute(vertices, 3));
+        finGeo.computeVertexNormals();
+
+        const finMat = new THREE.MeshLambertMaterial({ color: 0x808080 });
+
+        for (let i = 0; i < 8; i++) {
+          const shark = new THREE.Mesh(finGeo, finMat);
+          // Assign a center point to orbit
+          const cx = (Math.random() - 0.5) * SCENE_SIZE;
+          const cz = (Math.random() - 0.5) * SCENE_SIZE;
+
+          scene.add(shark);
+          sharks.push({
+            mesh: shark,
+            cx: cx,
+            cz: cz,
+            angle: Math.random() * Math.PI * 2,
+            speed: 0.02 + Math.random() * 0.02,
+            radius: 10 + Math.random() * 10,
+          });
+        }
+      }
+
+      function createExplosion(pos) {
+        // Simple particle explosion
+        for (let i = 0; i < 10; i++) {
+          const geo = new THREE.BoxGeometry(0.5, 0.5, 0.5);
+          const mat = new THREE.MeshBasicMaterial({ color: 0xffa500 });
+          const p = new THREE.Mesh(geo, mat);
+          p.position.copy(pos);
+
+          // Random velocity
+          const vel = new THREE.Vector3(
+            Math.random() - 0.5,
+            Math.random(),
+            Math.random() - 0.5
+          );
+
+          scene.add(p);
+          particles.push({ mesh: p, vel: vel, life: 1.0 });
+        }
+      }
+
+      function shootCannon(ship) {
+        if (ship.cooldown > 0) return;
+
+        const ballGeo = new THREE.SphereGeometry(0.3, 8, 8);
+        const ballMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+        const ball = new THREE.Mesh(ballGeo, ballMat);
+
+        // Start at ship position (raised slightly)
+        ball.position.copy(ship.mesh.position);
+        ball.position.y += 1.5;
+
+        // Move forward based on ship rotation
+        const forward = new THREE.Vector3(0, 0, 1);
+        forward.applyAxisAngle(
+          new THREE.Vector3(0, 1, 0),
+          ship.mesh.rotation.y
+        );
+
+        // Push shot slightly forward so it doesn't hit own ship
+        ball.position.add(forward.clone().multiplyScalar(3));
+
+        const velocity = forward.multiplyScalar(CANNON_SPEED);
+        // Add a little arc vertical velocity
+        velocity.y = 0.1;
+
+        scene.add(ball);
+
+        cannonballs.push({
+          mesh: ball,
+          velocity: velocity,
+          life: 100, // frames until delete
+          owner: ship.isPlayer ? "player" : "enemy",
+        });
+
+        ship.cooldown = CANNON_COOLDOWN;
+      }
+
+      /**
+       * GAME LOOP
+       */
+
+      function animate() {
+        if (isGameOver) return;
+        requestAnimationFrame(animate);
+        frameCount++;
+
+        updatePlayer();
+        updateEnemies();
+        updateCannonballs();
+        updateParticles();
+        updateEnvironment();
+        updateUI();
+
+        renderer.render(scene, camera);
+      }
+
+      // LOGIC HELPERS
+
+      function handleKey(e, pressed) {
+        const k = e.key.toLowerCase();
+        if (k === "w" || k === "arrowup") keys.w = pressed;
+        if (k === "s" || k === "arrowdown") keys.s = pressed;
+        if (k === "a" || k === "arrowleft") keys.a = pressed;
+        if (k === "d" || k === "arrowright") keys.d = pressed;
+        if (k === " ") keys.space = pressed;
+      }
+
+      function updatePlayer() {
+        if (player.isDead) return;
+
+        // Movement
+        if (keys.w)
+          player.velocity = Math.min(player.velocity + 0.01, PLAYER_SPEED);
+        else if (keys.s)
+          player.velocity = Math.max(player.velocity - 0.01, -PLAYER_SPEED / 2);
+        else player.velocity *= 0.98; // Drag
+
+        // Rotation
+        if (Math.abs(player.velocity) > 0.01) {
+          if (keys.a) player.mesh.rotation.y += TURN_SPEED;
+          if (keys.d) player.mesh.rotation.y -= TURN_SPEED;
+        }
+
+        // Apply velocity
+        player.mesh.translateZ(player.velocity);
+
+        // Bounds Check (Bounce off world edge)
+        if (Math.abs(player.mesh.position.x) > SCENE_SIZE / 2) {
+          player.mesh.position.x =
+            (Math.sign(player.mesh.position.x) * SCENE_SIZE) / 2;
+          player.velocity *= -0.5;
+        }
+        if (Math.abs(player.mesh.position.z) > SCENE_SIZE / 2) {
+          player.mesh.position.z =
+            (Math.sign(player.mesh.position.z) * SCENE_SIZE) / 2;
+          player.velocity *= -0.5;
+        }
+
+        // Island Collision
+        checkIslandCollision(player);
+
+        // Shooting
+        if (keys.space) shootCannon(player);
+        if (player.cooldown > 0) player.cooldown--;
+
+        // Camera Follow
+        // Smooth follow camera
+        const relativeCameraOffset = new THREE.Vector3(0, 10, -20);
+        const cameraOffset = relativeCameraOffset.applyMatrix4(
+          player.mesh.matrixWorld
+        );
+
+        camera.position.lerp(cameraOffset, 0.1);
+        camera.lookAt(player.mesh.position);
+      }
+
+      function updateEnemies() {
+        enemies.forEach((enemy) => {
+          if (enemy.isDead) return;
+
+          // Simple AI
+          const dist = enemy.mesh.position.distanceTo(player.mesh.position);
+
+          // Turn towards player
+          const targetPos = player.mesh.position.clone();
+          const dx = targetPos.x - enemy.mesh.position.x;
+          const dz = targetPos.z - enemy.mesh.position.z;
+          const targetRotation = Math.atan2(dx, dz);
+
+          // Smooth rotation
+          let rotDiff = targetRotation - enemy.mesh.rotation.y;
+          // Normalize angle to -PI to PI
+          while (rotDiff > Math.PI) rotDiff -= Math.PI * 2;
+          while (rotDiff < -Math.PI) rotDiff += Math.PI * 2;
+
+          enemy.mesh.rotation.y += Math.max(-0.02, Math.min(0.02, rotDiff));
+
+          // Move
+          if (dist > 20) {
+            enemy.velocity = Math.min(
+              enemy.velocity + 0.005,
+              PLAYER_SPEED * 0.8
+            );
+          } else if (dist < 10) {
+            enemy.velocity *= 0.95; // Slow down if too close
+          }
+          enemy.mesh.translateZ(enemy.velocity);
+          checkIslandCollision(enemy);
+
+          // Shoot
+          if (dist < 40 && Math.abs(rotDiff) < 0.5) {
+            // Only shoot if facing player roughly
+            shootCannon(enemy);
+          }
+          if (enemy.cooldown > 0) enemy.cooldown--;
+        });
+      }
+
+      function updateCannonballs() {
+        for (let i = cannonballs.length - 1; i >= 0; i--) {
+          const ball = cannonballs[i];
+          ball.life--;
+
+          ball.mesh.position.add(ball.velocity);
+          ball.velocity.y -= 0.002; // Gravity
+
+          // Hit Water
+          if (ball.mesh.position.y < 0) {
+            createSplash(ball.mesh.position);
+            removeBall(i);
+            continue;
+          }
+
+          // Hit Logic
+          if (ball.life <= 0) {
+            removeBall(i);
+            continue;
+          }
+
+          // Collision detection with Ships
+          // Check Player
+          if (ball.owner === "enemy" && !player.isDead) {
+            if (ball.mesh.position.distanceTo(player.mesh.position) < 3) {
+              damageShip(player, 10);
+              createExplosion(ball.mesh.position);
+              removeBall(i);
+              continue;
+            }
+          }
+
+          // Check Enemies
+          if (ball.owner === "player") {
+            let hit = false;
+            for (let e = 0; e < enemies.length; e++) {
+              if (
+                !enemies[e].isDead &&
+                ball.mesh.position.distanceTo(enemies[e].mesh.position) < 3
+              ) {
+                damageShip(enemies[e], 25);
+                createExplosion(ball.mesh.position);
+                removeBall(i);
+                hit = true;
+                break;
+              }
+            }
+            if (hit) continue;
+          }
+        }
+      }
+
+      function updateEnvironment() {
+        // Water Wave Animation (Vertex manipulation for simple effect)
+        const positionAttribute = water.geometry.attributes.position;
+        for (let i = 0; i < positionAttribute.count; i++) {
+          const z = positionAttribute.getZ(i);
+          // Simple sine wave based on X/Y and Time
+          const x = positionAttribute.getX(i);
+          const y = positionAttribute.getY(i); // Actually Y in geometry is Z in world due to rotation
+          // We can't easily animate vertex by vertex cheaply in JS for high poly,
+          // but let's just rock the water mesh slightly
+        }
+        water.rotation.x = -Math.PI / 2 + Math.sin(frameCount * 0.01) * 0.02;
+        water.rotation.z = Math.cos(frameCount * 0.005) * 0.02;
+
+        // Sharks
+        sharks.forEach((shark) => {
+          shark.angle += shark.speed;
+          shark.mesh.position.x =
+            shark.cx + Math.cos(shark.angle) * shark.radius;
+          shark.mesh.position.z =
+            shark.cz + Math.sin(shark.angle) * shark.radius;
+
+          // Rotate mesh to face tangent
+          shark.mesh.rotation.y = -shark.angle;
+
+          // Check collision with player (Shark Bite)
+          if (
+            !player.isDead &&
+            shark.mesh.position.distanceTo(player.mesh.position) < 3
+          ) {
+            damageShip(player, 0.5); // Damage over time if touching
+          }
+        });
+      }
+
+      function updateParticles() {
+        for (let i = particles.length - 1; i >= 0; i--) {
+          const p = particles[i];
+          p.life -= 0.02;
+          p.mesh.position.add(p.vel);
+          p.vel.y -= 0.02; // Gravity
+          p.mesh.rotation.x += 0.1;
+          p.mesh.scale.setScalar(p.life);
+
+          if (p.mesh.position.y < 0 || p.life <= 0) {
+            scene.remove(p.mesh);
+            particles.splice(i, 1);
+          }
+        }
+      }
+
+      function checkIslandCollision(ship) {
+        for (let island of islands) {
+          const dist = ship.mesh.position.distanceTo(island.mesh.position);
+          if (dist < island.radius) {
+            // Bounce back
+            const pushDir = ship.mesh.position
+              .clone()
+              .sub(island.mesh.position)
+              .normalize();
+            ship.mesh.position.add(pushDir.multiplyScalar(0.5));
+            ship.velocity *= -0.5;
+          }
+        }
+      }
+
+      function removeBall(index) {
+        scene.remove(cannonballs[index].mesh);
+        cannonballs.splice(index, 1);
+      }
+
+      function createSplash(pos) {
+        // Only visual logic needed really, maybe some particles
+        // Reuse explosion function but blue?
+        // Keeping it simple for file size/performance
+      }
+
+      function damageShip(ship, amount) {
+        ship.hp -= amount;
+        if (ship.hp <= 0) {
+          ship.hp = 0;
+          ship.isDead = true;
+          createExplosion(ship.mesh.position);
+          createExplosion(ship.mesh.position); // Double boom
+          scene.remove(ship.mesh);
+          ship.hpElement.style.display = "none";
+
+          if (ship.isPlayer) {
+            endGame(false);
+          } else {
+            score += 100;
+            checkWin();
+          }
+        }
+      }
+
+      function checkWin() {
+        const activeEnemies = enemies.filter((e) => !e.isDead).length;
+        if (activeEnemies === 0) {
+          endGame(true);
+        }
+      }
+
+      function endGame(win) {
+        isGameOver = true;
+        const goScreen = document.getElementById("game-over");
+        const goTitle = document.getElementById("go-title");
+        const goMsg = document.getElementById("go-msg");
+
+        goScreen.style.display = "block";
+        if (win) {
+          goTitle.innerText = "VICTORY!";
+          goTitle.style.color = "gold";
+          goMsg.innerText =
+            "You have cleared the seas of pirates. Score: " + score;
+        } else {
+          goTitle.innerText = "DEFEAT";
+          goTitle.style.color = "red";
+          goMsg.innerText = "Your ship has sunk to the depths.";
+        }
+      }
+
+      /**
+       * UI & UTILS
+       */
+
+      function updateUI() {
+        // Score
+        document.getElementById("score").innerText = score;
+        document.getElementById("player-hp").innerText = Math.floor(player.hp);
+
+        // Update Health Bars positions
+        updateHealthBar(player);
+        enemies.forEach((e) => updateHealthBar(e));
+      }
+
+      function updateHealthBar(ship) {
+        if (ship.isDead) return;
+
+        // Project 3D position to 2D screen
+        const tempV = ship.mesh.position.clone();
+        tempV.y += 3; // Above ship
+
+        // Check if in front of camera
+        tempV.project(camera);
+
+        const x = (tempV.x * 0.5 + 0.5) * window.innerWidth;
+        const y = (tempV.y * -0.5 + 0.5) * window.innerHeight;
+
+        if (Math.abs(tempV.z) > 1) {
+          // Behind camera
+          ship.hpElement.style.display = "none";
+        } else {
+          ship.hpElement.style.display = "block";
+          ship.hpElement.style.left = x - 25 + "px";
+          ship.hpElement.style.top = y + "px";
+          ship.hpElement.querySelector(".health-fill").style.width =
+            (ship.hp / ship.maxHp) * 100 + "%";
+        }
+      }
+
+      function onWindowResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      }
+
+      // Boot
+      init();
+    </script>
+  </body>
+</html>
