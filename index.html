@@ -26,22 +26,39 @@
         opacity: 0.6;
       }
 
-      /* UI CONTAINER */
-      .container {
+/* UI CONTAINER */
+.container {
         position: relative;
         z-index: 1;
         max-width: 1200px;
         margin: 0 auto;
-        padding: 40px 20px;
+        
+        /* CHANGED: Increased top padding to 240px so cards don't hide behind the fixed header */
+        padding: 240px 20px 40px 20px;
+        
         display: flex;
         flex-direction: column;
         align-items: center;
       }
 
       /* HEADER */
-      header {
+/* UPDATED HEADER (Fixed + Glass effect) */
+header {
+        position: fixed; /* Force it to stay at the top */
+        top: 0;
+        left: 0;
+        width: 100%; /* Stretch across the whole screen */
+        z-index: 1000; /* Ensure it sits on top of everything */
+        
         text-align: center;
-        margin-bottom: 60px;
+        padding: 20px 0 30px 0; /* Added bottom padding for spacing */
+        
+        /* Glassmorphism background */
+        background: rgba(5, 5, 16, 0.9); /* Made slightly darker for readability */
+        backdrop-filter: blur(15px);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        
         animation: fadeInDown 1s ease-out;
       }
 
@@ -157,7 +174,7 @@
         mix-blend-mode: normal; 
         
         /* 0.6 means 60% image visibility, 40% gradient showing through from behind */
-        opacity: 0.6; 
+        opacity: 0.85; 
         
         transition: all 0.5s ease;
       }
@@ -248,9 +265,18 @@
 
     <div class="container">
         <header>
-          <h1>AI Arcade</h1>
-          <div class="subtitle">Experimental Three.js Projects</div>
-        </header>
+            <h1>AI Arcade</h1>
+            <div class="subtitle">Experimental Three.js Projects</div>
+            
+            <div class="search-wrapper">
+              <input 
+                type="text" 
+                id="search-input" 
+                placeholder="Search games..." 
+                autocomplete="off"
+              />
+            </div>
+          </header>
   
         <div class="game-grid">
           <a href="./gladiator.html" class="game-card">
@@ -795,6 +821,27 @@
       }
 
       animate();
+      // --- SEARCH FILTER LOGIC ---
+      const searchInput = document.getElementById('search-input');
+      const gameCards = document.querySelectorAll('.game-card');
+
+      searchInput.addEventListener('input', (e) => {
+        const searchTerm = e.target.value.toLowerCase();
+
+        gameCards.forEach(card => {
+          // Get the title and description of the card
+          const title = card.querySelector('.game-title').innerText.toLowerCase();
+          const desc = card.querySelector('.game-desc').innerText.toLowerCase();
+
+          // If title or description matches search, show it. Otherwise, hide it.
+          if (title.includes(searchTerm) || desc.includes(searchTerm)) {
+            card.style.display = "flex"; // Keep original display type
+            card.style.animation = "none"; // Prevent animation from re-triggering weirdly
+          } else {
+            card.style.display = "none";
+          }
+        });
+      });
     </script>
   </body>
 </html>
