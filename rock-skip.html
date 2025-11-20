@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Skip Master 3D</title>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        font-family: "Segoe UI", sans-serif;
+        user-select: none;
+      }
+      canvas {
+        display: block;
+      }
+
+      #ui {
+        position: absolute;
+        top: 20px;
+        left: 0;
+        width: 100%;
+        text-align: center;
+        color: white;
+        pointer-events: none;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 24px;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+      }
+
+      #score-board {
+        font-size: 60px;
+        font-weight: bold;
+        margin-top: 10px;
+      }
+
+      #instructions {
+        position: absolute;
+        bottom: 30px;
+        width: 100%;
+        text-align: center;
+        color: rgba(255, 255, 255, 0.8);
+        font-size: 14px;
+      }
+
+      /* Power Bar */
+      #power-container {
+        position: absolute;
+        top: 50%;
+        right: 50px;
+        transform: translateY(-50%);
+        width: 20px;
+        height: 200px;
+        background: rgba(0, 0, 0, 0.5);
+        border: 2px solid white;
+        border-radius: 10px;
+        overflow: hidden;
+        display: none; /* Hidden until aiming */
+      }
+
+      #power-fill {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: 0%;
+        background: linear-gradient(to top, #00ff00, #ffff00, #ff0000);
+        transition: height 0.1s linear;
+      }
+
+      .controls-hint {
+        background: rgba(0, 0, 0, 0.4);
+        padding: 10px 20px;
+        border-radius: 20px;
+        display: inline-block;
+      }
+    </style>
+  </head>
+  <body>
+    <style>
+      /* Minimal Floating Home Button */
+      .home-nav-btn {
+        position: fixed;
+        top: 15px;
+        left: 15px;
+        z-index: 10000; /* Ensure it sits above game UI/Canvases */
+        background: rgba(
+          30,
+          30,
+          30,
+          0.6
+        ); /* Dark semi-transparent for contrast */
+        color: #ffffff;
+        text-decoration: none;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+        font-size: 14px;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.2s ease;
+        backdrop-filter: blur(4px); /* Blurs background behind button */
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+
+      .home-nav-btn:hover {
+        background: rgba(30, 30, 30, 0.9);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      }
+
+      /* SVG Icon Style */
+      .home-nav-icon {
+        width: 16px;
+        height: 16px;
+      }
+    </style>
+
+    <!-- Link to your Hub (index.html) -->
+    <a href="index.html" class="home-nav-btn">
+      <svg
+        class="home-nav-icon"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+        <polyline points="9 22 9 12 15 12 15 22"></polyline>
+      </svg>
+      <span>Back to Hub</span>
+    </a>
+    <div id="ui">
+      <h1>Skip Master</h1>
+      <div id="score-board">0</div>
+    </div>
+
+    <div id="power-container">
+      <div id="power-fill"></div>
+    </div>
+
+    <div id="instructions">
+      <div class="controls-hint">
+        HOLD Left Click to Aim & Charge &nbsp;|&nbsp; RELEASE to Throw
+      </div>
+    </div>
+
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+        }
+      }
+    </script>
+
+    <script type="module">
+      import * as THREE from "three";
+
+      // --- CONFIGURATION ---
+      const CONFIG = {
+        gravity: 0.15,
+        waterLevel: 0,
+        drag: 0.99, // Air resistance
+        waterDrag: 0.85, // Speed lost when skipping
+        sinkThreshold: -0.5, // If y-velocity is lower than this, it sinks
+        camLerp: 0.1, // Camera smoothness
+      };
+
+      // --- STATE ---
+      const state = {
+        phase: "IDLE", // IDLE, CHARGING, FLYING, SINKING
+        power: 0,
+        skips: 0,
+        rockPos: new THREE.Vector3(0, 2, 0),
+        rockVel: new THREE.Vector3(0, 0, 0),
+        particles: [],
+      };
+
+      // --- SETUP SCENE ---
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x87ceeb); // Sky blue
+      scene.fog = new THREE.Fog(0x87ceeb, 10, 150);
+
+      const camera = new THREE.PerspectiveCamera(
+        60,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        1000
+      );
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.shadowMap.enabled = true;
+      document.body.appendChild(renderer.domElement);
+
+      // Lights
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+      scene.add(ambientLight);
+
+      const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+      dirLight.position.set(10, 20, 10);
+      dirLight.castShadow = true;
+      dirLight.shadow.camera.top = 50;
+      dirLight.shadow.camera.bottom = -50;
+      dirLight.shadow.camera.left = -50;
+      dirLight.shadow.camera.right = 50;
+      scene.add(dirLight);
+
+      // --- GAME OBJECTS ---
+
+      // 1. Water
+      const waterGeo = new THREE.PlaneGeometry(500, 500, 50, 50);
+      // Simple shader-like material for water
+      const waterMat = new THREE.MeshStandardMaterial({
+        color: 0x0077be,
+        roughness: 0.1,
+        metalness: 0.5,
+        transparent: true,
+        opacity: 0.8,
+      });
+      const water = new THREE.Mesh(waterGeo, waterMat);
+      water.rotation.x = -Math.PI / 2;
+      water.receiveShadow = true;
+      scene.add(water);
+
+      // 2. The Rock
+      const rockGeo = new THREE.DodecahedronGeometry(0.4, 1);
+      // Flatten it to make it a skipping stone
+      rockGeo.scale(1, 0.3, 1);
+      const rockMat = new THREE.MeshStandardMaterial({
+        color: 0x555555,
+        roughness: 0.8,
+      });
+      const rock = new THREE.Mesh(rockGeo, rockMat);
+      rock.castShadow = true;
+      scene.add(rock);
+
+      // 3. Visual Aim Helper (Line)
+      const aimGeo = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(0, 0, 0),
+        new THREE.Vector3(0, 0, -5),
+      ]);
+      const aimMat = new THREE.LineBasicMaterial({
+        color: 0xffffff,
+        transparent: true,
+        opacity: 0.5,
+      });
+      const aimLine = new THREE.Line(aimGeo, aimMat);
+      scene.add(aimLine);
+
+      // --- UI ELEMENTS ---
+      const uiScore = document.getElementById("score-board");
+      const uiPower = document.getElementById("power-container");
+      const uiPowerFill = document.getElementById("power-fill");
+
+      // --- INPUT HANDLING ---
+      let isMouseDown = false;
+      let mouseX = 0,
+        mouseY = 0;
+
+      window.addEventListener("mousedown", () => {
+        if (state.phase === "IDLE") {
+          state.phase = "CHARGING";
+          state.power = 0;
+          isMouseDown = true;
+          uiPower.style.display = "block";
+        }
+      });
+
+      window.addEventListener("mouseup", () => {
+        if (state.phase === "CHARGING") {
+          throwRock();
+          isMouseDown = false;
+          uiPower.style.display = "none";
+        }
+      });
+
+      window.addEventListener("mousemove", (e) => {
+        // Normalize mouse pos -1 to 1
+        mouseX = (e.clientX / window.innerWidth) * 2 - 1;
+        mouseY = -(e.clientY / window.innerHeight) * 2 + 1;
+      });
+
+      // --- GAMEPLAY FUNCTIONS ---
+
+      function resetGame() {
+        state.phase = "IDLE";
+        state.skips = 0;
+        state.power = 0;
+        state.rockPos.set(0, 2, 0);
+        state.rockVel.set(0, 0, 0);
+
+        rock.position.copy(state.rockPos);
+        rock.rotation.set(0, 0, 0);
+
+        // Reset Camera
+        camera.position.set(0, 3, 5);
+        camera.lookAt(0, 1, -10);
+
+        uiScore.innerText = "0";
+        aimLine.visible = true;
+      }
+
+      function throwRock() {
+        state.phase = "FLYING";
+        aimLine.visible = false;
+
+        // Calculate throw direction based on mouse X (aim left/right) and Power
+        // We throw mostly negative Z (forward)
+        const forwardForce = 1 + state.power * 0.04; // Speed multiplier
+        const upwardForce = 0.2; // Slight lift
+
+        state.rockVel.set(
+          mouseX * 0.5, // Left/Right aim
+          upwardForce,
+          -forwardForce
+        );
+      }
+
+      function createSplash(x, z) {
+        // Simple particle explosion
+        const count = 8;
+        for (let i = 0; i < count; i++) {
+          const pGeo = new THREE.BoxGeometry(0.1, 0.1, 0.1);
+          const pMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+          const mesh = new THREE.Mesh(pGeo, pMat);
+          mesh.position.set(x, 0, z);
+
+          // Random velocity
+          const vel = new THREE.Vector3(
+            (Math.random() - 0.5) * 0.3,
+            Math.random() * 0.3,
+            (Math.random() - 0.5) * 0.3
+          );
+
+          scene.add(mesh);
+          state.particles.push({ mesh, vel, life: 1.0 });
+        }
+      }
+
+      // --- MAIN LOOP ---
+
+      function update(time) {
+        // 1. Handling Charging
+        if (state.phase === "CHARGING") {
+          state.power += 1.5; // Charge speed
+          if (state.power > 100) state.power = 100;
+          uiPowerFill.style.height = state.power + "%";
+
+          // Move aim line slightly based on mouse
+          aimLine.rotation.y = -mouseX * 0.5;
+          aimLine.position.set(0, 2, 0);
+
+          // Initial camera look
+          camera.lookAt(mouseX * 2, 1, -10);
+        }
+
+        // 2. Handling Flying (Physics)
+        if (state.phase === "FLYING") {
+          // Apply Gravity
+          state.rockVel.y -= CONFIG.gravity * 0.1;
+
+          // Apply Drag
+          state.rockVel.x *= CONFIG.drag;
+          state.rockVel.z *= CONFIG.drag;
+
+          // Move Rock
+          state.rockPos.add(state.rockVel);
+
+          // Rotate rock for visual effect
+          rock.rotation.x -= 0.1;
+          rock.rotation.z -= 0.05;
+
+          // Check Water Collision
+          if (state.rockPos.y <= CONFIG.waterLevel) {
+            // Hit the water
+
+            // Check if it skips or sinks
+            // Condition: Must be moving fast enough horizontally, and not falling too fast vertically
+            const speed = Math.sqrt(
+              state.rockVel.x ** 2 + state.rockVel.z ** 2
+            );
+
+            if (state.rockVel.y > CONFIG.sinkThreshold && speed > 0.2) {
+              // SKIP!
+              state.rockPos.y = CONFIG.waterLevel; // Snap to surface
+              state.rockVel.y *= -0.6; // Bounce up with energy loss
+              state.rockVel.multiplyScalar(CONFIG.waterDrag); // Friction
+
+              state.skips++;
+              uiScore.innerText = state.skips;
+
+              createSplash(state.rockPos.x, state.rockPos.z);
+            } else {
+              // SINK
+              state.phase = "SINKING";
+              createSplash(state.rockPos.x, state.rockPos.z);
+              setTimeout(resetGame, 2000);
+            }
+          }
+
+          rock.position.copy(state.rockPos);
+
+          // CAMERA LOGIC: Switch to 3rd person chase
+          const offset = new THREE.Vector3(0, 1.5, 4); // Behind the rock
+          const desiredPos = state.rockPos.clone().add(offset);
+
+          // Lerp camera for smoothness
+          camera.position.lerp(desiredPos, CONFIG.camLerp);
+          camera.lookAt(state.rockPos);
+        }
+
+        // 3. Handling Sinking
+        if (state.phase === "SINKING") {
+          state.rockPos.y -= 0.05;
+          rock.position.copy(state.rockPos);
+        }
+
+        // 4. Update Particles
+        for (let i = state.particles.length - 1; i >= 0; i--) {
+          const p = state.particles[i];
+          p.mesh.position.add(p.vel);
+          p.vel.y -= 0.02; // Gravity
+          p.life -= 0.05;
+          p.mesh.rotation.x += 0.1;
+
+          if (p.life <= 0 || p.mesh.position.y < 0) {
+            scene.remove(p.mesh);
+            state.particles.splice(i, 1);
+          }
+        }
+
+        // 5. Water Animation (Simple wave)
+        const positions = water.geometry.attributes.position.array;
+        for (let i = 0; i < positions.length; i += 3) {
+          // Just modify Z slightly based on sine wave
+          // positions[i+2] = initialZ + Math.sin(time + x) * ...
+          // Kept simple: no vertex animation for performance in this snippet,
+          // but we can scroll the texture if we had one.
+        }
+      }
+
+      function animate(time) {
+        requestAnimationFrame(animate);
+        update(time * 0.001);
+        renderer.render(scene, camera);
+      }
+
+      // Handle Resize
+      window.addEventListener("resize", () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+
+      // Start
+      resetGame();
+      animate();
+    </script>
+  </body>
+</html>
