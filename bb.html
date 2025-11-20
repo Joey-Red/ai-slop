@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Three.js Lever Action BB Gun</title>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        font-family: monospace;
+      }
+      #ui {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        color: white;
+        background: rgba(0, 0, 0, 0.6);
+        padding: 15px;
+        pointer-events: none;
+        user-select: none;
+      }
+      #crosshair {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 10px;
+        height: 10px;
+        background: red;
+        border-radius: 50%;
+        transform: translate(-50%, -50%);
+        opacity: 0.7;
+      }
+      .key {
+        color: yellow;
+        font-weight: bold;
+      }
+    </style>
+  </head>
+  <body>
+    <style>
+      /* Minimal Floating Home Button */
+      .home-nav-btn {
+        position: fixed;
+        top: 15px;
+        left: 15px;
+        z-index: 10000; /* Ensure it sits above game UI/Canvases */
+        background: rgba(
+          30,
+          30,
+          30,
+          0.6
+        ); /* Dark semi-transparent for contrast */
+        color: #ffffff;
+        text-decoration: none;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+        font-size: 14px;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.2s ease;
+        backdrop-filter: blur(4px); /* Blurs background behind button */
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+
+      .home-nav-btn:hover {
+        background: rgba(30, 30, 30, 0.9);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      }
+
+      /* SVG Icon Style */
+      .home-nav-icon {
+        width: 16px;
+        height: 16px;
+      }
+    </style>
+
+    <!-- Link to your Hub (index.html) -->
+    <a href="index.html" class="home-nav-btn">
+      <svg
+        class="home-nav-icon"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+        <polyline points="9 22 9 12 15 12 15 22"></polyline>
+      </svg>
+      <span>Back to Hub</span>
+    </a>
+    <div id="crosshair"></div>
+    <div id="ui">
+      <h3>Lever Action Physics Demo</h3>
+      <p>1. Aim with <b>MOUSE</b></p>
+      <p>2. Press <span class="key">R</span> to Cycle Lever (Load)</p>
+      <p>3. Press <span class="key">L-CLICK</span> to Shoot</p>
+      <hr />
+      <div id="status">State: Empty</div>
+    </div>
+
+    <script
+      async
+      src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"
+    ></script>
+
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+          "cannon-es": "https://unpkg.com/cannon-es@0.20.0/dist/cannon-es.js"
+        }
+      }
+    </script>
+
+    <script type="module">
+      import * as THREE from "three";
+      import * as CANNON from "cannon-es";
+
+      // --- CONFIG ---
+      const BB_SPEED = 80;
+      const BB_SIZE = 0.15;
+      const CAN_SIZE = { r: 0.3, h: 0.8 };
+
+      // --- SCENE SETUP ---
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x87ceeb); // Sky blue
+      scene.fog = new THREE.Fog(0x87ceeb, 10, 50);
+
+      const camera = new THREE.PerspectiveCamera(
+        75,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        100
+      );
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.shadowMap.enabled = true;
+      document.body.appendChild(renderer.domElement);
+
+      // Light
+      const ambientLight = new THREE.AmbientLight(0x404040, 2); // Soft white light
+      scene.add(ambientLight);
+      const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
+      dirLight.position.set(10, 20, 10);
+      dirLight.castShadow = true;
+      scene.add(dirLight);
+
+      // --- PHYSICS SETUP ---
+      const world = new CANNON.World();
+      world.gravity.set(0, -9.82, 0);
+      // Materials
+      const groundMat = new CANNON.Material();
+      const metalMat = new CANNON.Material();
+      const metalContact = new CANNON.ContactMaterial(groundMat, metalMat, {
+        friction: 0.4,
+        restitution: 0.3,
+      });
+      world.addContactMaterial(metalContact);
+
+      // --- HELPERS ---
+      const meshes = [];
+      const bodies = [];
+
+      function createPhysicsObject(mesh, shape, mass, pos, material) {
+        const body = new CANNON.Body({ mass: mass, material: material });
+        body.addShape(shape);
+        body.position.copy(pos);
+        world.addBody(body);
+        scene.add(mesh);
+        meshes.push(mesh);
+        bodies.push(body);
+        return { mesh, body };
+      }
+
+      // --- ENVIRONMENT ---
+
+      // Floor
+      const floorGeo = new THREE.PlaneGeometry(50, 50);
+      const floorMat = new THREE.MeshStandardMaterial({ color: 0x228b22 });
+      const floorMesh = new THREE.Mesh(floorGeo, floorMat);
+      floorMesh.rotation.x = -Math.PI / 2;
+      floorMesh.receiveShadow = true;
+      scene.add(floorMesh);
+
+      const floorBody = new CANNON.Body({ mass: 0, material: groundMat }); // Static
+      floorBody.addShape(new CANNON.Plane());
+      floorBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
+      world.addBody(floorBody);
+
+      // Railing (Box)
+      const railGeo = new THREE.BoxGeometry(4, 1, 1);
+      const railMesh = new THREE.Mesh(
+        railGeo,
+        new THREE.MeshStandardMaterial({ color: 0x8b4513 })
+      );
+      railMesh.castShadow = true;
+      railMesh.receiveShadow = true;
+      const railShape = new CANNON.Box(new CANNON.Vec3(2, 0.5, 0.5));
+      createPhysicsObject(
+        railMesh,
+        railShape,
+        0,
+        new THREE.Vector3(0, 0.5, -10),
+        groundMat
+      ); // Static
+
+      // The Can (Target)
+      const canGeo = new THREE.CylinderGeometry(
+        CAN_SIZE.r,
+        CAN_SIZE.r,
+        CAN_SIZE.h,
+        16
+      );
+      const canMesh = new THREE.Mesh(
+        canGeo,
+        new THREE.MeshStandardMaterial({
+          color: 0xff0000,
+          metalness: 0.5,
+          roughness: 0.1,
+        })
+      );
+      canMesh.castShadow = true;
+      const canShape = new CANNON.Cylinder(
+        CAN_SIZE.r,
+        CAN_SIZE.r,
+        CAN_SIZE.h,
+        16
+      );
+      // Cannon cylinders need rotation to match Three.js
+      const quat = new CANNON.Quaternion();
+      quat.setFromEuler(-Math.PI / 2, 0, 0);
+      // For cylinder in cannon, we need to be careful about orientation, usually it aligns with Z
+      // Let's use a box for the can physics for stability in this simple demo, or rotate the cylinder shape
+      const canPhysShape = new CANNON.Cylinder(
+        CAN_SIZE.r,
+        CAN_SIZE.r,
+        CAN_SIZE.h,
+        8
+      );
+      // Fix rotation for physics cylinder
+      const canBody = new CANNON.Body({ mass: 0.2, material: metalMat });
+      // We rotate the SHAPE inside the body, not the body itself immediately
+      canBody.addShape(canPhysShape, new CANNON.Vec3(0, 0, 0), quat);
+      canBody.position.set(0, 1.0 + CAN_SIZE.h / 2, -10);
+      world.addBody(canBody);
+      scene.add(canMesh);
+      meshes.push(canMesh);
+      bodies.push(canBody);
+
+      // --- THE GUN (Procedural) ---
+      const gunGroup = new THREE.Group();
+      scene.add(gunGroup);
+
+      // Barrel
+      const barrelGeo = new THREE.CylinderGeometry(0.05, 0.05, 3, 12);
+      const barrel = new THREE.Mesh(
+        barrelGeo,
+        new THREE.MeshStandardMaterial({ color: 0x333333 })
+      );
+      barrel.rotation.x = Math.PI / 2;
+      barrel.position.z = -1.5;
+      gunGroup.add(barrel);
+
+      // Stock
+      const stockGeo = new THREE.BoxGeometry(0.3, 0.5, 2);
+      const stock = new THREE.Mesh(
+        stockGeo,
+        new THREE.MeshStandardMaterial({ color: 0x8b4513 })
+      );
+      stock.position.z = 1;
+      gunGroup.add(stock);
+
+      // Lever (The animated part)
+      const leverGeo = new THREE.TorusGeometry(0.2, 0.03, 8, 20, Math.PI);
+      const lever = new THREE.Mesh(
+        leverGeo,
+        new THREE.MeshStandardMaterial({ color: 0x111111 })
+      );
+      lever.position.set(0, -0.3, 0.5);
+      lever.rotation.z = Math.PI; // Flip loop down
+      gunGroup.add(lever);
+
+      // Gun Position in Hand
+      gunGroup.position.set(0.5, 1.5, 1);
+
+      // --- LOGIC & CONTROLS ---
+      let isLeverOpen = false;
+      let isLoaded = false;
+      let isAnimating = false;
+      const uiStatus = document.getElementById("status");
+      const mouse = new THREE.Vector2();
+
+      // Aiming logic
+      document.addEventListener("mousemove", (event) => {
+        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+        // Slight swaying of gun based on mouse
+        gunGroup.rotation.y = mouse.x * 0.3;
+        gunGroup.rotation.x = mouse.y * 0.3;
+
+        // Move camera slightly too
+        camera.rotation.y = mouse.x * 0.1;
+        camera.rotation.x = mouse.y * 0.1;
+      });
+
+      document.addEventListener("keydown", (e) => {
+        if (e.code === "KeyR") toggleLever();
+      });
+
+      document.addEventListener("mousedown", (e) => {
+        if (e.button === 0) shoot();
+      });
+
+      function toggleLever() {
+        if (isAnimating) return;
+        isAnimating = true;
+
+        const start = lever.rotation.x;
+        const end = isLeverOpen ? 0 : Math.PI / 4; // Rotate lever down 45 degrees
+        const duration = 300;
+        const startTime = performance.now();
+
+        function animate(time) {
+          const elapsed = time - startTime;
+          const progress = Math.min(elapsed / duration, 1);
+
+          lever.rotation.x = start + (end - start) * progress;
+
+          if (progress < 1) {
+            requestAnimationFrame(animate);
+          } else {
+            isAnimating = false;
+            isLeverOpen = !isLeverOpen;
+
+            if (isLeverOpen) {
+              uiStatus.innerText = "State: Chamber Open (Press R)";
+              uiStatus.style.color = "yellow";
+            } else {
+              isLoaded = true;
+              uiStatus.innerText = "State: LOADED";
+              uiStatus.style.color = "#00ff00";
+
+              // Visual "clack" of loading
+              gunGroup.position.y -= 0.05;
+              setTimeout(() => (gunGroup.position.y += 0.05), 50);
+            }
+          }
+        }
+        requestAnimationFrame(animate);
+      }
+
+      function shoot() {
+        if (isLeverOpen) {
+          uiStatus.innerText = "State: Cannot shoot, lever open!";
+          return;
+        }
+        if (!isLoaded) {
+          uiStatus.innerText = "State: *Click* (Empty)";
+          uiStatus.style.color = "red";
+          return;
+        }
+
+        // 1. Visual Recoil
+        gunGroup.position.z += 0.2;
+        setTimeout(() => (gunGroup.position.z -= 0.2), 100);
+
+        // 2. Physics BB
+        const bbGeo = new THREE.SphereGeometry(BB_SIZE, 8, 8);
+        const bbMat = new THREE.MeshStandardMaterial({
+          color: 0xcccccc,
+          metalness: 1.0,
+        });
+        const bbMesh = new THREE.Mesh(bbGeo, bbMat);
+
+        const bbShape = new CANNON.Sphere(BB_SIZE);
+
+        // Calculate spawn position (tip of barrel)
+        const spawnPos = new THREE.Vector3(0, 0, -3); // Relative to gun
+        spawnPos.applyEuler(gunGroup.rotation); // Rotate with gun
+        spawnPos.add(gunGroup.position); // Add gun offset
+
+        const { body: bbBody } = createPhysicsObject(
+          bbMesh,
+          bbShape,
+          0.05,
+          spawnPos,
+          metalMat
+        );
+
+        // 3. Apply Force (Shooting)
+        // Direction vector
+        const shootDir = new THREE.Vector3(0, 0, -1);
+        shootDir.applyEuler(gunGroup.rotation);
+        shootDir.multiplyScalar(BB_SPEED);
+
+        bbBody.velocity.set(shootDir.x, shootDir.y, shootDir.z);
+
+        // 4. Cleanup
+        isLoaded = false;
+        uiStatus.innerText = "State: Empty";
+        uiStatus.style.color = "white";
+      }
+
+      // --- ANIMATION LOOP ---
+      const timeStep = 1 / 60;
+      const clock = new THREE.Clock();
+
+      function animate() {
+        requestAnimationFrame(animate);
+
+        const dt = clock.getDelta();
+        world.step(timeStep, dt, 3);
+
+        // Sync visual meshes with physics bodies
+        for (let i = 0; i < meshes.length; i++) {
+          meshes[i].position.copy(bodies[i].position);
+          meshes[i].quaternion.copy(bodies[i].quaternion);
+        }
+
+        renderer.render(scene, camera);
+      }
+
+      // Set initial camera
+      camera.position.set(0, 1.6, 4);
+
+      // Resize handler
+      window.addEventListener("resize", () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+
+      animate();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,982 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>IT Rage Simulator: The Printer</title>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        font-family: "Courier New", Courier, monospace;
+        background: #111;
+      }
+      #ui-layer {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+      }
+      #crosshair {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 20px;
+        height: 20px;
+        border: 2px solid rgba(255, 255, 255, 0.5);
+        border-radius: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(255, 255, 255, 0.1);
+      }
+      .hud-panel {
+        padding: 20px;
+        color: #0f0;
+        text-shadow: 0 0 5px #0f0;
+        background: rgba(0, 20, 0, 0.5);
+      }
+      #ticket-info {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        border: 1px solid #0f0;
+      }
+      #controls-hint {
+        position: absolute;
+        bottom: 20px;
+        left: 20px;
+        font-size: 14px;
+        color: #aaa;
+        text-shadow: none;
+      }
+      #message-log {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        text-align: right;
+        width: 300px;
+      }
+      .log-entry {
+        margin-bottom: 5px;
+        opacity: 0;
+        animation: fadeIn 0.3s forwards;
+      }
+      @keyframes fadeIn {
+        to {
+          opacity: 1;
+        }
+      }
+
+      #blocker,
+      #level-complete {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.85);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        flex-direction: column;
+        color: white;
+        z-index: 999;
+        pointer-events: auto;
+      }
+      #level-complete {
+        display: none;
+      }
+
+      button {
+        padding: 15px 30px;
+        font-size: 20px;
+        cursor: pointer;
+        background: #0f0;
+        border: none;
+        font-family: inherit;
+        font-weight: bold;
+        margin-top: 20px;
+      }
+      button:hover {
+        background: #fff;
+      }
+      button.destroy-btn {
+        background: #f00;
+        color: white;
+      }
+
+      .tool-icon {
+        position: absolute;
+        bottom: 20px;
+        right: 20px;
+        font-size: 40px;
+        opacity: 0.7;
+      }
+    </style>
+    <!-- Import Three.js and Cannon.js via CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.6.2/cannon.min.js"></script>
+  </head>
+  <body>
+    <style>
+      /* Minimal Floating Home Button */
+      .home-nav-btn {
+        position: fixed;
+        top: 15px;
+        left: 15px;
+        z-index: 10000; /* Ensure it sits above game UI/Canvases */
+        background: rgba(
+          30,
+          30,
+          30,
+          0.6
+        ); /* Dark semi-transparent for contrast */
+        color: #ffffff;
+        text-decoration: none;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+        font-size: 14px;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.2s ease;
+        backdrop-filter: blur(4px); /* Blurs background behind button */
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+
+      .home-nav-btn:hover {
+        background: rgba(30, 30, 30, 0.9);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      }
+
+      /* SVG Icon Style */
+      .home-nav-icon {
+        width: 16px;
+        height: 16px;
+      }
+    </style>
+
+    <!-- Link to your Hub (index.html) -->
+    <a href="index.html" class="home-nav-btn">
+      <svg
+        class="home-nav-icon"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+        <polyline points="9 22 9 12 15 12 15 22"></polyline>
+      </svg>
+      <span>Back to Hub</span>
+    </a>
+    <!-- Start Screen -->
+    <div id="blocker">
+      <h1>IT HELP DESK: TICKET #404</h1>
+      <p>
+        User reports: "Printer isn't working. I tried nothing and I'm all out of
+        ideas."
+      </p>
+      <p>Task: Fix it. Or ensure it never breaks again.</p>
+      <button id="start-btn">START SHIFT</button>
+    </div>
+
+    <!-- Level Complete Screen -->
+    <div id="level-complete">
+      <h1 style="color: #f00; font-size: 48px">TICKET CLOSED</h1>
+      <p>
+        Resolution:
+        <span id="resolution-text">HARDWARE REPLACEMENT REQUIRED</span>
+      </p>
+      <p>Customer Satisfaction: N/A</p>
+      <button id="next-level-btn">NEXT TICKET</button>
+    </div>
+
+    <div id="ui-layer">
+      <div id="crosshair"></div>
+      <div id="ticket-info" class="hud-panel">
+        <h3>TICKET #<span id="ticket-num">404</span></h3>
+        <p>Status: <span id="status-text">OPEN</span></p>
+        <p>Printer Health: <span id="hp-text">100%</span></p>
+        <p>Rage Level: <span id="rage-text">0%</span></p>
+      </div>
+      <div id="message-log"></div>
+      <div id="controls-hint" class="hud-panel">
+        WASD: Move | CLICK: Interact/Smash | Q: Switch Tool | SPACE: Jump<br />
+        Current Tool: <span id="tool-name">HANDS (Troubleshoot)</span>
+      </div>
+      <div class="tool-icon" id="tool-icon">✋</div>
+    </div>
+
+    <script>
+      /**
+       * GAME CONFIGURATION & STATE
+       */
+      let camera, scene, renderer, world;
+      let physicsMaterials = {};
+      let timeStep = 1 / 60;
+
+      // Game Objects
+      let printerBody, printerMesh, printerGroup;
+      let deskBody, deskMesh;
+      let cableMesh;
+      let batGroup, batMesh;
+
+      // State
+      let isGameActive = false;
+      let controlsEnabled = false;
+      let currentTool = "hands"; // 'hands' or 'bat'
+      let isSwinging = false;
+      let printerState = "broken"; // 'broken', 'fixed', 'destroyed'
+      let printerHP = 100;
+      let cablePlugged = true;
+      let printerOn = true;
+      let ticketNumber = 404;
+
+      // Movement & Collision
+      let moveForward = false;
+      let moveBackward = false;
+      let moveLeft = false;
+      let moveRight = false;
+      let canJump = false;
+      let velocity = new THREE.Vector3();
+      let direction = new THREE.Vector3();
+      let prevTime = performance.now();
+
+      // Camera/Look angles
+      let euler = new THREE.Euler(0, 0, 0, "YXZ");
+      const PI_2 = Math.PI / 2;
+
+      // Desk Collision Bounds (Simple AABB)
+      // Desk is at (0, 0.8, -5), Size 6x3
+      const deskBounds = {
+        minX: -3.2,
+        maxX: 3.2,
+        minZ: -6.7,
+        maxZ: -3.3,
+      };
+
+      // Raycaster
+      const raycaster = new THREE.Raycaster();
+      const center = new THREE.Vector2(0, 0);
+
+      /**
+       * INITIALIZATION
+       */
+      function init() {
+        // 1. Three.js Setup
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x222222);
+        scene.fog = new THREE.Fog(0x222222, 0, 50);
+
+        camera = new THREE.PerspectiveCamera(
+          75,
+          window.innerWidth / window.innerHeight,
+          0.1,
+          1000
+        );
+        camera.rotation.order = "YXZ";
+
+        // Lights
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+        scene.add(ambientLight);
+
+        const spotLight = new THREE.SpotLight(0xffffff, 0.8);
+        spotLight.position.set(5, 10, 5);
+        spotLight.castShadow = true;
+        scene.add(spotLight);
+
+        // 2. Cannon.js Setup (Physics)
+        world = new CANNON.World();
+        world.gravity.set(0, -20, 0);
+        world.broadphase = new CANNON.NaiveBroadphase();
+        world.solver.iterations = 10;
+
+        // Materials
+        const concreteMat = new CANNON.Material();
+        const plasticMat = new CANNON.Material();
+        const contactMat = new CANNON.ContactMaterial(concreteMat, plasticMat, {
+          friction: 0.3,
+          restitution: 0.5,
+        });
+        world.addContactMaterial(contactMat);
+
+        // 3. Create World Objects
+        createRoom(concreteMat);
+        createDesk(plasticMat);
+        createPrinter(plasticMat);
+        createPlayer();
+
+        // 4. Renderer
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        document.body.appendChild(renderer.domElement);
+
+        // 5. Event Listeners
+        document.addEventListener("keydown", onKeyDown);
+        document.addEventListener("keyup", onKeyUp);
+        document.addEventListener("mousemove", onMouseMove);
+        document.addEventListener("mousedown", onMouseClick); // using mousedown for instant reaction
+        window.addEventListener("resize", onWindowResize);
+
+        // UI Buttons
+        document.getElementById("start-btn").addEventListener("click", () => {
+          document.getElementById("blocker").style.display = "none";
+          document.body.requestPointerLock();
+          isGameActive = true;
+        });
+
+        document
+          .getElementById("next-level-btn")
+          .addEventListener("click", nextLevel);
+
+        document.addEventListener("pointerlockchange", () => {
+          controlsEnabled = document.pointerLockElement === document.body;
+        });
+
+        logMessage("System: Ticket #404 Opened.");
+        logMessage("Hint: Try power cycling or checking cables.");
+
+        animate();
+      }
+
+      /**
+       * SCENE GENERATION
+       */
+      function createRoom(material) {
+        // Floor
+        const floorGeo = new THREE.PlaneGeometry(50, 50);
+        const floorMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
+        const floorMesh = new THREE.Mesh(floorGeo, floorMat);
+        floorMesh.rotation.x = -Math.PI / 2;
+        floorMesh.receiveShadow = true;
+        scene.add(floorMesh);
+
+        const floorShape = new CANNON.Plane();
+        const floorBody = new CANNON.Body({ mass: 0, material: material });
+        floorBody.addShape(floorShape);
+        floorBody.quaternion.setFromAxisAngle(
+          new CANNON.Vec3(1, 0, 0),
+          -Math.PI / 2
+        );
+        world.addBody(floorBody);
+
+        // Walls
+        const wallGeo = new THREE.BoxGeometry(50, 10, 1);
+        const wallMat = new THREE.MeshStandardMaterial({ color: 0x555555 });
+        const backWall = new THREE.Mesh(wallGeo, wallMat);
+        backWall.position.set(0, 5, -10);
+        scene.add(backWall);
+      }
+
+      function createDesk(material) {
+        // Visuals
+        // Desk Height 0.8 (Standard office desk)
+        const deskY = 0.8;
+        const deskGeo = new THREE.BoxGeometry(6, 0.2, 3);
+        const deskMat = new THREE.MeshStandardMaterial({ color: 0x8b4513 });
+        deskMesh = new THREE.Mesh(deskGeo, deskMat);
+        deskMesh.position.set(0, deskY, -5);
+        deskMesh.castShadow = true;
+        deskMesh.receiveShadow = true;
+        scene.add(deskMesh);
+
+        // Physics (Static)
+        const shape = new CANNON.Box(new CANNON.Vec3(3, 0.1, 1.5));
+        deskBody = new CANNON.Body({ mass: 0, material: material });
+        deskBody.addShape(shape);
+        deskBody.position.set(0, deskY, -5);
+        world.addBody(deskBody);
+
+        // Legs
+        const legGeo = new THREE.BoxGeometry(0.2, deskY, 0.2);
+        const leg1 = new THREE.Mesh(
+          legGeo,
+          new THREE.MeshStandardMaterial({ color: 0x111111 })
+        );
+        // Calculate leg position based on new desk height
+        const legY = deskY / 2;
+        leg1.position.set(2.8, -legY, 1.3);
+        deskMesh.add(leg1);
+        const leg2 = leg1.clone();
+        leg2.position.set(-2.8, -legY, 1.3);
+        deskMesh.add(leg2);
+        const leg3 = leg1.clone();
+        leg3.position.set(2.8, -legY, -1.3);
+        deskMesh.add(leg3);
+        const leg4 = leg1.clone();
+        leg4.position.set(-2.8, -legY, -1.3);
+        deskMesh.add(leg4);
+      }
+
+      function createPrinter(material) {
+        // Remove old if exists
+        if (printerGroup) scene.remove(printerGroup);
+        if (printerBody) world.remove(printerBody);
+        if (cableMesh) scene.remove(cableMesh);
+
+        // 1. Visual Group
+        printerGroup = new THREE.Group();
+
+        // Main Box
+        const bodyGeo = new THREE.BoxGeometry(1.5, 1, 1.2);
+        const bodyMat = new THREE.MeshStandardMaterial({ color: 0xdddddd });
+        const mainBox = new THREE.Mesh(bodyGeo, bodyMat);
+        mainBox.castShadow = true;
+        printerGroup.add(mainBox);
+
+        // Paper Tray
+        const trayGeo = new THREE.BoxGeometry(1, 0.1, 0.8);
+        const tray = new THREE.Mesh(
+          trayGeo,
+          new THREE.MeshStandardMaterial({ color: 0xcccccc })
+        );
+        tray.position.set(0, 0.4, 0.4);
+        tray.rotation.x = -0.5;
+        printerGroup.add(tray);
+
+        // Screen/UI Panel
+        const screenGeo = new THREE.BoxGeometry(0.4, 0.3, 0.1);
+        const screenMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+        const screen = new THREE.Mesh(screenGeo, screenMat);
+        screen.position.set(0.4, 0.51, 0.3);
+        screen.rotation.x = -Math.PI / 2;
+        screen.name = "printer_screen";
+        printerGroup.add(screen);
+
+        // Power Button (Green/Red LED)
+        const btnGeo = new THREE.CircleGeometry(0.08, 16);
+        const btnMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+        const button = new THREE.Mesh(btnGeo, btnMat);
+        button.position.set(-0.4, 0.51, 0.4);
+        button.rotation.x = -Math.PI / 2;
+        button.name = "power_btn";
+        printerGroup.add(button);
+
+        // Paper Jam text
+        const errorGeo = new THREE.PlaneGeometry(0.3, 0.2);
+        const errorMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+        const errorMsg = new THREE.Mesh(errorGeo, errorMat);
+        errorMsg.position.set(0, 0, 0.06);
+        screen.add(errorMsg);
+        printerGroup.userData.errorMsg = errorMsg;
+
+        // Ethernet Port
+        const portGeo = new THREE.BoxGeometry(0.2, 0.2, 0.1);
+        const port = new THREE.Mesh(
+          portGeo,
+          new THREE.MeshStandardMaterial({ color: 0x111 })
+        );
+        port.position.set(0, -0.2, 0.6);
+        port.name = "ethernet_port";
+        printerGroup.add(port);
+
+        scene.add(printerGroup);
+
+        // 2. Cable (Visual only)
+        const cableGeo = new THREE.CylinderGeometry(0.02, 0.02, 2);
+        const cableMat = new THREE.MeshStandardMaterial({ color: 0x0000ff });
+        cableMesh = new THREE.Mesh(cableGeo, cableMat);
+        cableMesh.rotation.x = Math.PI / 2;
+        // Adjusted cable height for new desk height (0.8 + printer height offset)
+        cableMesh.position.set(0, 0.9, -3.5);
+        scene.add(cableMesh);
+
+        // 3. Physics Body
+        // Desk is at 0.8. Half desk is 0.1. Top of desk is 0.9.
+        // Printer height is 1. Half printer is 0.5.
+        // Printer Center Y = 0.9 + 0.5 = 1.4.
+        const shape = new CANNON.Box(new CANNON.Vec3(0.75, 0.5, 0.6));
+        printerBody = new CANNON.Body({ mass: 0, material: material });
+        printerBody.addShape(shape);
+        // Moved Z to -4.8 so it's closer to player edge of desk
+        printerBody.position.set(0, 1.4, -4.8);
+        printerBody.linearDamping = 0.5;
+        printerBody.angularDamping = 0.5;
+        world.addBody(printerBody);
+
+        // Sync logic
+        printerGroup.position.copy(printerBody.position);
+        printerGroup.quaternion.copy(printerBody.quaternion);
+      }
+
+      function createPlayer() {
+        // Camera holder
+        // Player height 1.7.
+        camera.position.set(0, 1.7, 2);
+
+        // WEAPON: Baseball Bat
+        batGroup = new THREE.Group();
+
+        const handleGeo = new THREE.CylinderGeometry(0.02, 0.03, 0.4, 8);
+        const handleMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
+        const handle = new THREE.Mesh(handleGeo, handleMat);
+        handle.position.y = 0;
+        batGroup.add(handle);
+
+        const batBodyGeo = new THREE.CylinderGeometry(0.06, 0.03, 0.8, 12);
+        const batBodyMat = new THREE.MeshStandardMaterial({ color: 0x8b4513 });
+        const batBody = new THREE.Mesh(batBodyGeo, batBodyMat);
+        batBody.position.y = 0.6;
+        batGroup.add(batBody);
+
+        batGroup.position.set(0.5, -0.5, -0.5);
+        batGroup.rotation.x = Math.PI / 4;
+        batGroup.visible = false;
+        camera.add(batGroup);
+
+        scene.add(camera);
+      }
+
+      /**
+       * GAME LOGIC
+       */
+
+      function onMouseClick(event) {
+        if (!controlsEnabled) return;
+
+        // Left click only
+        if (event.button !== 0) return;
+
+        if (currentTool === "hands") {
+          troubleshoot();
+        } else {
+          swingBat();
+        }
+      }
+
+      function troubleshoot() {
+        if (printerState === "destroyed") {
+          logMessage("It's dead. Go to next level.");
+          return;
+        }
+
+        raycaster.setFromCamera(center, camera);
+        // Intersect everything in printer group
+        const intersects = raycaster.intersectObjects(
+          printerGroup.children,
+          true
+        );
+
+        if (intersects.length > 0) {
+          // Check distance to avoid remote fixing
+          if (intersects[0].distance > 3.0) {
+            logMessage("Too far away.");
+            return;
+          }
+
+          const hit = intersects[0].object;
+
+          if (hit.name === "power_btn") {
+            togglePower();
+          } else if (hit.name === "ethernet_port") {
+            toggleCable();
+          } else {
+            logMessage("You tap the printer. It judges you.");
+          }
+        }
+      }
+
+      function togglePower() {
+        printerOn = !printerOn;
+        const btn = printerGroup.children.find((c) => c.name === "power_btn");
+
+        if (printerOn) {
+          logMessage("Rebooting...");
+          btn.material.color.setHex(0xffff00);
+          setTimeout(() => {
+            if (printerState !== "destroyed") checkFix("reboot");
+          }, 1000);
+        } else {
+          logMessage("Printer powered down.");
+          btn.material.color.setHex(0x220000);
+          printerGroup.userData.errorMsg.visible = false;
+        }
+      }
+
+      function toggleCable() {
+        cablePlugged = !cablePlugged;
+        cableMesh.visible = cablePlugged;
+        if (cablePlugged) {
+          logMessage("Ethernet plugged in.");
+          checkFix("cable");
+        } else {
+          logMessage("Ethernet unplugged.");
+        }
+      }
+
+      function checkFix(method) {
+        if (printerState === "fixed") return;
+
+        // RNG for fixing
+        const success = Math.random() > 0.7;
+        const btn = printerGroup.children.find((c) => c.name === "power_btn");
+
+        if (success) {
+          printerState = "fixed";
+          logMessage("SUCCESS! The printer is working!");
+          btn.material.color.setHex(0x00ff00); // Green
+          printerGroup.userData.errorMsg.visible = false;
+          document.getElementById("status-text").innerText = "CLOSED (FIXED)";
+          document.getElementById("status-text").style.color = "#0f0";
+        } else {
+          logMessage("Error: TONER LOW. Fix failed.");
+          btn.material.color.setHex(0xff0000); // Red
+          printerGroup.userData.errorMsg.visible = true;
+          increaseRage(20);
+        }
+      }
+
+      function increaseRage(amount) {
+        let rage = parseInt(document.getElementById("rage-text").innerText);
+        rage = Math.min(rage + amount, 100);
+        document.getElementById("rage-text").innerText = rage + "%";
+        const r = Math.floor(255 * (rage / 100));
+        const g = Math.floor(255 * (1 - rage / 100));
+        document.getElementById("rage-text").style.color = `rgb(${r}, ${g}, 0)`;
+
+        if (rage >= 100 && currentTool === "hands") {
+          logMessage("RAGE LIMIT REACHED. SWITCHING TO BAT.");
+          switchTool();
+        }
+      }
+
+      function switchTool() {
+        if (currentTool === "hands") {
+          currentTool = "bat";
+          batGroup.visible = true;
+          document.getElementById("tool-name").innerText =
+            "BASEBALL BAT (Physics Mode)";
+          document.getElementById("tool-icon").innerText = "🏏";
+        } else {
+          currentTool = "hands";
+          batGroup.visible = false;
+          document.getElementById("tool-name").innerText =
+            "HANDS (Troubleshoot)";
+          document.getElementById("tool-icon").innerText = "✋";
+        }
+      }
+
+      function swingBat() {
+        if (isSwinging) return;
+        isSwinging = true;
+
+        const startRot = { x: Math.PI / 4, y: 0 };
+        const endRot = { x: Math.PI / 2, y: -Math.PI / 2 };
+
+        let startTime = Date.now();
+        const duration = 200;
+
+        function animateSwing() {
+          let now = Date.now();
+          let progress = Math.min((now - startTime) / duration, 1);
+
+          batGroup.rotation.x = startRot.x + (endRot.x - startRot.x) * progress;
+          batGroup.rotation.y = startRot.y + (endRot.y - startRot.y) * progress;
+
+          if (progress > 0.5 && progress < 0.7) {
+            checkHit();
+          }
+
+          if (progress < 1) {
+            requestAnimationFrame(animateSwing);
+          } else {
+            setTimeout(() => {
+              batGroup.rotation.set(Math.PI / 4, 0, 0);
+              isSwinging = false;
+            }, 100);
+          }
+        }
+        animateSwing();
+      }
+
+      function checkHit() {
+        const playerPos = camera.position;
+        const printerPos = printerGroup.position;
+        const dist = playerPos.distanceTo(printerPos);
+
+        if (dist < 3.5) {
+          applyDamage();
+        }
+      }
+
+      function applyDamage() {
+        // Enable Physics
+        if (printerBody.mass === 0) {
+          printerBody.mass = 50;
+          printerBody.updateMassProperties();
+          printerBody.wakeUp();
+          cableMesh.visible = false;
+          cablePlugged = false;
+        }
+
+        // Apply Impulse
+        const force = 600;
+        const impulse = new CANNON.Vec3(0, 0, -1);
+        const quat = new CANNON.Quaternion();
+        quat.setFromEuler(
+          camera.rotation.x,
+          camera.rotation.y,
+          camera.rotation.z,
+          "XYZ"
+        );
+        impulse.copy(quat.vmult(new CANNON.Vec3(0, 0, -force)));
+        impulse.y += 250;
+        printerBody.applyImpulse(impulse, printerBody.position);
+
+        // Feedback
+        printerHP -= 35;
+        if (printerHP < 0) printerHP = 0;
+        document.getElementById("hp-text").innerText = printerHP + "%";
+
+        // Shake
+        camera.position.y -= 0.1;
+        setTimeout(() => (camera.position.y += 0.1), 50);
+
+        logMessage("WHACK! Critical Hit!");
+
+        if (printerHP <= 0 && printerState !== "destroyed") {
+          printerState = "destroyed";
+          document.getElementById("status-text").innerText =
+            "CLOSED (PERMANENTLY)";
+          document.getElementById("status-text").style.color = "#f00";
+
+          printerGroup.children[0].material.color.setHex(0x444444);
+          printerGroup.userData.errorMsg.visible = false;
+
+          createParticles(printerGroup.position);
+
+          // SHOW NEXT LEVEL UI
+          setTimeout(() => {
+            document.exitPointerLock();
+            document.getElementById("level-complete").style.display = "flex";
+            isGameActive = false;
+          }, 1500);
+        }
+      }
+
+      function nextLevel() {
+        ticketNumber++;
+        document.getElementById("level-complete").style.display = "none";
+        document.getElementById("ticket-num").innerText = ticketNumber;
+
+        // Reset State
+        printerHP = 100;
+        document.getElementById("hp-text").innerText = "100%";
+        document.getElementById("rage-text").innerText = "0%";
+        document.getElementById("rage-text").style.color = "#0f0";
+        document.getElementById("status-text").innerText = "OPEN";
+        document.getElementById("status-text").style.color = "#0f0";
+
+        printerState = "broken";
+        cablePlugged = true;
+        printerOn = true;
+
+        // Re-create Printer (easiest way to reset physics and visuals)
+        createPrinter(new CANNON.Material());
+
+        // Reset Player Position
+        camera.position.set(0, 1.7, 2);
+        camera.rotation.set(0, 0, 0);
+        euler.set(0, 0, 0);
+
+        // Reset Tool
+        if (currentTool === "bat") switchTool();
+
+        document.body.requestPointerLock();
+        isGameActive = true;
+        logMessage(`System: Ticket #${ticketNumber} Opened. Good luck.`);
+      }
+
+      function createParticles(pos) {
+        const particleGeo = new THREE.BoxGeometry(0.1, 0.1, 0.1);
+        const particleMat = new THREE.MeshBasicMaterial({ color: 0xffaa00 });
+
+        for (let i = 0; i < 10; i++) {
+          const mesh = new THREE.Mesh(particleGeo, particleMat);
+          mesh.position.copy(pos);
+          scene.add(mesh);
+
+          const shape = new CANNON.Box(new CANNON.Vec3(0.05, 0.05, 0.05));
+          const body = new CANNON.Body({ mass: 1 });
+          body.addShape(shape);
+          body.position.copy(pos);
+          body.velocity.set(
+            (Math.random() - 0.5) * 10,
+            Math.random() * 10,
+            (Math.random() - 0.5) * 10
+          );
+          world.addBody(body);
+
+          const updateFn = () => {
+            mesh.position.copy(body.position);
+            mesh.quaternion.copy(body.quaternion);
+            if (mesh.position.y > -10) requestAnimationFrame(updateFn);
+            else {
+              scene.remove(mesh);
+              world.remove(body);
+            }
+          };
+          updateFn();
+        }
+      }
+
+      function logMessage(msg) {
+        const container = document.getElementById("message-log");
+        const el = document.createElement("div");
+        el.className = "log-entry";
+        el.innerText = "> " + msg;
+        container.appendChild(el);
+        if (container.children.length > 5)
+          container.removeChild(container.children[0]);
+      }
+
+      /**
+       * INPUT HANDLERS
+       */
+      function onKeyDown(event) {
+        switch (event.code) {
+          case "KeyW":
+            moveForward = true;
+            break;
+          case "KeyA":
+            moveLeft = true;
+            break;
+          case "KeyS":
+            moveBackward = true;
+            break;
+          case "KeyD":
+            moveRight = true;
+            break;
+          case "KeyQ":
+            switchTool();
+            break;
+          case "Space":
+            if (canJump) {
+              velocity.y += 150;
+              canJump = false;
+            }
+            break;
+        }
+      }
+
+      function onKeyUp(event) {
+        switch (event.code) {
+          case "KeyW":
+            moveForward = false;
+            break;
+          case "KeyA":
+            moveLeft = false;
+            break;
+          case "KeyS":
+            moveBackward = false;
+            break;
+          case "KeyD":
+            moveRight = false;
+            break;
+        }
+      }
+
+      function onMouseMove(event) {
+        if (!controlsEnabled) return;
+        const movementX = event.movementX || 0;
+        const movementY = event.movementY || 0;
+        euler.setFromQuaternion(camera.quaternion);
+        euler.y -= movementX * 0.002;
+        euler.x -= movementY * 0.002;
+        euler.x = Math.max(-PI_2, Math.min(PI_2, euler.x));
+        camera.quaternion.setFromEuler(euler);
+      }
+
+      function onWindowResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      }
+
+      /**
+       * MAIN LOOP
+       */
+      function animate() {
+        requestAnimationFrame(animate);
+        const time = performance.now();
+        const delta = (time - prevTime) / 1000;
+
+        if (controlsEnabled) {
+          world.step(timeStep);
+
+          // Sync visuals
+          printerGroup.position.copy(printerBody.position);
+          printerGroup.quaternion.copy(printerBody.quaternion);
+
+          // Player Movement Logic
+          velocity.x -= velocity.x * 10.0 * delta;
+          velocity.z -= velocity.z * 10.0 * delta;
+          velocity.y -= 9.8 * 30.0 * delta;
+
+          direction.z = Number(moveForward) - Number(moveBackward);
+          direction.x = Number(moveRight) - Number(moveLeft);
+          direction.normalize();
+
+          if (moveForward || moveBackward)
+            velocity.z -= direction.z * 400.0 * delta;
+          if (moveLeft || moveRight) velocity.x -= direction.x * 400.0 * delta;
+
+          // Calculate potential new position
+          const newX = camera.position.x - velocity.x * delta * 0.03;
+          const newZ = camera.position.z + velocity.z * delta * 0.03;
+
+          // COLLISION DETECTION (Circle vs AABB)
+          // Player radius approx 0.5
+          const pRadius = 0.4;
+          let hitDesk = false;
+
+          // Simple Check: Is the new point inside the expanded desk box?
+          if (
+            newX + pRadius > deskBounds.minX &&
+            newX - pRadius < deskBounds.maxX &&
+            newZ + pRadius > deskBounds.minZ &&
+            newZ - pRadius < deskBounds.maxZ
+          ) {
+            hitDesk = true;
+          }
+
+          // Apply Movement only if no collision
+          if (!hitDesk) {
+            camera.translateX(-velocity.x * delta * 0.03);
+            camera.translateZ(velocity.z * delta * 0.03);
+          } else {
+            // Simple slide or stop (Stop is easier here)
+            velocity.x = 0;
+            velocity.z = 0;
+          }
+
+          camera.position.y += velocity.y * delta * 0.03;
+
+          if (camera.position.y < 1.7) {
+            velocity.y = 0;
+            camera.position.y = 1.7;
+            canJump = true;
+          }
+        }
+
+        prevTime = time;
+        renderer.render(scene, camera);
+      }
+
+      init();
+    </script>
+  </body>
+</html>
