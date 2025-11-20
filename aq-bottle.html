@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Realistic Fish in Bottle Simulator (Fixed)</title>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        background-color: #000;
+        font-family: "Segoe UI", sans-serif;
+      }
+      #canvas-container {
+        width: 100vw;
+        height: 100vh;
+      }
+      #ui {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        color: rgba(255, 255, 255, 0.9);
+        pointer-events: none;
+        z-index: 10;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+      }
+      h1 {
+        margin: 0;
+        font-weight: 300;
+        letter-spacing: 2px;
+        font-size: 1.5rem;
+      }
+      p {
+        font-size: 0.9rem;
+        margin-top: 5px;
+        color: #ccc;
+      }
+      .controls {
+        margin-top: 15px;
+        font-size: 0.8rem;
+        color: #aaa;
+        background: rgba(0, 0, 0, 0.5);
+        padding: 10px;
+        border-radius: 4px;
+        display: inline-block;
+      }
+      b {
+        color: #fff;
+      }
+      #vignette {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: radial-gradient(
+          circle,
+          transparent 50%,
+          rgba(0, 0, 0, 0.8) 100%
+        );
+        pointer-events: none;
+        z-index: 5;
+      }
+      #loading {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: white;
+        font-family: monospace;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="ui">
+      <h1>AQUARIUM BOTTLE</h1>
+      <p>Simulator v1.1 (Fixed)</p>
+      <div class="controls">
+        <b>WASD</b> to Swim<br />
+        <b>Space</b> to Ascend | <b>Shift</b> to Descend<br />
+        <b>Mouse</b> to Look around
+      </div>
+    </div>
+    <div id="vignette"></div>
+    <div id="loading">Generating Physics...</div>
+    <div id="canvas-container"></div>
+
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+      }
+    </script>
+
+    <script type="module">
+      import * as THREE from "three";
+      import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js"; // FIXED IMPORT
+
+      // --- CONFIGURATION ---
+      const CONFIG = {
+        waterColor: 0x00aaff,
+        waterMurkiness: 0.035,
+        bottleRadius: 4.0,
+        fishSpeed: 6.0,
+        drag: 0.96,
+      };
+
+      // --- SCENE SETUP ---
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x050505);
+      // Volumetric fog effect inside the bottle
+      scene.fog = new THREE.FogExp2(0x00101a, CONFIG.waterMurkiness);
+
+      const camera = new THREE.PerspectiveCamera(
+        55,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        100
+      );
+      camera.position.set(0, 0, 10);
+
+      const renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        powerPreference: "high-performance",
+      });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.0;
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      document
+        .getElementById("canvas-container")
+        .appendChild(renderer.domElement);
+
+      // --- ENVIRONMENT & LIGHTING ---
+
+      // 1. PMREM Environment (Crucial for realistic glass reflections)
+      const pmremGenerator = new THREE.PMREMGenerator(renderer);
+      pmremGenerator.compileEquirectangularShader();
+      const roomEnvironment = new RoomEnvironment(); // FIXED USAGE
+      scene.environment = pmremGenerator.fromScene(roomEnvironment).texture;
+      // We don't dispose roomEnvironment immediately in case we need it, though usually good practice.
+
+      // 2. Main Light (Sun)
+      const sunLight = new THREE.DirectionalLight(0xffffff, 3);
+      sunLight.position.set(5, 20, 5);
+      sunLight.castShadow = true;
+      sunLight.shadow.mapSize.width = 2048;
+      sunLight.shadow.mapSize.height = 2048;
+      sunLight.shadow.camera.near = 0.5;
+      sunLight.shadow.camera.far = 50;
+      scene.add(sunLight);
+
+      // 3. Deep Water Fill Light
+      const deepLight = new THREE.HemisphereLight(0x004455, 0x000000, 1);
+      scene.add(deepLight);
+
+      // --- MATERIALS ---
+
+      // Realistic Glass
+      const glassMaterial = new THREE.MeshPhysicalMaterial({
+        color: 0xffffff,
+        metalness: 0,
+        roughness: 0.05,
+        transmission: 1.0, // Refraction
+        thickness: 1.0,
+        ior: 1.5,
+        transparent: true,
+        opacity: 1.0,
+        side: THREE.DoubleSide,
+        clearcoat: 1.0,
+      });
+
+      // Water Surface (From underneath)
+      const waterSurfaceMat = new THREE.MeshPhysicalMaterial({
+        color: 0x88ccff,
+        metalness: 0.1,
+        roughness: 0.2,
+        transmission: 0.2,
+        transparent: true,
+        opacity: 0.6,
+        side: THREE.DoubleSide,
+      });
+
+      // Fish Scales
+      const fishSkinMat = new THREE.MeshStandardMaterial({
+        color: 0xff8800,
+        roughness: 0.3,
+        metalness: 0.4,
+        flatShading: false,
+      });
+
+      // --- MESHES ---
+
+      // 1. Bottle Geometry
+      const bottlePoints = [];
+      for (let i = 0; i <= 20; i++) {
+        const y = (i - 10) * 0.8;
+        // Curve equation for a nice bottle shape
+        let x = CONFIG.bottleRadius;
+        if (i > 15) x = CONFIG.bottleRadius * (1 - (i - 15) / 6); // Taper neck
+        if (i < 2) x = CONFIG.bottleRadius * (0.8 + i * 0.1); // Round bottom
+        bottlePoints.push(new THREE.Vector2(Math.max(0.5, x), y));
+      }
+      const bottleGeo = new THREE.LatheGeometry(bottlePoints, 64);
+      const bottleMesh = new THREE.Mesh(bottleGeo, glassMaterial);
+      bottleMesh.castShadow = true;
+      bottleMesh.receiveShadow = true;
+      scene.add(bottleMesh);
+
+      // 2. Water Volume
+      // We use a slightly smaller mesh inside for the water volume to avoid z-fighting
+      const waterPoints = bottlePoints.map(
+        (p) => new THREE.Vector2(p.x * 0.95, p.y)
+      );
+      // Cap the water level below the neck
+      const waterLevelIndex = 16;
+      const waterGeoPoints = waterPoints.slice(0, waterLevelIndex);
+      const waterGeo = new THREE.LatheGeometry(waterGeoPoints, 32);
+      const waterMesh = new THREE.Mesh(
+        waterGeo,
+        new THREE.MeshPhysicalMaterial({
+          color: CONFIG.waterColor,
+          roughness: 0.1,
+          metalness: 0.1,
+          transmission: 0.6, // See-through water
+          thickness: 2.0,
+          ior: 1.33,
+          transparent: true,
+        })
+      );
+      scene.add(waterMesh);
+
+      // 3. Water Top Cap
+      const topRadius = waterPoints[waterLevelIndex - 1].x;
+      const topY = waterPoints[waterLevelIndex - 1].y;
+      const capGeo = new THREE.CircleGeometry(topRadius, 32);
+      const waterCap = new THREE.Mesh(capGeo, waterSurfaceMat);
+      waterCap.rotation.x = -Math.PI / 2;
+      waterCap.position.y = topY;
+      scene.add(waterCap);
+
+      // 4. Particulates (Marine Snow)
+      const particlesGeo = new THREE.BufferGeometry();
+      const pCount = 1500;
+      const pPos = [];
+      for (let i = 0; i < pCount; i++) {
+        const r = Math.random() * CONFIG.bottleRadius * 0.9;
+        const theta = Math.random() * Math.PI * 2;
+        const x = r * Math.cos(theta);
+        const z = r * Math.sin(theta);
+        const y = (Math.random() - 0.5) * 14;
+        pPos.push(x, y, z);
+      }
+      particlesGeo.setAttribute(
+        "position",
+        new THREE.Float32BufferAttribute(pPos, 3)
+      );
+      const particlesMat = new THREE.PointsMaterial({
+        color: 0xaaddff,
+        size: 0.05,
+        transparent: true,
+        opacity: 0.6,
+        blending: THREE.AdditiveBlending,
+      });
+      const particles = new THREE.Points(particlesGeo, particlesMat);
+      scene.add(particles);
+
+      // 5. The Fish
+      const fishGroup = new THREE.Group();
+
+      // Body
+      const fishGeo = new THREE.ConeGeometry(0.3, 1.5, 16);
+      const fishBody = new THREE.Mesh(fishGeo, fishSkinMat);
+      fishBody.rotation.x = -Math.PI / 2; // Point forward
+      fishBody.geometry.center(); // Center pivot
+      fishGroup.add(fishBody);
+
+      // Tail
+      const tailGeo = new THREE.BufferGeometry();
+      const tailVertices = new Float32Array([
+        0,
+        0,
+        0, // connection point
+        0,
+        0.5,
+        0.8, // top tip
+        0,
+        -0.5,
+        0.8, // bottom tip
+      ]);
+      tailGeo.setAttribute(
+        "position",
+        new THREE.BufferAttribute(tailVertices, 3)
+      );
+      tailGeo.computeVertexNormals();
+      const tailMesh = new THREE.Mesh(
+        tailGeo,
+        new THREE.MeshStandardMaterial({
+          color: 0xff5500,
+          side: THREE.DoubleSide,
+          transparent: true,
+          opacity: 0.9,
+        })
+      );
+      tailMesh.position.z = 0.7; // Behind body
+      fishGroup.add(tailMesh);
+
+      scene.add(fishGroup);
+
+      // --- GAME STATE ---
+      const player = {
+        pos: new THREE.Vector3(0, 0, 0),
+        vel: new THREE.Vector3(0, 0, 0),
+        rot: new THREE.Euler(0, 0, 0),
+        targetRotY: 0,
+      };
+
+      // Hide loading
+      document.getElementById("loading").style.display = "none";
+
+      // --- INPUT ---
+      const keys = { w: 0, a: 0, s: 0, d: 0, space: 0, shift: 0 };
+      window.addEventListener("keydown", (e) => {
+        if (e.key === "w") keys.w = 1;
+        if (e.key === "s") keys.s = 1;
+        if (e.key === "a") keys.a = 1;
+        if (e.key === "d") keys.d = 1;
+        if (e.code === "Space") keys.space = 1;
+        if (e.key === "Shift") keys.shift = 1;
+      });
+      window.addEventListener("keyup", (e) => {
+        if (e.key === "w") keys.w = 0;
+        if (e.key === "s") keys.s = 0;
+        if (e.key === "a") keys.a = 0;
+        if (e.key === "d") keys.d = 0;
+        if (e.code === "Space") keys.space = 0;
+        if (e.key === "Shift") keys.shift = 0;
+      });
+
+      // Mouse Camera Control
+      let mouseX = 0,
+        mouseY = 0;
+      document.addEventListener("mousemove", (e) => {
+        mouseX = (e.clientX - window.innerWidth / 2) * 0.002;
+        mouseY = (e.clientY - window.innerHeight / 2) * 0.002;
+      });
+
+      // --- ANIMATION LOOP ---
+      const clock = new THREE.Clock();
+      const dummyVec = new THREE.Vector3();
+
+      function animate() {
+        requestAnimationFrame(animate);
+        const delta = Math.min(clock.getDelta(), 0.05);
+        const time = clock.getElapsedTime();
+
+        // 1. Calculate Movement Input (Local Space)
+        const inputZ = keys.s - keys.w; // Forward/Back
+        const inputY = keys.space - keys.shift; // Up/Down
+        const inputX = keys.d - keys.a; // Turn
+
+        // 2. Rotation (Turning)
+        player.targetRotY -= inputX * 2.0 * delta;
+        fishGroup.rotation.y = player.targetRotY;
+
+        // Lean into turns
+        fishGroup.rotation.z = THREE.MathUtils.lerp(
+          fishGroup.rotation.z,
+          -inputX * 0.5,
+          delta * 5
+        );
+        fishGroup.rotation.x = THREE.MathUtils.lerp(
+          fishGroup.rotation.x,
+          inputY * -0.5,
+          delta * 5
+        );
+
+        // 3. Apply Force
+        // Get forward vector of fish
+        dummyVec
+          .set(0, 0, 1)
+          .applyAxisAngle(new THREE.Vector3(0, 1, 0), player.targetRotY);
+
+        if (inputZ < 0) {
+          // Move Forward
+          player.vel.addScaledVector(dummyVec, -CONFIG.fishSpeed * delta);
+        }
+        player.vel.y += inputY * CONFIG.fishSpeed * delta;
+
+        // 4. Physics (Drag & Position)
+        player.vel.multiplyScalar(CONFIG.drag);
+        player.pos.addScaledVector(player.vel, delta);
+
+        // 5. Collision (Bottle Bounds)
+        // Simple cylinder bounds
+        const distSq =
+          player.pos.x * player.pos.x + player.pos.z * player.pos.z;
+        const maxRad = CONFIG.bottleRadius - 0.5;
+        if (distSq > maxRad * maxRad) {
+          // Push back
+          const angle = Math.atan2(player.pos.z, player.pos.x);
+          player.pos.x = Math.cos(angle) * maxRad;
+          player.pos.z = Math.sin(angle) * maxRad;
+          player.vel.multiplyScalar(0.5); // lose energy hitting wall
+        }
+        // Vertical bounds
+        if (player.pos.y > 4.0) {
+          player.pos.y = 4.0;
+          player.vel.y = 0;
+        }
+        if (player.pos.y < -7.0) {
+          player.pos.y = -7.0;
+          player.vel.y = 0;
+        }
+
+        // Apply pos to mesh
+        fishGroup.position.copy(player.pos);
+
+        // 6. Tail Animation
+        const speed = player.vel.length();
+        const tailWag =
+          Math.sin(time * (10 + speed * 10)) * (0.2 + speed * 0.5);
+        tailMesh.rotation.y = tailWag;
+
+        // 7. Camera Follow Logic
+        // Camera target is behind fish, slightly up
+        const camOffset = new THREE.Vector3(0, 1.5, 5);
+        // Rotate offset by mouse look
+        camOffset.applyAxisAngle(
+          new THREE.Vector3(0, 1, 0),
+          mouseX + player.targetRotY
+        );
+        camOffset.y += mouseY * 2;
+
+        const camTarget = player.pos.clone().add(camOffset);
+        camera.position.lerp(camTarget, delta * 2);
+        camera.lookAt(player.pos);
+
+        // 8. Environmental Drift
+        particles.rotation.y = time * 0.02;
+        waterCap.position.y = topY + Math.sin(time) * 0.1;
+
+        renderer.render(scene, camera);
+      }
+
+      animate();
+
+      // Resize Handler
+      window.addEventListener("resize", () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+    </script>
+  </body>
+</html>
