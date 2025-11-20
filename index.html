@@ -138,12 +138,36 @@
         left: 0;
         width: 100%;
         height: 100%;
+        /* This ensures the text remains readable over the image */
         background: linear-gradient(
           to bottom,
           transparent 0%,
           rgba(5, 5, 16, 0.8) 100%
         );
+        pointer-events: none; /* Allows clicks to pass through */
       }
+
+      /* --- NEW CSS FOR IMAGES --- */
+      .thumb-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        
+        /* 'normal' mode ensures the image pixels aren't washed out by the neon colors */
+        mix-blend-mode: normal; 
+        
+        /* 0.6 means 60% image visibility, 40% gradient showing through from behind */
+        opacity: 0.6; 
+        
+        transition: all 0.5s ease;
+      }
+
+      /* On Hover: Show the image 100% clearly */
+      .game-card:hover .thumb-img {
+        transform: scale(1.1);
+        opacity: 1;
+      }
+      /* -------------------------- */
 
       .card-content {
         padding: 25px;
@@ -223,322 +247,427 @@
     <canvas id="bg-canvas"></canvas>
 
     <div class="container">
-      <header>
-        <h1>AI Arcade</h1>
-        <div class="subtitle">Experimental Three.js Projects</div>
-      </header>
-
-      <div class="game-grid">
-        <a href="./gladiator.html" class="game-card">
-          <div class="card-thumb thumb-1"></div>
-          <div class="card-content">
-            <h2 class="game-title">Neon Gladiator</h2>
-            <p class="game-desc">Defeat the enemy</p>
-            <span class="play-btn">Play Now</span>
-          </div>
-        </a>
-
-        <a href="./sandbox.html" class="game-card">
-          <div class="card-thumb thumb-2"></div>
-          <div class="card-content">
-            <h2 class="game-title">Battle Sandbox</h2>
-            <p class="game-desc">Spawn Enemies, make them fight.</p>
-            <span class="play-btn">Play Now</span>
-          </div>
-        </a>
-        <a href="./cloud.html" class="game-card">
-          <div class="card-thumb thumb-2"></div>
-          <div class="card-content">
-            <h2 class="game-title">Cloud Garden</h2>
-            <p class="game-desc">Be at peace.</p>
-            <span class="play-btn">Play Now</span>
-          </div>
-        </a>
-        <a href="./wateridle.html" class="game-card">
-          <div class="card-thumb thumb-2"></div>
-          <div class="card-content">
-            <h2 class="game-title">Water IDLE</h2>
-            <p class="game-desc">Idle Water Game</p>
-            <span class="play-btn">Play Now</span>
-          </div>
-        </a>
-        <a href="./qwop.html" class="game-card">
-          <div class="card-thumb thumb-2"></div>
-          <div class="card-content">
-            <h2 class="game-title">QWOP-a-PEDE</h2>
-            <p class="game-desc">New twist on QWOP</p>
-            <span class="play-btn">Play Now</span>
-          </div>
-        </a>
-        <a href="./rougelite-td.html" class="game-card">
-          <div class="card-thumb thumb-2"></div>
-          <div class="card-content">
-            <h2 class="game-title">Whispering Woods TD</h2>
-            <p class="game-desc">Cozy Tower defense rougelite.</p>
-            <span class="play-btn">Play Now</span>
-          </div>
-        </a>
-        <a href="./gumball.html" class="game-card">
-          <div class="card-thumb thumb-2"></div>
-          <div class="card-content">
-            <h2 class="game-title">Gumball Simulator</h2>
-            <p class="game-desc">Be your inner gumball.</p>
-            <span class="play-btn">Play Now</span>
-          </div>
-        </a>
-        <a href="./vending.html" class="game-card">
-          <div class="card-thumb thumb-2"></div>
-          <div class="card-content">
-            <h2 class="game-title">Vending Machine Simulator</h2>
-            <p class="game-desc">Be your inner bag of chips.</p>
-            <span class="play-btn">Play Now</span>
-          </div>
-        </a>
-        <a href="./bee-sim.html" class="game-card">
-          <div class="card-thumb thumb-2"></div>
-          <div class="card-content">
-            <h2 class="game-title">Bee Rougelite Simulator</h2>
-            <p class="game-desc">Become king bee.</p>
-            <span class="play-btn">Play Now</span>
-          </div>
-        </a>
-        <a href="./ows.html" class="game-card">
-          <div class="card-thumb thumb-2"></div>
-          <div class="card-content">
-            <h2 class="game-title">Open World Sandbox</h2>
-            <p class="game-desc">Create Chaos.</p>
-            <span class="play-btn">Play Now</span>
-          </div>
-        </a>
-        <a href="./ows-2d.html" class="game-card">
-          <div class="card-thumb thumb-2"></div>
-          <div class="card-content">
-            <h2 class="game-title">Open World Sandbox 2D</h2>
-            <p class="game-desc">Create Chaos in 2D.</p>
-            <span class="play-btn">Play Now</span>
-          </div>
-        </a>
-        <a href="./qwop-dive.html" class="game-card">
-          <div class="card-thumb thumb-2"></div>
-          <div class="card-content">
-            <h2 class="game-title">QWOP High Dive</h2>
-            <p class="game-desc">Be goofy diver</p>
-            <span class="play-btn">Play Now</span>
-          </div>
-        </a>
-        <a href="./ice-cream.html" class="game-card">
-          <div class="card-thumb thumb-2"></div>
-          <div class="card-content">
-            <h2 class="game-title">Ice Cream Vendor</h2>
-            <p class="game-desc">Serve ice cream!</p>
-            <span class="play-btn">Play Now</span>
-          </div>
-        </a>
-        <a href="./rock-skip.html" class="game-card">
-          <div class="card-thumb thumb-2"></div>
-          <div class="card-content">
-            <h2 class="game-title">Skip Rock</h2>
-            <p class="game-desc">Skip them rocks</p>
-            <span class="play-btn">Play Now</span>
-          </div>
-        </a>
-        <!-- this WILL crash your tab lol -->
-        <a href="./aq-bottle.html" class="game-card">
-          <div class="card-thumb thumb-2"></div>
-          <div class="card-content">
-            <h2 class="game-title">
-              Fish in bottle (warning, this might crash your tab)
-            </h2>
-            <p class="game-desc">You are the fish. Escape is impossible.</p>
-            <span class="play-btn">Play Now</span>
-          </div>
-        </a>
-        <a href="./fidget.html" class="game-card">
-          <div class="card-thumb thumb-2"></div>
-          <div class="card-content">
-            <h2 class="game-title">Fidget toys</h2>
-            <p class="game-desc">Ultimate fidget collection.</p>
-            <span class="play-btn">Play Now</span>
-          </div>
-        </a>
-        <a href="./helpdesk-rage.html" class="game-card">
-          <div class="card-thumb thumb-2"></div>
-          <div class="card-content">
-            <h2 class="game-title">helpdesk Simulator</h2>
-            <p class="game-desc">"fix" everyones problems.</p>
-            <span class="play-btn">Play Now</span>
-          </div>
-        </a>
-        <a href="./iidk.html" class="game-card">
-          <div class="card-thumb thumb-2"></div>
-          <div class="card-content">
-            <h2 class="game-title">Void Drifter (idk)</h2>
-            <p class="game-desc">
-              (idk i just told gemini to make something 'realistic').
-            </p>
-            <span class="play-btn">Play Now</span>
-          </div>
-        </a>
-        <a href="./bb.html" class="game-card">
-          <div class="card-thumb thumb-2"></div>
-          <div class="card-content">
-            <h2 class="game-title">Physics bb</h2>
-            <p class="game-desc">BB Shooter</p>
-            <span class="play-btn">Play Now</span>
-          </div>
-        </a>
-        <a href="./squirrel-parkour.html" class="game-card">
-          <div class="card-thumb thumb-2"></div>
-          <div class="card-content">
-            <h2 class="game-title">Squirrel Parkour</h2>
-            <p class="game-desc">Be Squirrel Parkourist</p>
-            <span class="play-btn">Play Now</span>
-          </div>
-        </a>
-        <a href="./chameleon-stealth.html" class="game-card">
-          <div class="card-thumb thumb-2"></div>
-          <div class="card-content">
-            <h2 class="game-title">Stealth Chameleon</h2>
-            <p class="game-desc">Be Chameleon</p>
-            <span class="play-btn">Play Now</span>
-          </div>
-        </a>
-        <a href="./lemur-thief.html" class="game-card">
-          <div class="card-thumb thumb-2"></div>
-          <div class="card-content">
-            <h2 class="game-title">Lemur Thief</h2>
-            <p class="game-desc">Steal those raisins</p>
-            <span class="play-btn">Play Now</span>
-          </div>
-        </a>
-        <a href="./monkey-thief.html" class="game-card">
-          <div class="card-thumb thumb-2"></div>
-          <div class="card-content">
-            <h2 class="game-title">Monkey Thief</h2>
-            <p class="game-desc">steal those phones and nanners</p>
-            <span class="play-btn">Play Now</span>
-          </div>
-        </a>
-        <a href="./fishing.html" class="game-card">
-          <div class="card-thumb thumb-3"></div>
-          <div class="card-content">
-            <h2 class="game-title">Cozy Plushie Fishing</h2>
-            <p class="game-desc">
-              Relax on a procedural island. Choose your plushie character, catch
-              rare fish, and build your own aquarium house.
-            </p>
-            <span class="play-btn">Play Now</span>
-          </div>
-        </a>
-
-        <a href="./kaiju.html" class="game-card">
-          <div class="card-thumb thumb-1"></div>
-          <div class="card-content">
-            <h2 class="game-title">Kaiju vs Ninja</h2>
-            <p class="game-desc">Slay the Kaiju as a Ninja!</p>
-            <span class="play-btn">Play Now</span>
-          </div>
-        </a>
-
-        <a href="./hamster.html" class="game-card">
-          <div class="card-thumb thumb-2"></div>
-          <div class="card-content">
-            <h2 class="game-title">Hamster Hacker</h2>
-            <p class="game-desc">Be Hamster, enter password.</p>
-            <span class="play-btn">Play Now</span>
-          </div>
-        </a>
-        <a href="./belda.html" class="game-card">
-          <div class="card-thumb thumb-3"></div>
-          <div class="card-content">
-            <h2 class="game-title">Belda Bindbaker</h2>
-            <p class="game-desc">Be Belda</p>
-            <span class="play-btn">Play Now</span>
-          </div>
-        </a>
-        <a href="./bear.html" class="game-card">
-          <div class="card-thumb thumb-1"></div>
-          <div class="card-content">
-            <h2 class="game-title">Bear Platformer Engine</h2>
-            <p class="game-desc">Be Bear, build world, grappling hook.</p>
-            <span class="play-btn">Play Now</span>
-          </div>
-        </a>
-        <a href="./printer.html" class="game-card">
-          <div class="card-thumb thumb-1"></div>
-          <div class="card-content">
-            <h2 class="game-title">Printer Repairman</h2>
-            <p class="game-desc">Repair printers, save the office.</p>
-            <span class="play-btn">Play Now</span>
-          </div>
-        </a>
-
-        <a href="./bottle.html" class="game-card">
-          <div class="card-thumb thumb-2"></div>
-          <div class="card-content">
-            <h2 class="game-title">Bottle flipper</h2>
-            <p class="game-desc">Fill up bottle, flip it, land it.</p>
-            <span class="play-btn">Play Now</span>
-          </div>
-        </a>
-
-        <a href="./melee-controller.html" class="game-card">
-          <div class="card-thumb thumb-3"></div>
-          <div class="card-content">
-            <h2 class="game-title">FPS Melee Controller</h2>
-            <p class="game-desc">Defeat the enemy</p>
-            <span class="play-btn">Play Now</span>
-          </div>
-        </a>
-        <a href="./angler.html" class="game-card">
-          <div class="card-thumb thumb-1"></div>
-          <div class="card-content">
-            <h2 class="game-title">Anglerfish Cave</h2>
-            <p class="game-desc">Swim through cave as Anglerfish</p>
-            <span class="play-btn">Play Now</span>
-          </div>
-        </a>
-        <a href="./void.html" class="game-card">
-          <div class="card-thumb thumb-2"></div>
-          <div class="card-content">
-            <h2 class="game-title">Neon Void Runner</h2>
-            <p class="game-desc">Run through the Void</p>
-            <span class="play-btn">Play Now</span>
-          </div>
-        </a>
-        <a href="./ship.html" class="game-card">
-          <div class="card-thumb thumb-3"></div>
-          <div class="card-content">
-            <h2 class="game-title">Ship battle</h2>
-            <p class="game-desc">Defeat the Seas.</p>
-            <span class="play-btn">Play Now</span>
-          </div>
-        </a>
-        <a href="./spyhunter-3d.html" class="game-card">
-          <div class="card-thumb thumb-1"></div>
-          <div class="card-content">
-            <h2 class="game-title">Spyhunter 3D</h2>
-            <p class="game-desc">Be the Spy.</p>
-            <span class="play-btn">Play Now</span>
-          </div>
-        </a>
-        <a href="./spyhunter-2d.html" class="game-card">
-          <div class="card-thumb thumb-2"></div>
-          <div class="card-content">
-            <h2 class="game-title">Spyhunter 2D</h2>
-            <p class="game-desc">Be the Spy.</p>
-            <span class="play-btn">Play Now</span>
-          </div>
-        </a>
-
-        <a href="./joyrun.html" class="game-card">
-          <div class="card-thumb thumb-2"></div>
-          <div class="card-content">
-            <h2 class="game-title">Joyrun</h2>
-            <p class="game-desc">Run for joy!</p>
-            <span class="play-btn">Play Now</span>
-          </div>
-        </a>
+        <header>
+          <h1>AI Arcade</h1>
+          <div class="subtitle">Experimental Three.js Projects</div>
+        </header>
+  
+        <div class="game-grid">
+          <a href="./gladiator.html" class="game-card">
+            <div class="card-thumb thumb-1">
+              <img src="./screenshots/neon.png" class="thumb-img" alt="Neon Gladiator" onerror="this.style.display='none'" />
+            </div>
+            <div class="card-content">
+              <h2 class="game-title">Neon Gladiator</h2>
+              <p class="game-desc">Defeat the enemy</p>
+              <span class="play-btn">Play Now</span>
+            </div>
+          </a>
+  
+          <a href="./sandbox.html" class="game-card">
+            <div class="card-thumb thumb-2">
+              <img src="./screenshots/battlesandbox.png" class="thumb-img" alt="Battle Sandbox" onerror="this.style.display='none'" />
+            </div>
+            <div class="card-content">
+              <h2 class="game-title">Battle Sandbox</h2>
+              <p class="game-desc">Spawn Enemies, make them fight.</p>
+              <span class="play-btn">Play Now</span>
+            </div>
+          </a>
+  
+          <a href="./cloud.html" class="game-card">
+            <div class="card-thumb thumb-3">
+              <img src="./screenshots/cloudgarden.png" class="thumb-img" alt="Cloud Garden" onerror="this.style.display='none'" />
+            </div>
+            <div class="card-content">
+              <h2 class="game-title">Cloud Garden</h2>
+              <p class="game-desc">Be at peace.</p>
+              <span class="play-btn">Play Now</span>
+            </div>
+          </a>
+  
+          <a href="./wateridle.html" class="game-card">
+            <div class="card-thumb thumb-1">
+              <img src="./screenshots/wateridle.png" class="thumb-img" alt="Water IDLE" onerror="this.style.display='none'" />
+            </div>
+            <div class="card-content">
+              <h2 class="game-title">Water IDLE</h2>
+              <p class="game-desc">Idle Water Game</p>
+              <span class="play-btn">Play Now</span>
+            </div>
+          </a>
+  
+          <a href="./qwop.html" class="game-card">
+            <div class="card-thumb thumb-2">
+              <img src="./screenshots/qwop.png" class="thumb-img" alt="QWOP-a-PEDE" onerror="this.style.display='none'" />
+            </div>
+            <div class="card-content">
+              <h2 class="game-title">QWOP-a-PEDE</h2>
+              <p class="game-desc">New twist on QWOP</p>
+              <span class="play-btn">Play Now</span>
+            </div>
+          </a>
+  
+          <a href="./rougelite-td.html" class="game-card">
+            <div class="card-thumb thumb-3">
+              <img src="./screenshots/whisperingwoods.png" class="thumb-img" alt="Whispering Woods TD" onerror="this.style.display='none'" />
+            </div>
+            <div class="card-content">
+              <h2 class="game-title">Whispering Woods TD</h2>
+              <p class="game-desc">Cozy Tower defense rougelite.</p>
+              <span class="play-btn">Play Now</span>
+            </div>
+          </a>
+  
+          <a href="./gumball.html" class="game-card">
+            <div class="card-thumb thumb-1">
+              <img src="./screenshots/gumball.png" class="thumb-img" alt="Gumball Simulator" onerror="this.style.display='none'" />
+            </div>
+            <div class="card-content">
+              <h2 class="game-title">Gumball Simulator</h2>
+              <p class="game-desc">Be your inner gumball.</p>
+              <span class="play-btn">Play Now</span>
+            </div>
+          </a>
+  
+          <a href="./vending.html" class="game-card">
+            <div class="card-thumb thumb-2">
+              <img src="./screenshots/vending.png" class="thumb-img" alt="Vending Machine Simulator" onerror="this.style.display='none'" />
+            </div>
+            <div class="card-content">
+              <h2 class="game-title">Vending Machine Simulator</h2>
+              <p class="game-desc">Be your inner bag of chips.</p>
+              <span class="play-btn">Play Now</span>
+            </div>
+          </a>
+  
+          <a href="./bee-sim.html" class="game-card">
+            <div class="card-thumb thumb-3">
+              <img src="./screenshots/bee.png" class="thumb-img" alt="Bee Rougelite Simulator" onerror="this.style.display='none'" />
+            </div>
+            <div class="card-content">
+              <h2 class="game-title">Bee Rougelite Simulator</h2>
+              <p class="game-desc">Become king bee.</p>
+              <span class="play-btn">Play Now</span>
+            </div>
+          </a>
+  
+          <a href="./ows.html" class="game-card">
+            <div class="card-thumb thumb-1">
+              <img src="./screenshots/ows.png" class="thumb-img" alt="Open World Sandbox" onerror="this.style.display='none'" />
+            </div>
+            <div class="card-content">
+              <h2 class="game-title">Open World Sandbox</h2>
+              <p class="game-desc">Create Chaos.</p>
+              <span class="play-btn">Play Now</span>
+            </div>
+          </a>
+  
+          <a href="./ows-2d.html" class="game-card">
+            <div class="card-thumb thumb-2">
+              <img src="./screenshots/ows2d.png" class="thumb-img" alt="Open World Sandbox 2D" onerror="this.style.display='none'" />
+            </div>
+            <div class="card-content">
+              <h2 class="game-title">Open World Sandbox 2D</h2>
+              <p class="game-desc">Create Chaos in 2D.</p>
+              <span class="play-btn">Play Now</span>
+            </div>
+          </a>
+  
+          <a href="./qwop-dive.html" class="game-card">
+            <div class="card-thumb thumb-3">
+              <img src="./screenshots/qwopdive.png" class="thumb-img" alt="QWOP High Dive" onerror="this.style.display='none'" />
+            </div>
+            <div class="card-content">
+              <h2 class="game-title">QWOP High Dive</h2>
+              <p class="game-desc">Be goofy diver</p>
+              <span class="play-btn">Play Now</span>
+            </div>
+          </a>
+  
+          <a href="./ice-cream.html" class="game-card">
+            <div class="card-thumb thumb-1">
+              <img src="./screenshots/icecream.png" class="thumb-img" alt="Ice Cream Vendor" onerror="this.style.display='none'" />
+            </div>
+            <div class="card-content">
+              <h2 class="game-title">Ice Cream Vendor</h2>
+              <p class="game-desc">Serve ice cream!</p>
+              <span class="play-btn">Play Now</span>
+            </div>
+          </a>
+  
+          <a href="./rock-skip.html" class="game-card">
+            <div class="card-thumb thumb-2">
+              <img src="./screenshots/skiprock.png" class="thumb-img" alt="Skip Rock" onerror="this.style.display='none'" />
+            </div>
+            <div class="card-content">
+              <h2 class="game-title">Skip Rock</h2>
+              <p class="game-desc">Skip them rocks</p>
+              <span class="play-btn">Play Now</span>
+            </div>
+          </a>
+  
+          <a href="./aq-bottle.html" class="game-card">
+            <div class="card-thumb thumb-3">
+              <img src="./screenshots/fish.png" class="thumb-img" alt="Fish in bottle" onerror="this.style.display='none'" />
+            </div>
+            <div class="card-content">
+              <h2 class="game-title">
+                Fish in bottle (warning, this might crash your tab)
+              </h2>
+              <p class="game-desc">You are the fish. Escape is impossible.</p>
+              <span class="play-btn">Play Now</span>
+            </div>
+          </a>
+  
+          <a href="./fidget.html" class="game-card">
+            <div class="card-thumb thumb-1">
+              <img src="./screenshots/fidget.png" class="thumb-img" alt="Fidget toys" onerror="this.style.display='none'" />
+            </div>
+            <div class="card-content">
+              <h2 class="game-title">Fidget toys</h2>
+              <p class="game-desc">Ultimate fidget collection.</p>
+              <span class="play-btn">Play Now</span>
+            </div>
+          </a>
+  
+          <a href="./helpdesk-rage.html" class="game-card">
+            <div class="card-thumb thumb-2">
+              <img src="./screenshots/helpdesk.png" class="thumb-img" alt="helpdesk Simulator" onerror="this.style.display='none'" />
+            </div>
+            <div class="card-content">
+              <h2 class="game-title">helpdesk Simulator</h2>
+              <p class="game-desc">"fix" everyones problems.</p>
+              <span class="play-btn">Play Now</span>
+            </div>
+          </a>
+  
+          <a href="./iidk.html" class="game-card">
+            <div class="card-thumb thumb-3">
+              <img src="./screenshots/voiddrift.png" class="thumb-img" alt="Void Drifter" onerror="this.style.display='none'" />
+            </div>
+            <div class="card-content">
+              <h2 class="game-title">Void Drifter (idk)</h2>
+              <p class="game-desc">
+                (idk i just told gemini to make something 'realistic').
+              </p>
+              <span class="play-btn">Play Now</span>
+            </div>
+          </a>
+  
+          <a href="./bb.html" class="game-card">
+            <div class="card-thumb thumb-1">
+              <img src="./screenshots/bb.png" class="thumb-img" alt="Physics bb" onerror="this.style.display='none'" />
+            </div>
+            <div class="card-content">
+              <h2 class="game-title">Physics bb</h2>
+              <p class="game-desc">BB Shooter</p>
+              <span class="play-btn">Play Now</span>
+            </div>
+          </a>
+  
+          <a href="./squirrel-parkour.html" class="game-card">
+            <div class="card-thumb thumb-2">
+              <img src="./screenshots/squirrel.png" class="thumb-img" alt="Squirrel Parkour" onerror="this.style.display='none'" />
+            </div>
+            <div class="card-content">
+              <h2 class="game-title">Squirrel Parkour</h2>
+              <p class="game-desc">Be Squirrel Parkourist</p>
+              <span class="play-btn">Play Now</span>
+            </div>
+          </a>
+  
+          <a href="./chameleon-stealth.html" class="game-card">
+            <div class="card-thumb thumb-3">
+              <img src="./screenshots/stealth.png" class="thumb-img" alt="Stealth Chameleon" onerror="this.style.display='none'" />
+            </div>
+            <div class="card-content">
+              <h2 class="game-title">Stealth Chameleon</h2>
+              <p class="game-desc">Be Chameleon</p>
+              <span class="play-btn">Play Now</span>
+            </div>
+          </a>
+  
+          <a href="./lemur-thief.html" class="game-card">
+            <div class="card-thumb thumb-1">
+              <img src="./screenshots/lemur.png" class="thumb-img" alt="Lemur Thief" onerror="this.style.display='none'" />
+            </div>
+            <div class="card-content">
+              <h2 class="game-title">Lemur Thief</h2>
+              <p class="game-desc">Steal those raisins</p>
+              <span class="play-btn">Play Now</span>
+            </div>
+          </a>
+  
+          <a href="./monkey-thief.html" class="game-card">
+            <div class="card-thumb thumb-2">
+              <img src="./screenshots/monkey.png" class="thumb-img" alt="Monkey Thief" onerror="this.style.display='none'" />
+            </div>
+            <div class="card-content">
+              <h2 class="game-title">Monkey Thief</h2>
+              <p class="game-desc">steal those phones and nanners</p>
+              <span class="play-btn">Play Now</span>
+            </div>
+          </a>
+  
+          <a href="./fishing.html" class="game-card">
+            <div class="card-thumb thumb-3">
+              <img src="./screenshots/cozy.png" class="thumb-img" alt="Cozy Plushie Fishing" onerror="this.style.display='none'" />
+            </div>
+            <div class="card-content">
+              <h2 class="game-title">Cozy Plushie Fishing</h2>
+              <p class="game-desc">
+                Relax on a procedural island. Choose your plushie character, catch
+                rare fish, and build your own aquarium house.
+              </p>
+              <span class="play-btn">Play Now</span>
+            </div>
+          </a>
+  
+          <a href="./kaiju.html" class="game-card">
+            <div class="card-thumb thumb-1">
+              <img src="./screenshots/kaiju.png" class="thumb-img" alt="Kaiju vs Ninja" onerror="this.style.display='none'" />
+            </div>
+            <div class="card-content">
+              <h2 class="game-title">Kaiju vs Ninja</h2>
+              <p class="game-desc">Slay the Kaiju as a Ninja!</p>
+              <span class="play-btn">Play Now</span>
+            </div>
+          </a>
+  
+          <a href="./hamster.html" class="game-card">
+            <div class="card-thumb thumb-2">
+              <img src="./screenshots/hamster.png" class="thumb-img" alt="Hamster Hacker" onerror="this.style.display='none'" />
+            </div>
+            <div class="card-content">
+              <h2 class="game-title">Hamster Hacker</h2>
+              <p class="game-desc">Be Hamster, enter password.</p>
+              <span class="play-btn">Play Now</span>
+            </div>
+          </a>
+  
+          <a href="./belda.html" class="game-card">
+            <div class="card-thumb thumb-3">
+              <img src="./screenshots/belda.png" class="thumb-img" alt="Belda Bindbaker" onerror="this.style.display='none'" />
+            </div>
+            <div class="card-content">
+              <h2 class="game-title">Belda Bindbaker</h2>
+              <p class="game-desc">Be Belda</p>
+              <span class="play-btn">Play Now</span>
+            </div>
+          </a>
+  
+          <a href="./bear.html" class="game-card">
+            <div class="card-thumb thumb-1">
+              <img src="./screenshots/bear.png" class="thumb-img" alt="Bear Platformer" onerror="this.style.display='none'" />
+            </div>
+            <div class="card-content">
+              <h2 class="game-title">Bear Platformer Engine</h2>
+              <p class="game-desc">Be Bear, build world, grappling hook.</p>
+              <span class="play-btn">Play Now</span>
+            </div>
+          </a>
+  
+          <a href="./printer.html" class="game-card">
+            <div class="card-thumb thumb-2">
+              <img src="./screenshots/printer.png" class="thumb-img" alt="Printer Repairman" onerror="this.style.display='none'" />
+            </div>
+            <div class="card-content">
+              <h2 class="game-title">Printer Repairman</h2>
+              <p class="game-desc">Repair printers, save the office.</p>
+              <span class="play-btn">Play Now</span>
+            </div>
+          </a>
+  
+          <a href="./bottle.html" class="game-card">
+            <div class="card-thumb thumb-3">
+              <img src="./screenshots/bottleflip.png" class="thumb-img" alt="Bottle flipper" onerror="this.style.display='none'" />
+            </div>
+            <div class="card-content">
+              <h2 class="game-title">Bottle flipper</h2>
+              <p class="game-desc">Fill up bottle, flip it, land it.</p>
+              <span class="play-btn">Play Now</span>
+            </div>
+          </a>
+  
+          <a href="./melee-controller.html" class="game-card">
+            <div class="card-thumb thumb-1">
+              <img src="./screenshots/fpsmelee.png" class="thumb-img" alt="FPS Melee Controller" onerror="this.style.display='none'" />
+            </div>
+            <div class="card-content">
+              <h2 class="game-title">FPS Melee Controller</h2>
+              <p class="game-desc">Defeat the enemy</p>
+              <span class="play-btn">Play Now</span>
+            </div>
+          </a>
+  
+          <a href="./angler.html" class="game-card">
+            <div class="card-thumb thumb-2">
+              <img src="./screenshots/angler.png" class="thumb-img" alt="Anglerfish Cave" onerror="this.style.display='none'" />
+            </div>
+            <div class="card-content">
+              <h2 class="game-title">Anglerfish Cave</h2>
+              <p class="game-desc">Swim through cave as Anglerfish</p>
+              <span class="play-btn">Play Now</span>
+            </div>
+          </a>
+  
+          <a href="./void.html" class="game-card">
+            <div class="card-thumb thumb-3">
+              <img src="./screenshots/neonvoidrunner.png" class="thumb-img" alt="Neon Void Runner" onerror="this.style.display='none'" />
+            </div>
+            <div class="card-content">
+              <h2 class="game-title">Neon Void Runner</h2>
+              <p class="game-desc">Run through the Void</p>
+              <span class="play-btn">Play Now</span>
+            </div>
+          </a>
+  
+          <a href="./ship.html" class="game-card">
+            <div class="card-thumb thumb-1">
+              <img src="./screenshots/shipbattle.png" class="thumb-img" alt="Ship battle" onerror="this.style.display='none'" />
+            </div>
+            <div class="card-content">
+              <h2 class="game-title">Ship battle</h2>
+              <p class="game-desc">Defeat the Seas.</p>
+              <span class="play-btn">Play Now</span>
+            </div>
+          </a>
+  
+          <a href="./spyhunter-3d.html" class="game-card">
+            <div class="card-thumb thumb-2">
+              <img src="./screenshots/spyhunter3d.png" class="thumb-img" alt="Spyhunter 3D" onerror="this.style.display='none'" />
+            </div>
+            <div class="card-content">
+              <h2 class="game-title">Spyhunter 3D</h2>
+              <p class="game-desc">Be the Spy.</p>
+              <span class="play-btn">Play Now</span>
+            </div>
+          </a>
+  
+          <a href="./spyhunter-2d.html" class="game-card">
+            <div class="card-thumb thumb-3">
+              <img src="./screenshots/spyhunter2d.png" class="thumb-img" alt="Spyhunter 2D" onerror="this.style.display='none'" />
+            </div>
+            <div class="card-content">
+              <h2 class="game-title">Spyhunter 2D</h2>
+              <p class="game-desc">Be the Spy.</p>
+              <span class="play-btn">Play Now</span>
+            </div>
+          </a>
+  
+          <a href="./joyrun.html" class="game-card">
+            <div class="card-thumb thumb-1">
+              <img src="./screenshots/joyrun.png" class="thumb-img" alt="Joyrun" onerror="this.style.display='none'" />
+            </div>
+            <div class="card-content">
+              <h2 class="game-title">Joyrun</h2>
+              <p class="game-desc">Run for joy!</p>
+              <span class="play-btn">Play Now</span>
+            </div>
+          </a>
+        </div>
+  
       </div>
 
       <footer>&copy; 2025 AI Generated Games Collection</footer>
@@ -546,7 +675,7 @@
 
     <script type="module">
       import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js";
-
+      /* ... The rest of your script is unchanged ... */
       const canvas = document.getElementById("bg-canvas");
       const renderer = new THREE.WebGLRenderer({
         canvas,
@@ -558,7 +687,6 @@
 
       const scene = new THREE.Scene();
 
-      // Camera
       const camera = new THREE.PerspectiveCamera(
         75,
         window.innerWidth / window.innerHeight,
@@ -567,11 +695,9 @@
       );
       camera.position.z = 30;
 
-      // Group for rotating objects
       const group = new THREE.Group();
       scene.add(group);
 
-      // Create floating geometric shapes (Icosahedrons)
       const geometry = new THREE.IcosahedronGeometry(1, 0);
       const material = new THREE.MeshBasicMaterial({
         color: 0x2a2a35,
@@ -582,49 +708,41 @@
 
       const particles = [];
 
-      // Function to help initialize particles
       function createParticle(geom, mat, isOrb = false) {
         const mesh = new THREE.Mesh(geom, mat);
-
-        // Random initial position
         const x = (Math.random() - 0.5) * 80;
         const y = (Math.random() - 0.5) * 80;
         const z = (Math.random() - 0.5) * 40;
 
         mesh.position.set(x, y, z);
 
-        // Random scale
         const s = isOrb ? 1 : Math.random() * 2;
         mesh.scale.set(s, s, s);
 
-        // Store initial data for organic movement
         mesh.userData = {
           originalPos: { x, y, z },
-          randomPhase: Math.random() * Math.PI * 2, // Start at different sine wave points
+          randomPhase: Math.random() * Math.PI * 2,
           rotationSpeed: {
             x: (Math.random() - 0.5) * 0.01,
             y: (Math.random() - 0.5) * 0.01,
           },
-          floatSpeed: 0.5 + Math.random() * 1.5, // Different speeds for depth
+          floatSpeed: 0.5 + Math.random() * 1.5,
         };
 
         group.add(mesh);
         particles.push(mesh);
       }
 
-      // Add Geometric Shapes
       for (let i = 0; i < 50; i++) {
         createParticle(geometry, material);
       }
 
-      // Add some glowing orbs
       const orbGeo = new THREE.SphereGeometry(0.2, 8, 8);
       const orbMat = new THREE.MeshBasicMaterial({ color: 0x00f260 });
       for (let i = 0; i < 20; i++) {
         createParticle(orbGeo, orbMat, true);
       }
 
-      // Mouse Interaction
       let mouseX = 0;
       let mouseY = 0;
       let targetX = 0;
@@ -637,52 +755,39 @@
         mouseY = event.clientY - windowHalfY;
       });
 
-      // Resize
       window.addEventListener("resize", () => {
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
         renderer.setSize(window.innerWidth, window.innerHeight);
       });
 
-      // Animation Loop
       function animate() {
         requestAnimationFrame(animate);
 
         const time = Date.now() * 0.001;
 
-        // Ease the target rotation for the whole group (Camera look effect)
         targetX = mouseX * 0.001;
         targetY = mouseY * 0.001;
 
-        group.rotation.y += 0.002; // Constant subtle spin
+        group.rotation.y += 0.002;
         group.rotation.x += (targetY - group.rotation.x) * 0.05;
         group.rotation.y += (targetX - group.rotation.y) * 0.05;
 
-        // Animate individual particles
         particles.forEach((p) => {
           const u = p.userData;
 
-          // 1. Self-Rotation
           p.rotation.x += u.rotationSpeed.x;
           p.rotation.y += u.rotationSpeed.y;
 
-          // 2. Organic Floating (Idle Movement)
-          // Uses Sine waves based on time + randomPhase so they don't move in unison
           const floatX = Math.sin(time * u.floatSpeed + u.randomPhase) * 2;
           const floatY =
             Math.cos(time * u.floatSpeed * 0.8 + u.randomPhase) * 2;
 
-          // 3. Mouse "Parallax" Influence
-          // We move the individual particle slightly based on mouse position
-          // to give the feeling of depth/response.
           const mouseEffectX = mouseX * 0.02;
           const mouseEffectY = mouseY * -0.02;
 
-          // Apply positions relative to original anchor point
           p.position.x = u.originalPos.x + floatX + mouseEffectX;
           p.position.y = u.originalPos.y + floatY + mouseEffectY;
-
-          // Z-axis breathing for extra depth
           p.position.z = u.originalPos.z + Math.sin(time * 0.5 + u.randomPhase);
         });
 
