@@ -1,0 +1,1010 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>Ultimate Fidget Collection</title>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap");
+
+      body {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        background-color: #2c3e50;
+        font-family: "Nunito", sans-serif;
+        touch-action: none; /* Prevent scrolling on mobile */
+        user-select: none;
+      }
+
+      #canvas-container {
+        position: relative;
+        width: 100vw;
+        height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+
+      canvas {
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        border-radius: 12px;
+        background: #ecf0f1;
+        cursor: pointer;
+      }
+
+      #ui-layer {
+        position: absolute;
+        top: 20px;
+        left: 0;
+        width: 100%;
+        pointer-events: none;
+        text-align: center;
+        color: #34495e;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 24px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        text-shadow: 0 2px 0 rgba(255, 255, 255, 0.5);
+      }
+
+      p {
+        margin: 5px 0 0;
+        font-size: 14px;
+        opacity: 0.7;
+      }
+
+      #start-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(44, 62, 80, 0.9);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 100;
+        color: white;
+        transition: opacity 0.3s;
+      }
+
+      .btn {
+        background: #e74c3c;
+        border: none;
+        padding: 15px 40px;
+        font-size: 20px;
+        color: white;
+        border-radius: 50px;
+        font-family: "Nunito", sans-serif;
+        font-weight: bold;
+        cursor: pointer;
+        box-shadow: 0 5px 0 #c0392b;
+        transition: transform 0.1s, box-shadow 0.1s;
+      }
+
+      .btn:active {
+        transform: translateY(5px);
+        box-shadow: 0 0 0 #c0392b;
+      }
+
+      .hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <style>
+      /* Minimal Floating Home Button */
+      .home-nav-btn {
+        position: fixed;
+        top: 15px;
+        left: 15px;
+        z-index: 10000; /* Ensure it sits above game UI/Canvases */
+        background: rgba(
+          30,
+          30,
+          30,
+          0.6
+        ); /* Dark semi-transparent for contrast */
+        color: #ffffff;
+        text-decoration: none;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+        font-size: 14px;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.2s ease;
+        backdrop-filter: blur(4px); /* Blurs background behind button */
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+
+      .home-nav-btn:hover {
+        background: rgba(30, 30, 30, 0.9);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      }
+
+      /* SVG Icon Style */
+      .home-nav-icon {
+        width: 16px;
+        height: 16px;
+      }
+    </style>
+
+    <!-- Link to your Hub (index.html) -->
+    <a href="index.html" class="home-nav-btn">
+      <svg
+        class="home-nav-icon"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+        <polyline points="9 22 9 12 15 12 15 22"></polyline>
+      </svg>
+      <span>Back to Hub</span>
+    </a>
+    <div id="start-overlay">
+      <h1>Fidget Toy Box</h1>
+      <p style="margin-bottom: 20px; color: #bdc3c7">
+        Turn up volume for ASMR sounds
+      </p>
+      <button class="btn" id="start-btn">Open Toy Box</button>
+    </div>
+
+    <div id="canvas-container">
+      <div id="ui-layer">
+        <h1 id="toy-title">Select a Toy</h1>
+        <p id="toy-instruction">Click icons to choose</p>
+      </div>
+      <canvas id="gameCanvas"></canvas>
+    </div>
+
+    <script>
+      /**
+       * SOUND ENGINE (Web Audio API)
+       * Synthesizes sounds so no external files are needed.
+       */
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+      const SoundFX = {
+        playTone: (freq, type, duration, vol = 0.1) => {
+          if (audioCtx.state === "suspended") audioCtx.resume();
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+
+          gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(
+            0.01,
+            audioCtx.currentTime + duration
+          );
+
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start();
+          osc.stop(audioCtx.currentTime + duration);
+        },
+
+        pop: () => {
+          if (audioCtx.state === "suspended") audioCtx.resume();
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+
+          // Pitch drop for "pop" sound
+          osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(
+            100,
+            audioCtx.currentTime + 0.1
+          );
+
+          gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(
+            0.01,
+            audioCtx.currentTime + 0.1
+          );
+
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.1);
+        },
+
+        click: () => {
+          SoundFX.playTone(800, "square", 0.05, 0.1);
+        },
+
+        switch: () => {
+          SoundFX.playTone(300, "triangle", 0.1, 0.2);
+        },
+
+        spinWhoosh: (speed) => {
+          // This would ideally be white noise, but for simplicity we use low sine
+          // We won't run this constantly to save performance, just on heavy spin
+          if (Math.random() > 0.8) {
+            SoundFX.playTone(100 + speed * 100, "sine", 0.1, 0.05);
+          }
+        },
+
+        gear: () => {
+          SoundFX.playTone(150, "sawtooth", 0.15, 0.15);
+        },
+      };
+
+      /**
+       * GAME ENGINE
+       */
+      const canvas = document.getElementById("gameCanvas");
+      const ctx = canvas.getContext("2d");
+      const titleEl = document.getElementById("toy-title");
+      const instrEl = document.getElementById("toy-instruction");
+
+      // Resize handling
+      let width, height, centerX, centerY;
+      function resize() {
+        width = window.innerWidth;
+        height = window.innerHeight;
+        canvas.width = width;
+        canvas.height = height;
+        centerX = width / 2;
+        centerY = height / 2;
+      }
+      window.addEventListener("resize", resize);
+      resize();
+
+      // Input state
+      const mouse = { x: 0, y: 0, down: false, lastX: 0, lastY: 0 };
+
+      // Helper: Get mouse pos relative to canvas
+      function getPos(e) {
+        const rect = canvas.getBoundingClientRect();
+        let cx, cy;
+        if (e.touches) {
+          cx = e.touches[0].clientX;
+          cy = e.touches[0].clientY;
+        } else {
+          cx = e.clientX;
+          cy = e.clientY;
+        }
+        return {
+          x: cx - rect.left,
+          y: cy - rect.top,
+        };
+      }
+
+      canvas.addEventListener("mousedown", (e) => {
+        const pos = getPos(e);
+        mouse.x = pos.x;
+        mouse.y = pos.y;
+        mouse.down = true;
+        handleInput("down");
+      });
+      canvas.addEventListener(
+        "touchstart",
+        (e) => {
+          e.preventDefault(); // prevent scroll
+          const pos = getPos(e);
+          mouse.x = pos.x;
+          mouse.y = pos.y;
+          mouse.down = true;
+          handleInput("down");
+        },
+        { passive: false }
+      );
+
+      canvas.addEventListener("mousemove", (e) => {
+        const pos = getPos(e);
+        mouse.lastX = mouse.x;
+        mouse.lastY = mouse.y;
+        mouse.x = pos.x;
+        mouse.y = pos.y;
+        handleInput("move");
+      });
+      canvas.addEventListener(
+        "touchmove",
+        (e) => {
+          e.preventDefault();
+          const pos = getPos(e);
+          mouse.lastX = mouse.x;
+          mouse.lastY = mouse.y;
+          mouse.x = pos.x;
+          mouse.y = pos.y;
+          handleInput("move");
+        },
+        { passive: false }
+      );
+
+      window.addEventListener("mouseup", () => {
+        mouse.down = false;
+        handleInput("up");
+      });
+      window.addEventListener("touchend", () => {
+        mouse.down = false;
+        handleInput("up");
+      });
+
+      /**
+       * SCENE MANAGEMENT
+       */
+      let currentScene = "menu"; // menu, spinner, cube, popit, gear
+
+      function setScene(scene) {
+        currentScene = scene;
+        mouse.down = false; // Reset drag state
+
+        if (scene === "menu") {
+          titleEl.innerText = "Fidget Toy Box";
+          instrEl.innerText = "Select a toy to play";
+        } else if (scene === "spinner") {
+          titleEl.innerText = "Fidget Spinner";
+          instrEl.innerText = "Swipe to spin";
+          spinner.angle = 0;
+          spinner.velocity = 0;
+        } else if (scene === "cube") {
+          titleEl.innerText = "Fidget Cube";
+          instrEl.innerText = "Click buttons, toggle switch, drag joystick";
+        } else if (scene === "popit") {
+          titleEl.innerText = "Infinite Pop-It";
+          instrEl.innerText = "Click bubbles to pop";
+          initPopIt();
+        } else if (scene === "gear") {
+          titleEl.innerText = "Gear Shifter";
+          instrEl.innerText = "Drag knob into gear slots";
+        }
+      }
+
+      /**
+       * TOY 1: SPINNER
+       */
+      const spinner = {
+        angle: 0,
+        velocity: 0,
+        radius: 100,
+        dampening: 0.99,
+        color: "#3498db",
+      };
+
+      function drawSpinner() {
+        // Physics
+        if (!mouse.down) {
+          spinner.velocity *= spinner.dampening;
+        }
+        spinner.angle += spinner.velocity;
+
+        // Audio feedback based on speed
+        if (Math.abs(spinner.velocity) > 0.1) {
+          SoundFX.spinWhoosh(Math.abs(spinner.velocity));
+        }
+
+        ctx.save();
+        ctx.translate(centerX, centerY);
+        ctx.rotate(spinner.angle);
+
+        // Draw Arms
+        for (let i = 0; i < 3; i++) {
+          ctx.rotate((Math.PI * 2) / 3);
+          ctx.beginPath();
+          ctx.fillStyle = spinner.color;
+
+          // Arm shape
+          ctx.arc(0, -80, 50, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Weight insert
+          ctx.beginPath();
+          ctx.fillStyle = "#2c3e50";
+          ctx.arc(0, -80, 25, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Highlight
+          ctx.beginPath();
+          ctx.fillStyle = "rgba(255,255,255,0.1)";
+          ctx.arc(0, -80, 40, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // Center Bearing
+        ctx.rotate(-((Math.PI * 2) / 3) * 3); // Reset rotation relative to arms for center
+        ctx.beginPath();
+        ctx.fillStyle = "#ecf0f1";
+        ctx.arc(0, 0, 35, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Center Cap
+        ctx.beginPath();
+        ctx.fillStyle = "#bdc3c7";
+        ctx.arc(0, 0, 20, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+
+        drawBackButton();
+      }
+
+      /**
+       * TOY 2: CUBE
+       */
+      const cubeState = {
+        buttons: [
+          { x: -60, y: -60, r: 15, pressed: false },
+          { x: 60, y: -60, r: 15, pressed: false },
+          { x: 0, y: 0, r: 15, pressed: false },
+          { x: -60, y: 60, r: 15, pressed: false },
+          { x: 60, y: 60, r: 15, pressed: false },
+        ],
+        switch: { x: 0, y: 120, w: 80, h: 40, state: false },
+        joystick: { x: 0, y: -150, r: 40, dx: 0, dy: 0, dragging: false },
+      };
+
+      function drawCube() {
+        // Background Face
+        ctx.fillStyle = "#95a5a6";
+        const faceSize = 300;
+        ctx.beginPath();
+        ctx.roundRect(
+          centerX - faceSize / 2,
+          centerY - faceSize / 2,
+          faceSize,
+          faceSize,
+          20
+        );
+        ctx.fill();
+
+        // Draw Buttons (Dice pattern)
+        cubeState.buttons.forEach((btn, i) => {
+          const bx = centerX + btn.x;
+          const by = centerY + btn.y;
+
+          ctx.beginPath();
+          ctx.fillStyle = btn.pressed ? "#7f8c8d" : "#ecf0f1";
+          // Visual depth
+          if (!btn.pressed) {
+            ctx.shadowColor = "rgba(0,0,0,0.2)";
+            ctx.shadowBlur = 5;
+            ctx.shadowOffsetY = 4;
+          } else {
+            ctx.shadowColor = "transparent";
+          }
+          ctx.arc(bx, by, btn.r, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.shadowColor = "transparent"; // reset
+          ctx.shadowBlur = 0;
+          ctx.shadowOffsetY = 0;
+        });
+
+        // Draw Switch
+        const sw = cubeState.switch;
+        const swX = centerX + sw.x;
+        const swY = centerY + sw.y;
+
+        // Switch housing
+        ctx.fillStyle = "#34495e";
+        ctx.fillRect(swX - sw.w / 2, swY - sw.h / 2, sw.w, sw.h);
+
+        // The Switch itself
+        ctx.fillStyle = "#e74c3c";
+        const switchOffset = sw.state ? 20 : -20;
+
+        ctx.beginPath();
+        ctx.roundRect(swX - 25 + switchOffset, swY - 18, 50, 36, 5);
+        ctx.fill();
+
+        // Draw Joystick
+        const joy = cubeState.joystick;
+        const joyBaseX = centerX + joy.x;
+        const joyBaseY = centerY + joy.y;
+
+        // Base
+        ctx.beginPath();
+        ctx.fillStyle = "#2c3e50";
+        ctx.arc(joyBaseX, joyBaseY, 40, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Stick
+        ctx.beginPath();
+        ctx.fillStyle = "#f1c40f";
+        // Limit stick movement visually
+        let stickX = joyBaseX + joy.dx;
+        let stickY = joyBaseY + joy.dy;
+
+        ctx.arc(stickX, stickY, 25, 0, Math.PI * 2);
+        ctx.fill();
+        // Shine
+        ctx.fillStyle = "rgba(255,255,255,0.3)";
+        ctx.beginPath();
+        ctx.arc(stickX - 5, stickY - 5, 10, 0, Math.PI * 2);
+        ctx.fill();
+
+        drawBackButton();
+      }
+
+      /**
+       * TOY 3: POP-IT
+       */
+      const popIt = {
+        rows: 5,
+        cols: 5,
+        size: 50,
+        gap: 10,
+        bubbles: [],
+      };
+
+      function initPopIt() {
+        popIt.bubbles = [];
+        const totalW = popIt.cols * popIt.size + (popIt.cols - 1) * popIt.gap;
+        const totalH = popIt.rows * popIt.size + (popIt.rows - 1) * popIt.gap;
+        const startX = -totalW / 2 + popIt.size / 2;
+        const startY = -totalH / 2 + popIt.size / 2;
+
+        for (let r = 0; r < popIt.rows; r++) {
+          for (let c = 0; c < popIt.cols; c++) {
+            popIt.bubbles.push({
+              x: startX + c * (popIt.size + popIt.gap),
+              y: startY + r * (popIt.size + popIt.gap),
+              popped: false,
+              color: `hsl(${(r + c) * 30}, 70%, 60%)`,
+            });
+          }
+        }
+      }
+
+      function drawPopIt() {
+        const boardW = popIt.cols * popIt.size + (popIt.cols + 1) * popIt.gap;
+        const boardH = popIt.rows * popIt.size + (popIt.rows + 1) * popIt.gap;
+
+        // Board Body
+        ctx.fillStyle = "#ffb6c1"; // Pinkish silicon
+        ctx.beginPath();
+        ctx.roundRect(
+          centerX - boardW / 2,
+          centerY - boardH / 2,
+          boardW,
+          boardH,
+          20
+        );
+        ctx.fill();
+
+        // Bubbles
+        popIt.bubbles.forEach((b) => {
+          const bx = centerX + b.x;
+          const by = centerY + b.y;
+
+          ctx.beginPath();
+          ctx.fillStyle = b.popped ? "#2c3e50" : b.color;
+          ctx.arc(bx, by, popIt.size / 2, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Shading for popped/unpopped effect
+          if (b.popped) {
+            ctx.fillStyle = "rgba(0,0,0,0.4)"; // Inner shadow
+            ctx.beginPath();
+            ctx.arc(bx, by, popIt.size / 2, 0, Math.PI * 2);
+            ctx.fill();
+          } else {
+            ctx.fillStyle = "rgba(255,255,255,0.4)"; // Highlight
+            ctx.beginPath();
+            ctx.arc(bx - 10, by - 10, 10, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        });
+
+        // Reset button logic
+        const allPopped = popIt.bubbles.every((b) => b.popped);
+        if (allPopped) {
+          ctx.fillStyle = "white";
+          ctx.font = "bold 20px Nunito";
+          ctx.fillText(
+            "Click anywhere to reset",
+            centerX,
+            centerY + boardH / 2 + 40
+          );
+        }
+
+        drawBackButton();
+      }
+
+      /**
+       * TOY 4: GEAR SHIFTER
+       */
+      const gearState = {
+        handle: { x: 0, y: 0 },
+        target: { x: 0, y: 0 }, // For animation smoothing
+        dragging: false,
+        currentGear: 0, // 0 is neutral
+        slots: [
+          { id: 1, x: -60, y: -60 },
+          { id: 3, x: 0, y: -60 },
+          { id: 5, x: 60, y: -60 },
+          { id: 2, x: -60, y: 60 },
+          { id: 4, x: 0, y: 60 },
+          { id: 6, x: 60, y: 60 },
+        ],
+      };
+
+      function drawGear() {
+        // Base plate
+        ctx.fillStyle = "#222";
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, 100, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Gates (Slots)
+        ctx.strokeStyle = "#444";
+        ctx.lineWidth = 15;
+        ctx.lineCap = "round";
+
+        // Horizontal Neutral Line
+        ctx.beginPath();
+        ctx.moveTo(centerX - 60, centerY);
+        ctx.lineTo(centerX + 60, centerY);
+        ctx.stroke();
+
+        // Vertical lines for gears
+        [-60, 0, 60].forEach((offset) => {
+          ctx.beginPath();
+          ctx.moveTo(centerX + offset, centerY - 60);
+          ctx.lineTo(centerX + offset, centerY + 60);
+          ctx.stroke();
+        });
+
+        // Stick stick (shaft)
+        ctx.beginPath();
+        ctx.strokeStyle = "#95a5a6";
+        ctx.lineWidth = 10;
+        ctx.moveTo(centerX, centerY + 100); // Pivot point visual hack
+        // Lerp handle visual position
+        const visualX = centerX + gearState.handle.x;
+        const visualY = centerY + gearState.handle.y;
+        ctx.lineTo(visualX, visualY);
+        ctx.stroke();
+
+        // Knob
+        ctx.beginPath();
+        ctx.fillStyle = "#e74c3c";
+        // 3D shading
+        const grad = ctx.createRadialGradient(
+          visualX - 10,
+          visualY - 10,
+          5,
+          visualX,
+          visualY,
+          35
+        );
+        grad.addColorStop(0, "#ff7675");
+        grad.addColorStop(1, "#c0392b");
+        ctx.fillStyle = grad;
+
+        ctx.arc(visualX, visualY, 30, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Gear indicator
+        ctx.fillStyle = "white";
+        ctx.font = "bold 30px Nunito";
+        ctx.textAlign = "center";
+        let label = gearState.currentGear === 0 ? "N" : gearState.currentGear;
+        ctx.fillText(label, centerX, centerY - 130);
+
+        drawBackButton();
+      }
+
+      /**
+       * MENU SYSTEM
+       */
+      const menuItems = [
+        { id: "spinner", color: "#3498db", label: "Spinner", icon: "◎" },
+        { id: "cube", color: "#95a5a6", label: "Cube", icon: "▣" },
+        { id: "popit", color: "#ff9ff3", label: "Pop It", icon: "::" },
+        { id: "gear", color: "#e74c3c", label: "Gearbox", icon: "🕹️" },
+      ];
+
+      function drawMenu() {
+        const size = 120;
+        const gap = 20;
+        const totalW = 2 * size + gap;
+        const startX = centerX - totalW / 2 + size / 2;
+        const startY = centerY - totalW / 2 + size / 2;
+
+        menuItems.forEach((item, i) => {
+          const col = i % 2;
+          const row = Math.floor(i / 2);
+          const x = startX + col * (size + gap);
+          const y = startY + row * (size + gap);
+
+          item.x = x - centerX; // Store relative pos for hit testing
+          item.y = y - centerY;
+
+          ctx.fillStyle = item.color;
+          ctx.beginPath();
+          ctx.roundRect(x - size / 2, y - size / 2, size, size, 15);
+          ctx.fill();
+
+          // Label
+          ctx.fillStyle = "rgba(0,0,0,0.2)";
+          ctx.font = "50px Nunito";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(item.icon, x, y - 10);
+
+          ctx.fillStyle = "white";
+          ctx.font = "bold 16px Nunito";
+          ctx.fillText(item.label, x, y + 35);
+        });
+      }
+
+      function drawBackButton() {
+        ctx.fillStyle = "#34495e";
+        ctx.beginPath();
+        ctx.arc(40, 40, 25, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = "white";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(50, 40);
+        ctx.lineTo(30, 40);
+        ctx.lineTo(38, 32);
+        ctx.moveTo(30, 40);
+        ctx.lineTo(38, 48);
+        ctx.stroke();
+      }
+
+      /**
+       * LOGIC HANDLERS
+       */
+      function handleInput(action) {
+        // Check Back Button first if not in menu
+        if (currentScene !== "menu" && action === "down") {
+          const d = Math.hypot(mouse.x - 40, mouse.y - 40);
+          if (d < 30) {
+            setScene("menu");
+            SoundFX.click();
+            return;
+          }
+        }
+
+        if (currentScene === "menu") {
+          if (action === "down") {
+            menuItems.forEach((item) => {
+              const mx = mouse.x - centerX;
+              const my = mouse.y - centerY;
+              if (Math.abs(mx - item.x) < 60 && Math.abs(my - item.y) < 60) {
+                setScene(item.id);
+                SoundFX.click();
+              }
+            });
+          }
+        } else if (currentScene === "spinner") {
+          if (action === "move" && mouse.down) {
+            const dx = mouse.x - centerX;
+            const dy = mouse.y - centerY;
+            const angleNow = Math.atan2(dy, dx);
+            const lastDx = mouse.lastX - centerX;
+            const lastDy = mouse.lastY - centerY;
+            const angleLast = Math.atan2(lastDy, lastDx);
+
+            let diff = angleNow - angleLast;
+            // Fix angle wrap around
+            if (diff > Math.PI) diff -= Math.PI * 2;
+            if (diff < -Math.PI) diff += Math.PI * 2;
+
+            spinner.velocity += diff;
+          }
+          // Cap velocity
+          if (spinner.velocity > 1.5) spinner.velocity = 1.5;
+          if (spinner.velocity < -1.5) spinner.velocity = -1.5;
+        } else if (currentScene === "cube") {
+          const mx = mouse.x - centerX;
+          const my = mouse.y - centerY;
+
+          // Buttons
+          if (action === "down") {
+            cubeState.buttons.forEach((btn) => {
+              if (Math.hypot(mx - btn.x, my - btn.y) < btn.r) {
+                btn.pressed = true;
+                SoundFX.click();
+              }
+            });
+
+            // Switch
+            const sw = cubeState.switch;
+            if (
+              mx > sw.x - sw.w / 2 &&
+              mx < sw.x + sw.w / 2 &&
+              my > sw.y - sw.h / 2 &&
+              my < sw.y + sw.h / 2
+            ) {
+              sw.state = !sw.state;
+              SoundFX.switch();
+            }
+
+            // Joystick Start
+            if (
+              Math.hypot(mx - cubeState.joystick.x, my - cubeState.joystick.y) <
+              cubeState.joystick.r
+            ) {
+              cubeState.joystick.dragging = true;
+            }
+          }
+
+          // Joystick Move
+          if (action === "move" && cubeState.joystick.dragging) {
+            const j = cubeState.joystick;
+            let dx = mx - j.x;
+            let dy = my - j.y;
+            const dist = Math.hypot(dx, dy);
+            const maxDist = 20;
+            if (dist > maxDist) {
+              dx = (dx / dist) * maxDist;
+              dy = (dy / dist) * maxDist;
+            }
+            j.dx = dx;
+            j.dy = dy;
+          }
+
+          if (action === "up") {
+            cubeState.buttons.forEach((btn) => (btn.pressed = false));
+            cubeState.joystick.dragging = false;
+            // Snap joystick back
+            cubeState.joystick.dx = 0;
+            cubeState.joystick.dy = 0;
+          }
+        } else if (currentScene === "popit") {
+          if (action === "down") {
+            const mx = mouse.x - centerX;
+            const my = mouse.y - centerY;
+
+            // Reset Check
+            const allPopped = popIt.bubbles.every((b) => b.popped);
+            if (allPopped) {
+              // Click anywhere resets
+              popIt.bubbles.forEach((b) => (b.popped = false));
+              SoundFX.switch();
+              return;
+            }
+
+            popIt.bubbles.forEach((b) => {
+              if (Math.hypot(mx - b.x, my - b.y) < popIt.size / 2) {
+                if (!b.popped) {
+                  b.popped = true;
+                  SoundFX.pop();
+                } else {
+                  // Maybe unpop? usually you flip the toy.
+                  // Let's let them toggle it back with a softer sound
+                  b.popped = false;
+                  SoundFX.playTone(200, "sine", 0.05, 0.1);
+                }
+              }
+            });
+          }
+        } else if (currentScene === "gear") {
+          if (action === "down") {
+            const mx = mouse.x - centerX;
+            const my = mouse.y - centerY;
+            if (
+              Math.hypot(mx - gearState.handle.x, my - gearState.handle.y) < 40
+            ) {
+              gearState.dragging = true;
+            }
+          }
+          if (action === "move" && gearState.dragging) {
+            let mx = mouse.x - centerX;
+            let my = mouse.y - centerY;
+
+            // Constraints (H pattern)
+            // Very simple constraint: Clamp to H shape area
+            // Allow horizontal movement only near Y=0
+            // Allow vertical movement only near X=-60, 0, 60
+
+            const corridor = 20;
+
+            // If we are not near the neutral line (y=0), lock X to nearest slot
+            if (Math.abs(my) > corridor) {
+              if (mx < -30) mx = -60;
+              else if (mx > 30) mx = 60;
+              else mx = 0;
+            }
+
+            // Clamp bounds
+            if (mx < -60) mx = -60;
+            if (mx > 60) mx = 60;
+            if (my < -60) my = -60;
+            if (my > 60) my = 60;
+
+            gearState.handle.x = mx;
+            gearState.handle.y = my;
+          }
+          if (action === "up" && gearState.dragging) {
+            gearState.dragging = false;
+            // Snap to nearest gear
+            let nearest = 0;
+            let minD = 999;
+
+            // Check slots
+            gearState.slots.forEach((s) => {
+              const d = Math.hypot(
+                gearState.handle.x - s.x,
+                gearState.handle.y - s.y
+              );
+              if (d < minD) {
+                minD = d;
+                nearest = s.id;
+              }
+            });
+
+            // Check Neutral
+            const dN = Math.hypot(
+              gearState.handle.x - 0,
+              gearState.handle.y - 0
+            );
+
+            // Logic: if we are close to a slot, snap there. Else neutral.
+            if (minD < 40) {
+              const slot = gearState.slots.find((s) => s.id === nearest);
+              gearState.handle.x = slot.x;
+              gearState.handle.y = slot.y;
+              if (gearState.currentGear !== nearest) {
+                gearState.currentGear = nearest;
+                SoundFX.gear();
+              }
+            } else {
+              gearState.handle.x = 0;
+              gearState.handle.y = 0;
+              if (gearState.currentGear !== 0) {
+                gearState.currentGear = 0; // Neutral
+                SoundFX.playTone(100, "sawtooth", 0.1, 0.1); // clunk
+              }
+            }
+          }
+        }
+      }
+
+      /**
+       * MAIN LOOP
+       */
+      function loop() {
+        ctx.clearRect(0, 0, width, height);
+
+        if (currentScene === "menu") {
+          drawMenu();
+        } else if (currentScene === "spinner") {
+          drawSpinner();
+        } else if (currentScene === "cube") {
+          drawCube();
+        } else if (currentScene === "popit") {
+          drawPopIt();
+        } else if (currentScene === "gear") {
+          drawGear();
+        }
+
+        requestAnimationFrame(loop);
+      }
+
+      // Start Interaction
+      document.getElementById("start-btn").addEventListener("click", () => {
+        document.getElementById("start-overlay").classList.add("hidden");
+        // Init Audio Context
+        if (audioCtx.state === "suspended") audioCtx.resume();
+        loop();
+      });
+    </script>
+  </body>
+</html>
