@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>Operation: Raisin Heist</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        background-color: #1a202c; /* gray-900 */
+        touch-action: none; /* Prevent scrolling on mobile */
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      }
+      canvas {
+        display: block;
+      }
+      .ui-overlay {
+        position: absolute;
+        pointer-events: none;
+        width: 100%;
+        height: 100%;
+        top: 0;
+        left: 0;
+      }
+      .pointer-events-auto {
+        pointer-events: auto;
+      }
+
+      /* Animation for the raisin score popup */
+      @keyframes floatUp {
+        0% {
+          transform: translateY(0);
+          opacity: 1;
+        }
+        100% {
+          transform: translateY(-30px);
+          opacity: 0;
+        }
+      }
+      .score-popup {
+        position: absolute;
+        color: #fbbf24;
+        font-weight: bold;
+        font-size: 1.2rem;
+        animation: floatUp 0.8s ease-out forwards;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <style>
+      /* Minimal Floating Home Button */
+      .home-nav-btn {
+        position: fixed;
+        top: 15px;
+        left: 15px;
+        z-index: 10000; /* Ensure it sits above game UI/Canvases */
+        background: rgba(
+          30,
+          30,
+          30,
+          0.6
+        ); /* Dark semi-transparent for contrast */
+        color: #ffffff;
+        text-decoration: none;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+        font-size: 14px;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.2s ease;
+        backdrop-filter: blur(4px); /* Blurs background behind button */
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+
+      .home-nav-btn:hover {
+        background: rgba(30, 30, 30, 0.9);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      }
+
+      /* SVG Icon Style */
+      .home-nav-icon {
+        width: 16px;
+        height: 16px;
+      }
+    </style>
+
+    <!-- Link to your Hub (index.html) -->
+    <a href="index.html" class="home-nav-btn">
+      <svg
+        class="home-nav-icon"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+        <polyline points="9 22 9 12 15 12 15 22"></polyline>
+      </svg>
+      <span>Back to Hub</span>
+    </a>
+    <!-- Game Container -->
+    <div
+      id="game-container"
+      class="relative w-screen h-screen overflow-hidden bg-green-800"
+    >
+      <canvas id="gameCanvas"></canvas>
+
+      <!-- UI Layer -->
+      <div class="ui-overlay flex flex-col justify-between p-4">
+        <!-- HUD -->
+        <div class="flex justify-between items-start w-full">
+          <div
+            class="bg-black/50 text-white px-4 py-2 rounded-lg backdrop-blur-sm border border-white/20"
+          >
+            <div class="text-xs text-gray-300 uppercase tracking-wider">
+              Raisins Stolen
+            </div>
+            <div class="text-2xl font-bold text-yellow-400" id="scoreDisplay">
+              0
+            </div>
+          </div>
+
+          <div
+            class="bg-black/50 text-white px-4 py-2 rounded-lg backdrop-blur-sm border border-white/20"
+          >
+            <div class="text-xs text-gray-300 uppercase tracking-wider">
+              Suspicion
+            </div>
+            <div class="w-32 h-4 bg-gray-700 rounded-full mt-1 overflow-hidden">
+              <div
+                id="suspicionBar"
+                class="h-full bg-red-500 w-0 transition-all duration-100"
+              ></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Mobile Controls Hint (Visible on touch only ideally, but showing for all for clarity) -->
+        <div
+          class="text-white/50 text-center text-sm mb-4 pointer-events-none hidden md:block"
+        >
+          Arrow Keys / WASD to Move • SPACE to Dash
+        </div>
+
+        <!-- Mobile Touch Zone Hints -->
+        <div
+          id="mobile-controls"
+          class="md:hidden absolute bottom-8 left-8 right-8 flex justify-between pointer-events-none"
+        >
+          <div
+            class="w-24 h-24 border-2 border-white/20 rounded-full flex items-center justify-center bg-white/5"
+          >
+            <span class="text-white/50 text-xs">Drag to Move</span>
+          </div>
+          <div
+            class="w-24 h-24 border-2 border-white/20 rounded-full flex items-center justify-center bg-white/5 pointer-events-auto active:bg-white/20 transition-colors"
+            id="dashBtn"
+          >
+            <span class="text-white text-sm font-bold">DASH</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Start Screen -->
+      <div
+        id="startScreen"
+        class="absolute inset-0 bg-black/80 flex items-center justify-center z-50"
+      >
+        <div
+          class="bg-gray-900 p-8 rounded-2xl max-w-md w-full text-center border border-yellow-600 shadow-2xl relative overflow-hidden"
+        >
+          <div
+            class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-yellow-600 via-yellow-400 to-yellow-600"
+          ></div>
+          <h1 class="text-4xl font-black text-white mb-2 tracking-tight">
+            Operation: <span class="text-yellow-400">Raisin</span>
+          </h1>
+          <p class="text-gray-400 mb-6">
+            You are a mischievous Lemur. The picnic is unguarded. Steal the
+            raisins!
+          </p>
+
+          <div
+            class="space-y-4 text-left bg-gray-800 p-4 rounded-lg mb-6 text-sm text-gray-300"
+          >
+            <div class="flex items-center">
+              <span class="w-6 text-center mr-2">🐒</span> Move into raisins to
+              steal them.
+            </div>
+            <div class="flex items-center">
+              <span class="w-6 text-center mr-2">👮</span> Avoid the Humans'
+              vision cones.
+            </div>
+            <div class="flex items-center">
+              <span class="w-6 text-center mr-2">⚡</span> Dash to escape
+              quickly.
+            </div>
+          </div>
+
+          <button
+            id="startBtn"
+            class="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-bold py-4 px-6 rounded-lg text-xl transition-transform hover:scale-105 active:scale-95"
+          >
+            START HEIST
+          </button>
+        </div>
+      </div>
+
+      <!-- Game Over Screen -->
+      <div
+        id="gameOverScreen"
+        class="hidden absolute inset-0 bg-red-900/90 flex items-center justify-center z-50"
+      >
+        <div
+          class="bg-gray-900 p-8 rounded-2xl max-w-md w-full text-center border border-red-500 shadow-2xl"
+        >
+          <h2 class="text-3xl font-black text-white mb-2">BUSTED!</h2>
+          <p class="text-gray-400 mb-4">The humans caught you red-handed.</p>
+          <div class="text-6xl mb-6">👮‍♂️🔦🐒</div>
+          <div class="mb-8">
+            <div class="text-sm text-gray-400 uppercase">Final Score</div>
+            <div class="text-5xl font-bold text-yellow-400" id="finalScore">
+              0
+            </div>
+          </div>
+          <button
+            id="restartBtn"
+            class="w-full bg-white hover:bg-gray-200 text-gray-900 font-bold py-3 px-6 rounded-lg text-lg transition-transform hover:scale-105"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      /**
+       * OPERATION RAISIN HEIST
+       * A Stealth Canvas Game
+       */
+
+      // --- Configuration ---
+      const CONSTANTS = {
+        LEMUR_SPEED: 5,
+        LEMUR_DASH_SPEED: 12,
+        LEMUR_SIZE: 15,
+        HUMAN_SPEED: 1.5,
+        HUMAN_SIZE: 20,
+        HUMAN_FOV: Math.PI / 3, // 60 degrees
+        HUMAN_VIEW_DIST: 200,
+        RAISIN_SIZE: 6,
+        SUSPICION_RATE: 2, // How fast suspicion fills
+        SUSPICION_DECAY: 0.5, // How fast it drops
+        MAX_RAISINS: 5,
+        DASH_COOLDOWN: 60, // Frames
+        DASH_DURATION: 10, // Frames
+      };
+
+      // --- Assets / Drawing Helpers ---
+      // We draw programmatically to avoid external asset dependencies
+
+      function drawLemur(ctx, x, y, rotation, isDashing) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(rotation);
+
+        // Tail
+        ctx.beginPath();
+        ctx.moveTo(-10, 0);
+        ctx.quadraticCurveTo(-25, Math.sin(Date.now() / 100) * 10, -35, 0);
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = "#d1d5db"; // Gray-300
+        ctx.stroke();
+
+        // Rings on tail
+        ctx.setLineDash([5, 5]);
+        ctx.strokeStyle = "#1f2937"; // Gray-800
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Body
+        ctx.fillStyle = "#9ca3af"; // Gray-400
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 12, 8, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Head
+        ctx.fillStyle = "#e5e7eb"; // Gray-200
+        ctx.beginPath();
+        ctx.arc(8, 0, 7, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Eyes
+        ctx.fillStyle = "#fbbf24"; // Yellow
+        ctx.beginPath();
+        ctx.arc(10, -3, 2, 0, Math.PI * 2);
+        ctx.arc(10, 3, 2, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Pupils
+        ctx.fillStyle = "#000";
+        ctx.beginPath();
+        ctx.arc(11, -3, 1, 0, Math.PI * 2);
+        ctx.arc(11, 3, 1, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Hands (paws)
+        ctx.fillStyle = "#4b5563";
+        ctx.beginPath();
+        ctx.arc(5, -8, 3, 0, Math.PI * 2);
+        ctx.arc(5, 8, 3, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+      }
+
+      function drawHuman(ctx, x, y, rotation, isSuspicious) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(rotation);
+
+        // Shoulders/Body
+        ctx.fillStyle = "#1e3a8a"; // Blue shirt
+        ctx.beginPath();
+        ctx.ellipse(-5, 0, 10, 18, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Head
+        ctx.fillStyle = "#fca5a5"; // Skin tone
+        ctx.beginPath();
+        ctx.arc(0, 0, 9, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Cap/Hair
+        ctx.fillStyle = "#1f2937";
+        ctx.beginPath();
+        ctx.arc(-2, 0, 9, Math.PI / 2, -Math.PI / 2);
+        ctx.fill();
+
+        // Flashlight/Arms
+        ctx.fillStyle = "#fca5a5";
+        ctx.beginPath();
+        ctx.arc(5, 10, 3, 0, Math.PI * 2); // Right hand
+        ctx.fill();
+
+        // Flashlight Object
+        ctx.fillStyle = "#374151";
+        ctx.fillRect(5, 5, 12, 6);
+
+        ctx.restore();
+      }
+
+      function drawVisionCone(ctx, x, y, rotation, fov, dist, suspicionLevel) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(rotation);
+
+        // Calculate color based on suspicion
+        const r = 255;
+        const g = Math.floor(255 * (1 - suspicionLevel / 100));
+        const b = 0;
+        const opacity = 0.2 + suspicionLevel / 200; // Getting brighter
+
+        ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${opacity})`;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.arc(0, 0, dist, -fov / 2, fov / 2);
+        ctx.lineTo(0, 0);
+        ctx.fill();
+
+        // Flashlight beam edges
+        ctx.strokeStyle = `rgba(255, 255, 200, 0.3)`;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        ctx.restore();
+      }
+
+      function drawRaisin(ctx, x, y) {
+        ctx.save();
+        ctx.translate(x, y);
+
+        ctx.fillStyle = "#3f2c45"; // Dark purple/brown
+        ctx.beginPath();
+        // Irregular shape
+        ctx.moveTo(-3, -4);
+        ctx.lineTo(2, -3);
+        ctx.lineTo(4, 2);
+        ctx.lineTo(0, 5);
+        ctx.lineTo(-4, 2);
+        ctx.closePath();
+        ctx.fill();
+
+        // Highlight
+        ctx.fillStyle = "#6b4c75";
+        ctx.beginPath();
+        ctx.arc(-1, -1, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+      }
+
+      // --- Game Classes ---
+
+      class Game {
+        constructor() {
+          this.canvas = document.getElementById("gameCanvas");
+          this.ctx = this.canvas.getContext("2d");
+          this.uiOverlay = document.querySelector(".ui-overlay");
+
+          this.resize();
+          window.addEventListener("resize", () => this.resize());
+
+          this.state = "MENU"; // MENU, PLAYING, GAMEOVER
+          this.score = 0;
+          this.suspicion = 0;
+          this.gameTime = 0;
+
+          this.input = {
+            keys: {},
+            joystick: { active: false, originX: 0, originY: 0, x: 0, y: 0 },
+            dash: false,
+          };
+
+          this.lemur = {
+            x: this.width / 2,
+            y: this.height / 2,
+            vx: 0,
+            vy: 0,
+            angle: 0,
+            dashTimer: 0,
+            dashCooldown: 0,
+          };
+
+          this.humans = [];
+          this.raisins = [];
+          this.particles = []; // For effects
+
+          this.setupInputs();
+
+          // Bind UI buttons
+          document
+            .getElementById("startBtn")
+            .addEventListener("click", () => this.start());
+          document
+            .getElementById("restartBtn")
+            .addEventListener("click", () => this.start());
+          document
+            .getElementById("dashBtn")
+            .addEventListener("touchstart", (e) => {
+              e.preventDefault();
+              this.input.dash = true;
+            });
+          document
+            .getElementById("dashBtn")
+            .addEventListener("touchend", (e) => {
+              e.preventDefault();
+              this.input.dash = false;
+            });
+
+          // Start Loop
+          this.lastTime = 0;
+          requestAnimationFrame((ts) => this.loop(ts));
+        }
+
+        resize() {
+          this.width = window.innerWidth;
+          this.height = window.innerHeight;
+          this.canvas.width = this.width;
+          this.canvas.height = this.height;
+        }
+
+        setupInputs() {
+          // Keyboard
+          window.addEventListener("keydown", (e) => {
+            this.input.keys[e.code] = true;
+            if (e.code === "Space") this.input.dash = true;
+          });
+          window.addEventListener("keyup", (e) => {
+            this.input.keys[e.code] = false;
+            if (e.code === "Space") this.input.dash = false;
+          });
+
+          // Touch Joystick
+          this.canvas.addEventListener(
+            "touchstart",
+            (e) => {
+              const touch = e.changedTouches[0];
+              // Only left half of screen for movement, roughly
+              // Or simply: anywhere is joystick, store origin
+              this.input.joystick.active = true;
+              this.input.joystick.originX = touch.clientX;
+              this.input.joystick.originY = touch.clientY;
+              this.input.joystick.x = 0;
+              this.input.joystick.y = 0;
+            },
+            { passive: false }
+          );
+
+          this.canvas.addEventListener(
+            "touchmove",
+            (e) => {
+              if (!this.input.joystick.active) return;
+              e.preventDefault(); // Prevent scroll
+              const touch = e.changedTouches[0];
+
+              const maxDist = 50;
+              let dx = touch.clientX - this.input.joystick.originX;
+              let dy = touch.clientY - this.input.joystick.originY;
+
+              // Normalize
+              const dist = Math.sqrt(dx * dx + dy * dy);
+              if (dist > maxDist) {
+                dx = (dx / dist) * maxDist;
+                dy = (dy / dist) * maxDist;
+              }
+
+              this.input.joystick.x = dx / maxDist;
+              this.input.joystick.y = dy / maxDist;
+            },
+            { passive: false }
+          );
+
+          this.canvas.addEventListener("touchend", (e) => {
+            this.input.joystick.active = false;
+            this.input.joystick.x = 0;
+            this.input.joystick.y = 0;
+          });
+        }
+
+        start() {
+          document.getElementById("startScreen").classList.add("hidden");
+          document.getElementById("gameOverScreen").classList.add("hidden");
+
+          this.state = "PLAYING";
+          this.score = 0;
+          this.suspicion = 0;
+          this.updateUI();
+
+          // Reset Entities
+          this.lemur.x = this.width / 2;
+          this.lemur.y = this.height / 2;
+          this.lemur.vx = 0;
+          this.lemur.vy = 0;
+          this.lemur.dashCooldown = 0;
+
+          this.humans = [];
+          // Scale difficulty with screen size, at least 2 humans
+          const humanCount = Math.max(
+            2,
+            Math.floor((this.width * this.height) / 150000)
+          );
+
+          for (let i = 0; i < humanCount; i++) {
+            this.humans.push(this.createHuman());
+          }
+
+          this.raisins = [];
+          this.spawnRaisin();
+          this.spawnRaisin();
+          this.spawnRaisin();
+        }
+
+        createHuman() {
+          return {
+            x: Math.random() * this.width,
+            y: Math.random() * this.height,
+            tx: Math.random() * this.width, // Target X
+            ty: Math.random() * this.height, // Target Y
+            angle: 0,
+            state: "PATROL", // PATROL, ALERT
+            waitTimer: 0,
+          };
+        }
+
+        spawnRaisin() {
+          if (this.raisins.length >= CONSTANTS.MAX_RAISINS) return;
+
+          // Ensure not spawning on top of player
+          let x, y, dist;
+          do {
+            x = 50 + Math.random() * (this.width - 100);
+            y = 50 + Math.random() * (this.height - 100);
+            dist = Math.hypot(x - this.lemur.x, y - this.lemur.y);
+          } while (dist < 100);
+
+          this.raisins.push({
+            x,
+            y,
+            active: true,
+            floatOffset: Math.random() * Math.PI * 2,
+          });
+        }
+
+        update(dt) {
+          if (this.state !== "PLAYING") return;
+
+          this.gameTime += dt;
+
+          // --- Lemur Logic ---
+          let dx = 0;
+          let dy = 0;
+
+          // Keyboard Input
+          if (this.input.keys["ArrowUp"] || this.input.keys["KeyW"]) dy -= 1;
+          if (this.input.keys["ArrowDown"] || this.input.keys["KeyS"]) dy += 1;
+          if (this.input.keys["ArrowLeft"] || this.input.keys["KeyA"]) dx -= 1;
+          if (this.input.keys["ArrowRight"] || this.input.keys["KeyD"]) dx += 1;
+
+          // Touch Input Override
+          if (this.input.joystick.active) {
+            dx = this.input.joystick.x;
+            dy = this.input.joystick.y;
+          }
+
+          // Normalize movement vector
+          if (dx !== 0 || dy !== 0) {
+            const len = Math.hypot(dx, dy);
+            if (len > 1) {
+              // Only normalize if greater than 1 (allows slow analog movement)
+              dx /= len;
+              dy /= len;
+            }
+          }
+
+          // Dashing
+          let currentSpeed = CONSTANTS.LEMUR_SPEED;
+
+          if (this.lemur.dashCooldown > 0) this.lemur.dashCooldown--;
+
+          if (this.input.dash && this.lemur.dashCooldown === 0) {
+            this.lemur.dashTimer = CONSTANTS.DASH_DURATION;
+            this.lemur.dashCooldown = CONSTANTS.DASH_COOLDOWN;
+
+            // Create dash particles
+            for (let i = 0; i < 5; i++) {
+              this.particles.push({
+                x: this.lemur.x,
+                y: this.lemur.y,
+                vx: (Math.random() - 0.5) * 2,
+                vy: (Math.random() - 0.5) * 2,
+                life: 20,
+                color: "#fff",
+              });
+            }
+          }
+
+          if (this.lemur.dashTimer > 0) {
+            currentSpeed = CONSTANTS.LEMUR_DASH_SPEED;
+            this.lemur.dashTimer--;
+          }
+
+          // Apply Velocity
+          this.lemur.x += dx * currentSpeed;
+          this.lemur.y += dy * currentSpeed;
+
+          // Boundary Constraints
+          this.lemur.x = Math.max(
+            CONSTANTS.LEMUR_SIZE,
+            Math.min(this.width - CONSTANTS.LEMUR_SIZE, this.lemur.x)
+          );
+          this.lemur.y = Math.max(
+            CONSTANTS.LEMUR_SIZE,
+            Math.min(this.height - CONSTANTS.LEMUR_SIZE, this.lemur.y)
+          );
+
+          // Rotation (face movement direction)
+          if (Math.abs(dx) > 0.01 || Math.abs(dy) > 0.01) {
+            let targetAngle = Math.atan2(dy, dx);
+            // Smooth rotation could go here, but instant feels snappier for arcade
+            this.lemur.angle = targetAngle;
+          }
+
+          // --- Raisin Collection ---
+          this.raisins.forEach((r) => {
+            if (!r.active) return;
+            const dist = Math.hypot(this.lemur.x - r.x, this.lemur.y - r.y);
+            if (dist < CONSTANTS.LEMUR_SIZE + CONSTANTS.RAISIN_SIZE + 5) {
+              this.collectRaisin(r);
+            }
+          });
+
+          // --- Human Logic & Vision ---
+          let seenThisFrame = false;
+
+          this.humans.forEach((h) => {
+            // Pathfinding
+            if (h.waitTimer > 0) {
+              h.waitTimer--;
+            } else {
+              const distToTarget = Math.hypot(h.tx - h.x, h.ty - h.y);
+              if (distToTarget < 5) {
+                // Reached target, pick new one
+                h.waitTimer = 60 + Math.random() * 120;
+                h.tx = Math.random() * this.width;
+                h.ty = Math.random() * this.height;
+              } else {
+                // Move towards target
+                const angle = Math.atan2(h.ty - h.y, h.tx - h.x);
+                // Lerp angle for smooth turning
+                let angleDiff = angle - h.angle;
+                while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+                while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+                h.angle += angleDiff * 0.05;
+
+                h.x += Math.cos(h.angle) * CONSTANTS.HUMAN_SPEED;
+                h.y += Math.sin(h.angle) * CONSTANTS.HUMAN_SPEED;
+              }
+            }
+
+            // Vision Logic
+            const dx = this.lemur.x - h.x;
+            const dy = this.lemur.y - h.y;
+            const dist = Math.hypot(dx, dy);
+
+            if (dist < CONSTANTS.HUMAN_VIEW_DIST) {
+              const angleToLemur = Math.atan2(dy, dx);
+              let angleDiff = angleToLemur - h.angle;
+              // Normalize
+              while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+              while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+
+              if (Math.abs(angleDiff) < CONSTANTS.HUMAN_FOV / 2) {
+                seenThisFrame = true;
+
+                // Raycast check (optional but good for obstacles if we added them)
+                // For now, just direct line of sight is fine as map is open
+              }
+            }
+          });
+
+          // --- Suspicion Mechanics ---
+          if (seenThisFrame) {
+            this.suspicion += CONSTANTS.SUSPICION_RATE;
+          } else {
+            this.suspicion -= CONSTANTS.SUSPICION_DECAY;
+          }
+          this.suspicion = Math.max(0, Math.min(100, this.suspicion));
+
+          if (this.suspicion >= 100) {
+            this.gameOver();
+          }
+
+          this.updateUI();
+
+          // Remove inactive raisins and respawn
+          this.raisins = this.raisins.filter((r) => r.active);
+          if (
+            Math.random() < 0.01 &&
+            this.raisins.length < CONSTANTS.MAX_RAISINS
+          ) {
+            this.spawnRaisin();
+          }
+
+          // Particles
+          this.particles.forEach((p) => {
+            p.x += p.vx;
+            p.y += p.vy;
+            p.life--;
+            p.vy += 0.1; // Gravity
+          });
+          this.particles = this.particles.filter((p) => p.life > 0);
+        }
+
+        collectRaisin(raisin) {
+          raisin.active = false;
+          this.score++;
+
+          // Visual Pop
+          const popup = document.createElement("div");
+          popup.className = "score-popup";
+          popup.innerText = "+1 Raisin";
+          popup.style.left = this.lemur.x + "px";
+          popup.style.top = this.lemur.y - 20 + "px";
+          document.getElementById("game-container").appendChild(popup);
+          setTimeout(() => popup.remove(), 800);
+
+          // Confetti particles
+          for (let i = 0; i < 8; i++) {
+            this.particles.push({
+              x: raisin.x,
+              y: raisin.y,
+              vx: (Math.random() - 0.5) * 4,
+              vy: (Math.random() - 0.5) * 4,
+              life: 40,
+              color: "#fbbf24",
+            });
+          }
+
+          // Respawn immediate replacement occasionally
+          this.spawnRaisin();
+        }
+
+        updateUI() {
+          document.getElementById("scoreDisplay").innerText = this.score;
+          const bar = document.getElementById("suspicionBar");
+          bar.style.width = this.suspicion + "%";
+
+          if (this.suspicion > 70) {
+            bar.classList.add("animate-pulse");
+          } else {
+            bar.classList.remove("animate-pulse");
+          }
+        }
+
+        gameOver() {
+          this.state = "GAMEOVER";
+          document.getElementById("finalScore").innerText = this.score;
+          document.getElementById("gameOverScreen").classList.remove("hidden");
+        }
+
+        draw() {
+          // Background
+          // Draw a simple grid or grass texture pattern
+          this.ctx.fillStyle = "#064e3b"; // Dark Green Base
+          this.ctx.fillRect(0, 0, this.width, this.height);
+
+          // Grass Tufts
+          this.ctx.fillStyle = "#065f46";
+          for (let i = 0; i < 20; i++) {
+            // Deterministic random based on screen pos to make it look static-ish without storing all grass
+            // Or just simple noise. For performance, we won't draw 1000 blades every frame.
+          }
+
+          // Draw Raisins
+          this.raisins.forEach((r) => {
+            // Bobbing animation
+            const bob = Math.sin(this.gameTime / 200 + r.floatOffset) * 3;
+            drawRaisin(this.ctx, r.x, r.y + bob);
+
+            // Shadow
+            this.ctx.fillStyle = "rgba(0,0,0,0.3)";
+            this.ctx.beginPath();
+            this.ctx.ellipse(r.x, r.y + 8, 4, 2, 0, 0, Math.PI * 2);
+            this.ctx.fill();
+          });
+
+          // Draw Humans
+          this.humans.forEach((h) => {
+            drawVisionCone(
+              this.ctx,
+              h.x,
+              h.y,
+              h.angle,
+              CONSTANTS.HUMAN_FOV,
+              CONSTANTS.HUMAN_VIEW_DIST,
+              this.suspicion
+            );
+            drawHuman(this.ctx, h.x, h.y, h.angle);
+          });
+
+          // Draw Lemur
+          const isDashing = this.lemur.dashTimer > 0;
+          drawLemur(
+            this.ctx,
+            this.lemur.x,
+            this.lemur.y,
+            this.lemur.angle,
+            isDashing
+          );
+
+          // Draw Particles
+          this.particles.forEach((p) => {
+            this.ctx.fillStyle = p.color;
+            this.ctx.globalAlpha = p.life / 40;
+            this.ctx.beginPath();
+            this.ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+            this.ctx.fill();
+            this.ctx.globalAlpha = 1;
+          });
+
+          // Draw Touch Joystick Debug (Optional, visual feedback)
+          if (this.input.joystick.active) {
+            this.ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
+            this.ctx.lineWidth = 2;
+            this.ctx.beginPath();
+            this.ctx.arc(
+              this.input.joystick.originX,
+              this.input.joystick.originY,
+              50,
+              0,
+              Math.PI * 2
+            );
+            this.ctx.stroke();
+
+            this.ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
+            this.ctx.beginPath();
+            this.ctx.arc(
+              this.input.joystick.originX + this.input.joystick.x * 50,
+              this.input.joystick.originY + this.input.joystick.y * 50,
+              20,
+              0,
+              Math.PI * 2
+            );
+            this.ctx.fill();
+          }
+        }
+
+        loop(timestamp) {
+          const dt = timestamp - this.lastTime;
+          this.lastTime = timestamp;
+
+          this.update(dt);
+          this.draw();
+
+          requestAnimationFrame((ts) => this.loop(ts));
+        }
+      }
+
+      // Init Game on Load
+      window.onload = () => {
+        const game = new Game();
+      };
+    </script>
+  </body>
+</html>

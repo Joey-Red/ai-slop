@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Squirrel Parkour</title>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        background-color: #87ceeb; /* Sky Blue */
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        user-select: none;
+      }
+      #game-ui {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        color: white;
+        background: rgba(0, 0, 0, 0.5);
+        padding: 15px;
+        border-radius: 10px;
+        pointer-events: none;
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+      }
+      .stat-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .icon {
+        font-size: 24px;
+      }
+      h1 {
+        margin: 0 0 10px 0;
+        font-size: 20px;
+        color: #ffd700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+      #message-area {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: white;
+        font-size: 24px;
+        font-weight: bold;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.5s;
+        text-align: center;
+        background: rgba(0, 0, 0, 0.6);
+        padding: 20px;
+        border-radius: 15px;
+      }
+      #controls-hint {
+        position: absolute;
+        bottom: 20px;
+        left: 20px;
+        color: white;
+        background: rgba(0, 0, 0, 0.5);
+        padding: 10px;
+        border-radius: 5px;
+        font-size: 14px;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <style>
+      /* Minimal Floating Home Button */
+      .home-nav-btn {
+        position: fixed;
+        top: 15px;
+        left: 15px;
+        z-index: 10000; /* Ensure it sits above game UI/Canvases */
+        background: rgba(
+          30,
+          30,
+          30,
+          0.6
+        ); /* Dark semi-transparent for contrast */
+        color: #ffffff;
+        text-decoration: none;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+        font-size: 14px;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.2s ease;
+        backdrop-filter: blur(4px); /* Blurs background behind button */
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+
+      .home-nav-btn:hover {
+        background: rgba(30, 30, 30, 0.9);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      }
+
+      /* SVG Icon Style */
+      .home-nav-icon {
+        width: 16px;
+        height: 16px;
+      }
+    </style>
+
+    <!-- Link to your Hub (index.html) -->
+    <a href="index.html" class="home-nav-btn">
+      <svg
+        class="home-nav-icon"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+        <polyline points="9 22 9 12 15 12 15 22"></polyline>
+      </svg>
+      <span>Back to Hub</span>
+    </a>
+    <div id="game-ui">
+      <h1>Squirrel Stash</h1>
+      <div class="stat-row">
+        <span class="icon">🌰</span>
+        <span id="cheek-count">Cheeks: 0 / 5</span>
+      </div>
+      <div class="stat-row">
+        <span class="icon">🏠</span>
+        <span id="score-count">Stashed: 0</span>
+      </div>
+    </div>
+
+    <div id="controls-hint">
+      <b>WASD</b> Move | <b>SPACE</b> Jump/Climb | <b>Mouse</b> Rotate View<br />
+      Return to the <span style="color: #ffd700">GOLD TREE</span> to stash nuts.
+    </div>
+
+    <div id="message-area"></div>
+
+    <!-- Three.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <script>
+      // --- Game Constants & State ---
+      const GAME_CONFIG = {
+        gravity: 0.6,
+        moveSpeed: 0.3,
+        jumpForce: 0.8,
+        climbSpeed: 0.2,
+        friction: 0.85,
+        maxCheeks: 5,
+        treeCount: 15,
+        worldSize: 200,
+      };
+
+      let state = {
+        score: 0,
+        cheeks: 0,
+        isGameOver: false,
+      };
+
+      // --- Three.js Setup ---
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x87ceeb);
+      scene.fog = new THREE.Fog(0x87ceeb, 20, 100);
+
+      const camera = new THREE.PerspectiveCamera(
+        75,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        1000
+      );
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.shadowMap.enabled = true;
+      document.body.appendChild(renderer.domElement);
+
+      // --- Lighting ---
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+      scene.add(ambientLight);
+
+      const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+      dirLight.position.set(50, 100, 50);
+      dirLight.castShadow = true;
+      dirLight.shadow.camera.left = -100;
+      dirLight.shadow.camera.right = 100;
+      dirLight.shadow.camera.top = 100;
+      dirLight.shadow.camera.bottom = -100;
+      dirLight.shadow.mapSize.width = 2048;
+      dirLight.shadow.mapSize.height = 2048;
+      scene.add(dirLight);
+
+      // --- Materials ---
+      const matGround = new THREE.MeshStandardMaterial({ color: 0x3b7d3b }); // Dark Green Grass
+      const matTrunk = new THREE.MeshStandardMaterial({ color: 0x5c4033 }); // Dark Wood
+      const matLeaves = new THREE.MeshStandardMaterial({ color: 0x228b22 }); // Forest Green
+      const matHomeLeaves = new THREE.MeshStandardMaterial({ color: 0xffd700 }); // Gold
+      const matSquirrel = new THREE.MeshStandardMaterial({ color: 0xd2691e }); // Chocolate
+      const matNut = new THREE.MeshStandardMaterial({ color: 0xdeb887 }); // Burlywood
+
+      // --- Objects Arrays ---
+      const trees = []; // Stores { mesh, type, radius, collider }
+      const nuts = []; // Stores { mesh, active }
+      const platforms = []; // Stores { mesh, bounds }
+      let homeTree = null;
+
+      // --- World Generation ---
+
+      // Ground
+      const groundGeo = new THREE.PlaneGeometry(
+        GAME_CONFIG.worldSize * 2,
+        GAME_CONFIG.worldSize * 2
+      );
+      const ground = new THREE.Mesh(groundGeo, matGround);
+      ground.rotation.x = -Math.PI / 2;
+      ground.receiveShadow = true;
+      scene.add(ground);
+
+      // Helper: Create Nut
+      function createNut(x, y, z) {
+        const geo = new THREE.DodecahedronGeometry(0.4);
+        const mesh = new THREE.Mesh(geo, matNut);
+        mesh.position.set(x, y, z);
+        mesh.castShadow = true;
+
+        // Add a slight bobbing animation container
+        const container = new THREE.Object3D();
+        container.position.copy(mesh.position);
+        mesh.position.set(0, 0, 0); // Reset local pos
+        container.add(mesh);
+
+        scene.add(container);
+        nuts.push({ root: container, mesh: mesh, active: true, initialY: y });
+      }
+
+      // Helper: Create Tree
+      function createTree(x, z, isHome = false) {
+        const height = 15 + Math.random() * 10;
+        const radius = 1.5 + Math.random() * 1;
+
+        // Trunk
+        const trunkGeo = new THREE.CylinderGeometry(
+          radius * 0.8,
+          radius,
+          height,
+          8
+        );
+        const trunk = new THREE.Mesh(trunkGeo, matTrunk);
+        trunk.position.set(x, height / 2, z);
+        trunk.castShadow = true;
+        trunk.receiveShadow = true;
+        scene.add(trunk);
+
+        // Leaves (Cone layers)
+        const leavesHeight = height * 0.6;
+        const leavesGeo = new THREE.ConeGeometry(radius * 4, leavesHeight, 8);
+        const leaves = new THREE.Mesh(
+          leavesGeo,
+          isHome ? matHomeLeaves : matLeaves
+        );
+        leaves.position.set(x, height, z);
+        leaves.castShadow = true;
+        scene.add(leaves);
+
+        // Home Hole indicator
+        if (isHome) {
+          const holeGeo = new THREE.CircleGeometry(1, 16);
+          const holeMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+          const hole = new THREE.Mesh(holeGeo, holeMat);
+          hole.position.set(x, 2, z + radius);
+          hole.lookAt(x, 2, z + radius + 1);
+          scene.add(hole);
+          homeTree = { x, z, radius };
+        } else {
+          // Add Branches & Nuts for non-home trees
+          const branchCount = 3 + Math.floor(Math.random() * 3);
+          for (let i = 0; i < branchCount; i++) {
+            const bY = 3 + (height / 2) * (i / branchCount) + Math.random() * 2;
+            const bLen = 3 + Math.random() * 2;
+            const bAngle = Math.random() * Math.PI * 2;
+
+            const branchGeo = new THREE.BoxGeometry(0.4, 0.2, bLen);
+            const branch = new THREE.Mesh(branchGeo, matTrunk);
+
+            // Position branch sticking out of trunk
+            branch.position.set(
+              x + Math.sin(bAngle) * (radius * 0.5 + bLen / 2),
+              bY,
+              z + Math.cos(bAngle) * (radius * 0.5 + bLen / 2)
+            );
+            branch.rotation.y = bAngle;
+            branch.castShadow = true;
+            scene.add(branch);
+
+            // Create collision platform for branch
+            platforms.push({
+              mesh: branch,
+              y: bY,
+              radius: 0.5, // Thickness approx
+              // Simple AABB-ish check data
+              minX: Math.min(
+                x,
+                branch.position.x + (Math.sin(bAngle) * bLen) / 2
+              ),
+              maxX: Math.max(
+                x,
+                branch.position.x + (Math.sin(bAngle) * bLen) / 2
+              ),
+              minZ: Math.min(
+                z,
+                branch.position.z + (Math.cos(bAngle) * bLen) / 2
+              ),
+              maxZ: Math.max(
+                z,
+                branch.position.z + (Math.cos(bAngle) * bLen) / 2
+              ),
+            });
+
+            // Add nut at tip of branch
+            createNut(
+              x + Math.sin(bAngle) * (radius + bLen - 0.5),
+              bY + 0.5,
+              z + Math.cos(bAngle) * (radius + bLen - 0.5)
+            );
+          }
+        }
+
+        trees.push({ mesh: trunk, x, z, radius, height });
+      }
+
+      // Generate Forest
+      createTree(0, -20, true); // Home Tree
+      for (let i = 0; i < GAME_CONFIG.treeCount; i++) {
+        let tx = (Math.random() - 0.5) * GAME_CONFIG.worldSize * 0.8;
+        let tz = (Math.random() - 0.5) * GAME_CONFIG.worldSize * 0.8;
+
+        // Don't spawn too close to home
+        if (Math.abs(tx) < 10 && Math.abs(tz + 20) < 10) continue;
+
+        createTree(tx, tz);
+      }
+
+      // --- Player (Squirrel) Setup ---
+      const playerGroup = new THREE.Group();
+      scene.add(playerGroup);
+
+      // Body
+      const bodyGeo = new THREE.BoxGeometry(0.8, 0.6, 1.2);
+      const bodyMesh = new THREE.Mesh(bodyGeo, matSquirrel);
+      bodyMesh.position.y = 0.3;
+      bodyMesh.castShadow = true;
+      playerGroup.add(bodyMesh);
+
+      // Head
+      const headGeo = new THREE.BoxGeometry(0.6, 0.5, 0.6);
+      const headMesh = new THREE.Mesh(headGeo, matSquirrel);
+      headMesh.position.set(0, 0.8, 0.6); // Forward and up
+      playerGroup.add(headMesh);
+
+      // Tail (Fluffy bit)
+      const tailGeo = new THREE.BoxGeometry(0.6, 0.8, 1.5);
+      const tailMesh = new THREE.Mesh(tailGeo, matSquirrel);
+      tailMesh.position.set(0, 0.8, -0.8);
+      tailMesh.rotation.x = Math.PI / 4;
+      playerGroup.add(tailMesh);
+
+      // Physics State
+      const player = {
+        mesh: playerGroup,
+        velocity: new THREE.Vector3(),
+        onGround: false,
+        isClimbing: false,
+        climbingTree: null,
+        position: new THREE.Vector3(0, 5, 0),
+        rotation: 0,
+      };
+
+      // --- Input Handling ---
+      const keys = { w: false, a: false, s: false, d: false, space: false };
+      let mouseX = 0;
+
+      window.addEventListener("keydown", (e) => {
+        const k = e.key.toLowerCase();
+        if (keys.hasOwnProperty(k) || k === " ")
+          keys[k === " " ? "space" : k] = true;
+      });
+
+      window.addEventListener("keyup", (e) => {
+        const k = e.key.toLowerCase();
+        if (keys.hasOwnProperty(k) || k === " ")
+          keys[k === " " ? "space" : k] = false;
+      });
+
+      // Simple Mouse Look
+      let cameraAngle = 0;
+      document.addEventListener("mousemove", (e) => {
+        if (document.pointerLockElement === document.body) {
+          cameraAngle -= e.movementX * 0.005;
+        }
+      });
+
+      document.addEventListener("click", () => {
+        document.body.requestPointerLock();
+      });
+
+      // --- Game Loop Functions ---
+
+      function showMessage(text, duration = 2000) {
+        const el = document.getElementById("message-area");
+        el.innerText = text;
+        el.style.opacity = 1;
+        setTimeout(() => (el.style.opacity = 0), duration);
+      }
+
+      function checkCollisions() {
+        // 1. Ground Collision
+        if (player.position.y <= 0 && !player.isClimbing) {
+          player.position.y = 0;
+          player.velocity.y = 0;
+          player.onGround = true;
+        } else {
+          player.onGround = false;
+        }
+
+        // 2. Tree Trunk Collision (Climbing Logic)
+        let nearbyTree = null;
+        for (let tree of trees) {
+          const dx = player.position.x - tree.x;
+          const dz = player.position.z - tree.z;
+          const dist = Math.sqrt(dx * dx + dz * dz);
+          const minDist = tree.radius + 0.5; // Tree radius + Player half-width
+
+          if (dist < minDist + 1.0 && player.position.y < tree.height) {
+            nearbyTree = tree;
+
+            // Physical push out if not climbing yet to prevent clipping
+            if (dist < minDist) {
+              const pushDir = new THREE.Vector3(dx, 0, dz).normalize();
+              player.position.x = tree.x + pushDir.x * minDist;
+              player.position.z = tree.z + pushDir.z * minDist;
+            }
+          }
+        }
+
+        // Enter Climb Mode Logic
+        if (nearbyTree && !player.onGround && keys.w) {
+          // If in air, close to tree, and pressing forward, grab it
+          if (!player.isClimbing) {
+            player.isClimbing = true;
+            player.climbingTree = nearbyTree;
+            player.velocity.set(0, 0, 0); // Kill momentum
+          }
+        }
+
+        // Exit Climb Mode if we walk off top or too far
+        if (player.isClimbing) {
+          const tree = player.climbingTree;
+          const dx = player.position.x - tree.x;
+          const dz = player.position.z - tree.z;
+          const dist = Math.sqrt(dx * dx + dz * dz);
+
+          if (dist > tree.radius + 2.0 || player.position.y > tree.height) {
+            player.isClimbing = false;
+            player.climbingTree = null;
+          }
+        }
+
+        // 3. Branch/Platform Collision
+        if (!player.isClimbing && player.velocity.y <= 0) {
+          for (let plat of platforms) {
+            // Simple box check relative to branch rotation is hard,
+            // doing simple distance check for "landing"
+            const dx = player.position.x - plat.mesh.position.x;
+            const dy = player.position.y - (plat.y + 0.3); // +0.3 for box height
+            const dz = player.position.z - plat.mesh.position.z;
+
+            // If player feet are just above branch Y
+            if (Math.abs(dy) < 0.5) {
+              // Check horizontal distance roughly
+              const dist = Math.sqrt(dx * dx + dz * dz);
+              // Branch length roughly 3-5, assume max 4 radius interaction
+              if (dist < 2.5) {
+                player.position.y = plat.y + 0.3;
+                player.velocity.y = 0;
+                player.onGround = true;
+              }
+            }
+          }
+        }
+
+        // 4. Nut Collection
+        nuts.forEach((nut) => {
+          if (!nut.active) return;
+          const dist = player.position.distanceTo(nut.root.position);
+          if (dist < 1.5) {
+            if (state.cheeks < GAME_CONFIG.maxCheeks) {
+              nut.active = false;
+              nut.root.visible = false;
+              state.cheeks++;
+              showMessage("Nut Collected!");
+              updateUI();
+            } else {
+              showMessage("Cheeks Full! Go Home!");
+            }
+          }
+        });
+
+        // 5. Home Deposit
+        if (homeTree) {
+          const dx = player.position.x - homeTree.x;
+          const dz = player.position.z - homeTree.z;
+          const dist = Math.sqrt(dx * dx + dz * dz);
+          if (dist < homeTree.radius + 2 && player.onGround) {
+            if (state.cheeks > 0) {
+              state.score += state.cheeks;
+              showMessage(`Stashed ${state.cheeks} nuts!`);
+              state.cheeks = 0;
+              updateUI();
+              // Create particle effect or sound here ideally
+            }
+          }
+        }
+      }
+
+      function updateUI() {
+        document.getElementById(
+          "cheek-count"
+        ).innerText = `Cheeks: ${state.cheeks} / ${GAME_CONFIG.maxCheeks}`;
+        document.getElementById(
+          "score-count"
+        ).innerText = `Stashed: ${state.score}`;
+
+        // Color change if full
+        const cheekEl = document.getElementById("cheek-count");
+        if (state.cheeks === GAME_CONFIG.maxCheeks) {
+          cheekEl.style.color = "#ff4444";
+        } else {
+          cheekEl.style.color = "white";
+        }
+      }
+
+      function updatePhysics() {
+        // Movement Vector based on Camera
+        const forward = new THREE.Vector3(
+          Math.sin(cameraAngle),
+          0,
+          Math.cos(cameraAngle)
+        );
+        const right = new THREE.Vector3(
+          Math.sin(cameraAngle - Math.PI / 2),
+          0,
+          Math.cos(cameraAngle - Math.PI / 2)
+        );
+
+        // --- CLIMBING PHYSICS ---
+        if (player.isClimbing) {
+          // Stick to tree logic
+          // Orient player towards tree center
+          const tree = player.climbingTree;
+          player.mesh.lookAt(tree.x, player.position.y, tree.z);
+
+          // Up/Down
+          if (keys.w) player.position.y += GAME_CONFIG.climbSpeed;
+          if (keys.s) player.position.y -= GAME_CONFIG.climbSpeed;
+
+          // Rotation around tree
+          let angleSpeed = 0.05;
+          const currentAngle = Math.atan2(
+            player.position.x - tree.x,
+            player.position.z - tree.z
+          );
+          let newAngle = currentAngle;
+
+          if (keys.a) newAngle += angleSpeed;
+          if (keys.d) newAngle -= angleSpeed;
+
+          // Update position based on angle around tree
+          const distFromCenter = tree.radius + 0.6;
+          player.position.x = tree.x + Math.sin(newAngle) * distFromCenter;
+          player.position.z = tree.z + Math.cos(newAngle) * distFromCenter;
+
+          // Jump OFF tree
+          if (keys.space) {
+            player.isClimbing = false;
+            player.velocity.y = GAME_CONFIG.jumpForce;
+            // Jump away from tree center
+            const jumpDir = new THREE.Vector3(
+              player.position.x - tree.x,
+              0,
+              player.position.z - tree.z
+            ).normalize();
+            player.velocity.add(jumpDir.multiplyScalar(0.5));
+            keys.space = false; // prevent double trigger
+          }
+        }
+        // --- GROUND/AIR PHYSICS ---
+        else {
+          // Apply Input forces
+          const moveDir = new THREE.Vector3();
+          if (keys.w) moveDir.add(forward);
+          if (keys.s) moveDir.sub(forward);
+          if (keys.a) moveDir.sub(right);
+          if (keys.d) moveDir.add(right);
+
+          if (moveDir.length() > 0) {
+            moveDir.normalize().multiplyScalar(GAME_CONFIG.moveSpeed);
+            // Apply rotation to face movement
+            const targetRotation = Math.atan2(moveDir.x, moveDir.z);
+            player.mesh.rotation.y = targetRotation;
+          }
+
+          // Simple inertia/friction
+          player.velocity.x += moveDir.x * 0.2;
+          player.velocity.z += moveDir.z * 0.2;
+          player.velocity.x *= GAME_CONFIG.friction;
+          player.velocity.z *= GAME_CONFIG.friction;
+
+          // Gravity
+          player.velocity.y -= GAME_CONFIG.gravity * 0.05;
+
+          // Jump
+          if (keys.space && player.onGround) {
+            player.velocity.y = GAME_CONFIG.jumpForce;
+            player.onGround = false;
+          }
+
+          // Apply Velocity
+          player.position.add(player.velocity);
+        }
+
+        // Bounds check (Floor limit)
+        if (player.position.y < -10) {
+          player.position.set(0, 5, 0);
+          player.velocity.set(0, 0, 0);
+        }
+
+        // Sync Mesh
+        player.mesh.position.copy(player.position);
+      }
+
+      function updateCamera() {
+        // Smooth follow camera
+        const targetX = player.position.x - Math.sin(cameraAngle) * 10;
+        const targetZ = player.position.z - Math.cos(cameraAngle) * 10;
+        const targetY = player.position.y + 5;
+
+        camera.position.x += (targetX - camera.position.x) * 0.1;
+        camera.position.z += (targetZ - camera.position.z) * 0.1;
+        camera.position.y += (targetY - camera.position.y) * 0.1;
+
+        camera.lookAt(
+          player.position.x,
+          player.position.y + 1,
+          player.position.z
+        );
+      }
+
+      function animateNuts() {
+        const time = Date.now() * 0.002;
+        nuts.forEach((n) => {
+          if (n.active) {
+            n.root.rotation.y += 0.02;
+            n.root.position.y = n.initialY + Math.sin(time) * 0.2;
+          }
+        });
+      }
+
+      // Main Loop
+      function animate() {
+        requestAnimationFrame(animate);
+
+        updatePhysics();
+        checkCollisions();
+        updateCamera();
+        animateNuts();
+
+        renderer.render(scene, camera);
+      }
+
+      // Handle Window Resize
+      window.addEventListener("resize", () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+
+      // Start
+      animate();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Chroma Stealth: Reforged</title>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        background-color: #0f172a;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        user-select: none;
+      }
+      #ui-layer {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        padding: 20px;
+        box-sizing: border-box;
+      }
+      #hud-top {
+        display: flex;
+        justify-content: space-between;
+        color: white;
+        text-shadow: 2px 2px 0 #000;
+        z-index: 10;
+      }
+      .status-bar {
+        background: rgba(15, 23, 42, 0.8);
+        padding: 12px 24px;
+        border-radius: 8px;
+        border: 1px solid #334155;
+        font-weight: bold;
+        font-size: 1.1rem;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+      }
+      #controls-hint {
+        color: #94a3b8;
+        font-size: 0.9rem;
+        margin-top: 4px;
+        font-weight: normal;
+      }
+      #message-overlay {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(15, 23, 42, 0.95);
+        color: white;
+        padding: 40px;
+        border-radius: 16px;
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 20px;
+        pointer-events: auto;
+        border: 2px solid #4ade80;
+        box-shadow: 0 0 50px rgba(74, 222, 128, 0.15);
+        z-index: 20;
+        min-width: 300px;
+      }
+      h1 {
+        margin: 0;
+        color: #4ade80;
+        font-size: 2.5rem;
+        letter-spacing: -1px;
+      }
+      p {
+        margin: 0;
+        color: #cbd5e1;
+        line-height: 1.5;
+      }
+
+      button {
+        background: #4ade80;
+        color: #064e3b;
+        border: none;
+        padding: 14px 32px;
+        font-size: 1.1rem;
+        font-weight: 800;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+      button:hover {
+        background: #22c55e;
+        transform: translateY(-2px);
+      }
+      button:active {
+        transform: translateY(0);
+      }
+
+      /* Detection Meter */
+      #meter-container {
+        position: fixed;
+        bottom: 30px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 240px;
+        background: rgba(0, 0, 0, 0.5);
+        padding: 6px;
+        border-radius: 10px;
+        border: 1px solid #334155;
+      }
+      #detection-meter {
+        width: 100%;
+        height: 12px;
+        background: #1e293b;
+        border-radius: 6px;
+        overflow: hidden;
+        position: relative;
+      }
+      #detection-fill {
+        width: 0%;
+        height: 100%;
+        background: linear-gradient(90deg, #facc15, #ef4444);
+        transition: width 0.1s linear;
+      }
+      .spotted-anim {
+        animation: shake 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97) both infinite;
+      }
+      @keyframes shake {
+        10%,
+        90% {
+          transform: translate3d(-1px, 0, 0);
+        }
+        20%,
+        80% {
+          transform: translate3d(2px, 0, 0);
+        }
+        30%,
+        50%,
+        70% {
+          transform: translate3d(-4px, 0, 0);
+        }
+        40%,
+        60% {
+          transform: translate3d(4px, 0, 0);
+        }
+      }
+      #error-msg {
+        color: #ef4444;
+        display: none;
+        background: #000;
+        padding: 20px;
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        z-index: 100;
+        border: 1px solid #ef4444;
+      }
+    </style>
+    <!-- Global error handler as a fallback -->
+    <script>
+      window.onerror = function (msg, url, line) {
+        const el = document.getElementById("error-msg");
+        if (el) {
+          el.style.display = "block";
+          el.innerHTML += `Error: ${msg}<br>`;
+        }
+      };
+    </script>
+  </head>
+  <body>
+    <style>
+      /* Minimal Floating Home Button */
+      .home-nav-btn {
+        position: fixed;
+        top: 15px;
+        left: 15px;
+        z-index: 10000; /* Ensure it sits above game UI/Canvases */
+        background: rgba(
+          30,
+          30,
+          30,
+          0.6
+        ); /* Dark semi-transparent for contrast */
+        color: #ffffff;
+        text-decoration: none;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+        font-size: 14px;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.2s ease;
+        backdrop-filter: blur(4px); /* Blurs background behind button */
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+
+      .home-nav-btn:hover {
+        background: rgba(30, 30, 30, 0.9);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      }
+
+      /* SVG Icon Style */
+      .home-nav-icon {
+        width: 16px;
+        height: 16px;
+      }
+    </style>
+
+    <!-- Link to your Hub (index.html) -->
+    <a href="index.html" class="home-nav-btn">
+      <svg
+        class="home-nav-icon"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+        <polyline points="9 22 9 12 15 12 15 22"></polyline>
+      </svg>
+      <span>Back to Hub</span>
+    </a>
+    <div id="ui-layer">
+      <div id="hud-top">
+        <div class="status-bar">
+          <div>MISSION <span id="level-disp">1</span></div>
+          <div id="controls-hint">
+            WASD to Move &nbsp;|&nbsp; SPACE to Blend
+          </div>
+        </div>
+      </div>
+      <div id="meter-container">
+        <div id="detection-meter"><div id="detection-fill"></div></div>
+      </div>
+    </div>
+
+    <div id="message-overlay">
+      <h1 id="msg-title">Chroma Stealth</h1>
+      <p id="msg-text">
+        Infiltrate the facility.<br />Match the floor color to hide.
+      </p>
+      <button id="start-btn">Loading Engine...</button>
+    </div>
+
+    <div id="error-msg"></div>
+
+    <!-- Switch to Module type for robust importing -->
+    <script type="module">
+      import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js";
+
+      // --- GAME VARIABLES ---
+      let scene, camera, renderer;
+      let player, goal;
+      let enemies = [];
+      let walls = [];
+      let floorTiles = [];
+      let animationId;
+
+      // State
+      let gameActive = false;
+      let currentLevelIndex = 0;
+      let detectionLevel = 0;
+      const keys = { w: false, a: false, s: false, d: false, space: false };
+
+      // Config
+      const TILE_SIZE = 2;
+      const COLORS = {
+        FLOOR_A: 0x334155, // Slate 700
+        FLOOR_B: 0x1e293b, // Slate 800
+        WALL: 0x0f172a, // Slate 900
+        PLAYER_DEFAULT: 0x4ade80, // Green
+        ENEMY: 0xf87171, // Red
+        GOAL: 0xfacc15, // Yellow
+        VISION_CLEAR: 0xffff00,
+        VISION_SPOTTED: 0xff0000,
+      };
+
+      // Maps: 0=Floor, 1=Wall, 2=Start, 3=Goal, 4=EnemyH, 5=EnemyV
+      const LEVELS = [
+        [
+          [1, 1, 1, 1, 1, 1, 1, 1, 1],
+          [1, 2, 0, 0, 1, 0, 0, 3, 1],
+          [1, 0, 1, 0, 1, 0, 1, 0, 1],
+          [1, 0, 0, 0, 0, 0, 0, 0, 1],
+          [1, 0, 1, 1, 0, 1, 1, 0, 1],
+          [1, 0, 0, 4, 0, 0, 0, 0, 1],
+          [1, 1, 1, 1, 1, 1, 1, 1, 1],
+        ],
+        [
+          [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+          [1, 2, 0, 0, 0, 1, 0, 0, 4, 0, 1],
+          [1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1],
+          [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+          [1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1],
+          [1, 0, 0, 5, 0, 0, 5, 0, 0, 0, 1],
+          [1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1],
+          [1, 0, 0, 0, 0, 0, 0, 0, 0, 3, 1],
+          [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+        ],
+        [
+          [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+          [1, 3, 0, 0, 0, 5, 0, 1, 0, 0, 0, 2, 1],
+          [1, 1, 1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1],
+          [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+          [1, 0, 1, 1, 1, 1, 0, 1, 0, 1, 1, 0, 1],
+          [1, 0, 4, 0, 0, 0, 0, 0, 0, 0, 4, 0, 1],
+          [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+        ],
+      ];
+
+      function initGame() {
+        // 1. Setup Three.js Scene
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0f172a);
+
+        // 2. Camera (Isometric)
+        const aspect = window.innerWidth / window.innerHeight;
+        const d = 14;
+        camera = new THREE.OrthographicCamera(
+          -d * aspect,
+          d * aspect,
+          d,
+          -d,
+          1,
+          1000
+        );
+        camera.position.set(20, 20, 20);
+        camera.lookAt(scene.position);
+
+        // 3. Renderer
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        document.body.appendChild(renderer.domElement);
+
+        // 4. Lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(10, 20, 5);
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.width = 1024;
+        dirLight.shadow.mapSize.height = 1024;
+        scene.add(dirLight);
+
+        // 5. Event Listeners
+        window.addEventListener("resize", onWindowResize);
+        window.addEventListener("keydown", (e) => onKey(e, true));
+        window.addEventListener("keyup", (e) => onKey(e, false));
+
+        // 6. Setup Start Button
+        const btn = document.getElementById("start-btn");
+        btn.innerText = "START MISSION";
+        btn.onclick = startGame;
+
+        // 7. Start Loop
+        animate();
+      }
+
+      function startGame() {
+        document.getElementById("message-overlay").style.display = "none";
+        gameActive = true;
+        loadLevel(currentLevelIndex);
+      }
+
+      function loadLevel(index) {
+        // Clear previous level
+        if (player) scene.remove(player.mesh);
+        enemies.forEach((e) => scene.remove(e.mesh));
+        walls.forEach((w) => scene.remove(w));
+        floorTiles.forEach((f) => scene.remove(f));
+        if (goal) scene.remove(goal);
+
+        enemies = [];
+        walls = [];
+        floorTiles = [];
+
+        // Load Map Data
+        const mapData = LEVELS[index % LEVELS.length];
+        const rows = mapData.length;
+        const cols = mapData[0].length;
+        const offsetX = (cols * TILE_SIZE) / 2;
+        const offsetZ = (rows * TILE_SIZE) / 2;
+
+        // Geometries
+        const wallGeo = new THREE.BoxGeometry(TILE_SIZE, TILE_SIZE, TILE_SIZE);
+        const floorGeo = new THREE.PlaneGeometry(TILE_SIZE, TILE_SIZE);
+        const wallMat = new THREE.MeshStandardMaterial({ color: COLORS.WALL });
+
+        // Build Map
+        mapData.forEach((row, z) => {
+          row.forEach((cell, x) => {
+            const wx = x * TILE_SIZE - offsetX;
+            const wz = z * TILE_SIZE - offsetZ;
+
+            // Floor
+            const isEven = (x + z) % 2 === 0;
+            const floorColor = isEven ? COLORS.FLOOR_A : COLORS.FLOOR_B;
+            const floorMat = new THREE.MeshStandardMaterial({
+              color: floorColor,
+              roughness: 0.8,
+            });
+            const floor = new THREE.Mesh(floorGeo, floorMat);
+            floor.rotation.x = -Math.PI / 2;
+            floor.position.set(wx, 0, wz);
+            floor.receiveShadow = true;
+            // Store custom data for gameplay logic
+            floor.userData = { type: "floor", colorHex: floorColor };
+            scene.add(floor);
+            floorTiles.push(floor);
+
+            // Objects
+            if (cell === 1) {
+              // Wall
+              const wall = new THREE.Mesh(wallGeo, wallMat);
+              wall.position.set(wx, TILE_SIZE / 2, wz);
+              wall.castShadow = true;
+              wall.receiveShadow = true;
+              scene.add(wall);
+              walls.push(wall);
+            } else if (cell === 2) {
+              // Player Start
+              spawnPlayer(wx, wz);
+            } else if (cell === 3) {
+              // Goal
+              const goalGeo = new THREE.BoxGeometry(1, 0.2, 1);
+              const goalMat = new THREE.MeshStandardMaterial({
+                color: COLORS.GOAL,
+                emissive: 0xaa8800,
+              });
+              goal = new THREE.Mesh(goalGeo, goalMat);
+              goal.position.set(wx, 0.1, wz);
+
+              // Floating marker
+              const markerGeo = new THREE.OctahedronGeometry(0.3);
+              const marker = new THREE.Mesh(markerGeo, goalMat);
+              marker.position.y = 1;
+              goal.add(marker);
+              // Animate marker locally
+              goal.userData = { marker: marker, time: 0 };
+
+              scene.add(goal);
+            } else if (cell === 4) {
+              // Enemy H
+              spawnEnemy(wx, wz, "horizontal");
+            } else if (cell === 5) {
+              // Enemy V
+              spawnEnemy(wx, wz, "vertical");
+            }
+          });
+        });
+
+        // Reset HUD
+        document.getElementById("level-disp").innerText = index + 1;
+        detectionLevel = 0;
+        updateDetectionUI();
+      }
+
+      function spawnPlayer(x, z) {
+        const group = new THREE.Group();
+
+        // Geometry - Use CapsuleGeometry (supported in r160)
+        const bodyGeo = new THREE.CapsuleGeometry(0.35, 0.6, 4, 8);
+        const mat = new THREE.MeshStandardMaterial({
+          color: COLORS.PLAYER_DEFAULT,
+        });
+        const mesh = new THREE.Mesh(bodyGeo, mat);
+        mesh.position.y = 0.65;
+        // Rotate to look more like a lizard
+        mesh.rotation.z = Math.PI / 2;
+        mesh.castShadow = true;
+        group.add(mesh);
+
+        // Head
+        const headGeo = new THREE.BoxGeometry(0.4, 0.4, 0.5);
+        const head = new THREE.Mesh(headGeo, mat);
+        head.position.set(0.5, 0.65, 0);
+        group.add(head);
+
+        // Eyes
+        const eyeGeo = new THREE.SphereGeometry(0.1, 8, 8);
+        const eyeMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+        const leftEye = new THREE.Mesh(eyeGeo, eyeMat);
+        leftEye.position.set(0.6, 0.8, 0.2);
+        const rightEye = new THREE.Mesh(eyeGeo, eyeMat);
+        rightEye.position.set(0.6, 0.8, -0.2);
+        group.add(leftEye);
+        group.add(rightEye);
+
+        group.position.set(x, 0, z);
+        scene.add(group);
+
+        player = {
+          mesh: group,
+          materials: [mat], // Store ref to change color
+          isHidden: false,
+          speed: 0.08,
+        };
+      }
+
+      function spawnEnemy(x, z, type) {
+        const group = new THREE.Group();
+
+        // Body
+        const geo = new THREE.CylinderGeometry(0.3, 0.4, 1.4, 8);
+        const mat = new THREE.MeshStandardMaterial({ color: COLORS.ENEMY });
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.position.y = 0.7;
+        mesh.castShadow = true;
+        group.add(mesh);
+
+        // Vision Cone (Visualization)
+        const coneGeo = new THREE.ConeGeometry(2.5, 5, 16, 1, true);
+        coneGeo.translate(0, 2.5, 0); // Pivot at tip
+        coneGeo.rotateX(-Math.PI / 2); // Point forward
+
+        const coneMat = new THREE.MeshBasicMaterial({
+          color: COLORS.VISION_CLEAR,
+          transparent: true,
+          opacity: 0.15,
+          depthWrite: false,
+          side: THREE.DoubleSide,
+        });
+        const cone = new THREE.Mesh(coneGeo, coneMat);
+        cone.position.y = 1.0; // Eye level
+        group.add(cone);
+
+        group.position.set(x, 0, z);
+        scene.add(group);
+
+        enemies.push({
+          mesh: group,
+          cone: cone,
+          type: type,
+          startPos: new THREE.Vector3(x, 0, z),
+          dir: 1,
+          dist: 3 * TILE_SIZE,
+        });
+      }
+
+      // --- UPDATE LOOP ---
+      function animate() {
+        requestAnimationFrame(animate);
+
+        if (gameActive) {
+          updatePlayer();
+          updateEnemies();
+          updateGoal();
+        }
+
+        renderer.render(scene, camera);
+      }
+
+      function updatePlayer() {
+        if (!player) return;
+
+        // 1. Handle Camouflage
+        if (keys.space) {
+          player.isHidden = true;
+
+          // Find color under player
+          let minDist = 999;
+          let targetColor = COLORS.PLAYER_DEFAULT;
+
+          floorTiles.forEach((tile) => {
+            const d = player.mesh.position.distanceTo(tile.position);
+            if (d < minDist) {
+              minDist = d;
+              targetColor = tile.userData.colorHex;
+            }
+          });
+
+          // Apply color blending
+          player.materials.forEach((m) => {
+            m.color.lerp(new THREE.Color(targetColor), 0.2);
+            m.transparent = true;
+            m.opacity = THREE.MathUtils.lerp(m.opacity, 0.4, 0.1);
+          });
+
+          // Cannot move while camouflaged
+          return;
+        } else {
+          player.isHidden = false;
+          player.materials.forEach((m) => {
+            m.color.lerp(new THREE.Color(COLORS.PLAYER_DEFAULT), 0.1);
+            m.opacity = THREE.MathUtils.lerp(m.opacity, 1.0, 0.1);
+            m.transparent = false;
+          });
+        }
+
+        // 2. Movement
+        const move = new THREE.Vector3(0, 0, 0);
+        if (keys.w) move.z -= 1;
+        if (keys.s) move.z += 1;
+        if (keys.a) move.x -= 1;
+        if (keys.d) move.x += 1;
+
+        if (move.length() > 0) {
+          move.normalize().multiplyScalar(player.speed);
+
+          // Rotation
+          const targetAngle = Math.atan2(move.x, move.z) + Math.PI / 2;
+          // Simple rotation snap for responsiveness
+          player.mesh.rotation.y = targetAngle;
+
+          // Collision Prediction
+          const nextPos = player.mesh.position.clone().add(move);
+          if (!checkWallCollision(nextPos)) {
+            player.mesh.position.copy(nextPos);
+          }
+        }
+
+        // 3. Camera Follow
+        const camTarget = player.mesh.position
+          .clone()
+          .add(new THREE.Vector3(20, 20, 20));
+        camera.position.lerp(camTarget, 0.1);
+        camera.lookAt(player.mesh.position);
+      }
+
+      function updateEnemies() {
+        let spotted = false;
+
+        enemies.forEach((enemy) => {
+          // 1. Patrol
+          const speed = 0.03;
+          if (enemy.type === "horizontal") {
+            enemy.mesh.position.x += speed * enemy.dir;
+            // Face direction
+            enemy.mesh.lookAt(
+              enemy.mesh.position
+                .clone()
+                .add(new THREE.Vector3(enemy.dir, 0, 0))
+            );
+
+            if (
+              Math.abs(enemy.mesh.position.x - enemy.startPos.x) > enemy.dist
+            ) {
+              enemy.dir *= -1;
+            }
+          } else {
+            enemy.mesh.position.z += speed * enemy.dir;
+            enemy.mesh.lookAt(
+              enemy.mesh.position
+                .clone()
+                .add(new THREE.Vector3(0, 0, enemy.dir))
+            );
+
+            if (
+              Math.abs(enemy.mesh.position.z - enemy.startPos.z) > enemy.dist
+            ) {
+              enemy.dir *= -1;
+            }
+          }
+
+          // 2. Detection
+          if (player) {
+            const toPlayer = player.mesh.position
+              .clone()
+              .sub(enemy.mesh.position);
+            const dist = toPlayer.length();
+
+            // Vision settings
+            const viewRange = 5.5;
+            const fov = 0.7; // ~45 degrees (dot product)
+
+            // Normalize relative vector
+            toPlayer.normalize();
+
+            // Get enemy forward vector
+            const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(
+              enemy.mesh.quaternion
+            );
+            const angle = forward.dot(toPlayer);
+
+            let canSee = false;
+
+            if (dist < viewRange && angle > fov) {
+              // Inside cone. Check walls.
+              const raycaster = new THREE.Raycaster(
+                enemy.mesh.position.clone().add(new THREE.Vector3(0, 1, 0)),
+                player.mesh.position
+                  .clone()
+                  .sub(enemy.mesh.position)
+                  .normalize(),
+                0,
+                viewRange
+              );
+
+              const hits = raycaster.intersectObjects(walls);
+              // If no walls between enemy and player (dist check is approximate)
+              if (hits.length === 0 || hits[0].distance > dist) {
+                // Line of sight confirmed.
+                if (!player.isHidden) {
+                  canSee = true;
+                } else if (dist < 1.5) {
+                  // Too close even if hidden
+                  canSee = true;
+                }
+              }
+            }
+
+            // Visual feedback
+            if (canSee) {
+              enemy.cone.material.color.setHex(COLORS.VISION_SPOTTED);
+              enemy.cone.material.opacity = 0.4;
+              spotted = true;
+            } else {
+              enemy.cone.material.color.setHex(COLORS.VISION_CLEAR);
+              enemy.cone.material.opacity = 0.15;
+            }
+          }
+        });
+
+        // Update Detection Meter
+        if (spotted) {
+          detectionLevel += 1.0;
+        } else {
+          detectionLevel = Math.max(0, detectionLevel - 0.5);
+        }
+        updateDetectionUI();
+
+        if (detectionLevel >= 100) {
+          triggerGameOver("SPOTTED!", "The guards found you.");
+        }
+      }
+
+      function updateGoal() {
+        if (goal && player) {
+          // Bobbing animation
+          goal.userData.time += 0.05;
+          goal.userData.marker.position.y =
+            1 + Math.sin(goal.userData.time) * 0.2;
+          goal.userData.marker.rotation.y += 0.02;
+
+          // Distance check
+          if (player.mesh.position.distanceTo(goal.position) < 1.2) {
+            nextLevel();
+          }
+        }
+      }
+
+      function nextLevel() {
+        currentLevelIndex++;
+        if (currentLevelIndex >= LEVELS.length) {
+          currentLevelIndex = 0;
+          triggerGameOver("COMPLETE!", "You are the master of stealth.");
+        } else {
+          gameActive = false;
+          showOverlay("SUCCESS", "Sector clear. Proceeding...", "NEXT SECTOR");
+        }
+      }
+
+      function triggerGameOver(title, text) {
+        gameActive = false;
+        showOverlay(title, text, "RETRY");
+        // Reset level index if lost? Or just restart current?
+        // Let's restart current for nice UX
+      }
+
+      // --- UTILS ---
+      function checkWallCollision(pos) {
+        const pBox = new THREE.Box3().setFromCenterAndSize(
+          pos,
+          new THREE.Vector3(0.5, 1, 0.5)
+        );
+        for (let w of walls) {
+          const wBox = new THREE.Box3().setFromObject(w);
+          if (pBox.intersectsBox(wBox)) return true;
+        }
+        return false;
+      }
+
+      function updateDetectionUI() {
+        const fill = document.getElementById("detection-fill");
+        const meter = document.getElementById("meter-container");
+        fill.style.width = Math.min(100, detectionLevel) + "%";
+
+        if (detectionLevel > 0) {
+          meter.style.opacity = 1;
+        } else {
+          meter.style.opacity = 0.3;
+        }
+
+        if (detectionLevel > 50) {
+          fill.classList.add("spotted-anim");
+        } else {
+          fill.classList.remove("spotted-anim");
+        }
+      }
+
+      function onKey(e, state) {
+        const k = e.key.toLowerCase();
+        if (k === "w" || k === "arrowup") keys.w = state;
+        if (k === "a" || k === "arrowleft") keys.a = state;
+        if (k === "s" || k === "arrowdown") keys.s = state;
+        if (k === "d" || k === "arrowright") keys.d = state;
+        if (k === " ") keys.space = state;
+      }
+
+      function onWindowResize() {
+        const aspect = window.innerWidth / window.innerHeight;
+        const d = 14;
+        camera.left = -d * aspect;
+        camera.right = d * aspect;
+        camera.top = d;
+        camera.bottom = -d;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      }
+
+      function showOverlay(title, text, btnText) {
+        const ov = document.getElementById("message-overlay");
+        document.getElementById("msg-title").innerText = title;
+        document.getElementById("msg-text").innerText = text;
+        const btn = document.getElementById("start-btn");
+        btn.innerText = btnText;
+        ov.style.display = "flex";
+      }
+
+      // Start the game immediately once the module loads
+      initGame();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>Monkey Business: Tourist Heist</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        background-color: #2c3e50;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        touch-action: none; /* Prevent pull-to-refresh on mobile */
+      }
+      #gameCanvas {
+        display: block;
+        background: #e0c068; /* Sand color fallback */
+      }
+      .ui-layer {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+      }
+      .hud {
+        padding: 20px;
+        display: flex;
+        justify-content: space-between;
+        font-size: 24px;
+        font-weight: bold;
+        color: #fff;
+        text-shadow: 2px 2px 0 #000;
+      }
+      .modal {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(255, 255, 255, 0.95);
+        padding: 2rem;
+        border-radius: 1rem;
+        text-align: center;
+        pointer-events: auto;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+        max-width: 90%;
+        width: 400px;
+        border: 4px solid #8b4513;
+      }
+      .btn {
+        background: #fbbf24;
+        color: #78350f;
+        border: none;
+        padding: 12px 24px;
+        font-size: 1.2rem;
+        font-weight: bold;
+        border-radius: 0.5rem;
+        cursor: pointer;
+        margin-top: 1rem;
+        transition: transform 0.1s, background 0.2s;
+        box-shadow: 0 4px 0 #b45309;
+      }
+      .btn:active {
+        transform: translateY(4px);
+        box-shadow: none;
+      }
+      .btn:hover {
+        background: #fcd34d;
+      }
+      .tutorial {
+        font-size: 0.9rem;
+        color: #555;
+        margin-top: 1rem;
+        line-height: 1.4;
+      }
+      /* Mobile joystick hint */
+      #joystick-hint {
+        position: absolute;
+        bottom: 50px;
+        left: 50%;
+        transform: translateX(-50%);
+        color: rgba(255, 255, 255, 0.5);
+        font-size: 14px;
+        pointer-events: none;
+        animation: pulse 2s infinite;
+      }
+      @keyframes pulse {
+        0% {
+          opacity: 0.3;
+        }
+        50% {
+          opacity: 0.7;
+        }
+        100% {
+          opacity: 0.3;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <style>
+      /* Minimal Floating Home Button */
+      .home-nav-btn {
+        position: fixed;
+        top: 15px;
+        left: 15px;
+        z-index: 10000; /* Ensure it sits above game UI/Canvases */
+        background: rgba(
+          30,
+          30,
+          30,
+          0.6
+        ); /* Dark semi-transparent for contrast */
+        color: #ffffff;
+        text-decoration: none;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+        font-size: 14px;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.2s ease;
+        backdrop-filter: blur(4px); /* Blurs background behind button */
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+
+      .home-nav-btn:hover {
+        background: rgba(30, 30, 30, 0.9);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      }
+
+      /* SVG Icon Style */
+      .home-nav-icon {
+        width: 16px;
+        height: 16px;
+      }
+    </style>
+
+    <!-- Link to your Hub (index.html) -->
+    <a href="index.html" class="home-nav-btn">
+      <svg
+        class="home-nav-icon"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+        <polyline points="9 22 9 12 15 12 15 22"></polyline>
+      </svg>
+      <span>Back to Hub</span>
+    </a>
+    <!-- Canvas Layer -->
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- UI Layer -->
+    <div class="ui-layer">
+      <div class="hud">
+        <div id="scoreDisplay">Loot: 0</div>
+        <div id="dashDisplay">Energy: 100%</div>
+      </div>
+      <div id="joystick-hint" class="hidden md:hidden">
+        Drag to Move • Double Tap to Dash
+      </div>
+    </div>
+
+    <!-- Start Screen -->
+    <div id="startScreen" class="modal">
+      <h1 class="text-4xl font-black text-orange-600 mb-2">MONKEY BUSINESS</h1>
+      <p class="text-xl text-gray-700 mb-4">Tourist Beach Heist</p>
+      <div class="mb-4">
+        <span class="text-4xl">🐒</span>
+      </div>
+      <p class="tutorial">
+        Steal 📱 🍔 📷 from tourists!<br />
+        Avoid the guards 👮!<br />
+        <br />
+        <strong>Desktop:</strong> Arrows to Move, Space to Dash<br />
+        <strong>Mobile:</strong> Drag to Move, Double Tap to Dash
+      </p>
+      <button class="btn" onclick="startGame()">START HEIST</button>
+    </div>
+
+    <!-- Game Over Screen -->
+    <div id="gameOverScreen" class="modal hidden" style="display: none">
+      <h2 class="text-3xl font-bold text-red-600 mb-2">BUSTED!</h2>
+      <p class="text-lg mb-4">The beach patrol caught you.</p>
+      <div class="text-2xl font-bold mb-4" id="finalScore">Loot Value: $0</div>
+      <button class="btn" onclick="resetGame()">TRY AGAIN</button>
+    </div>
+
+    <script>
+      const canvas = document.getElementById("gameCanvas");
+      const ctx = canvas.getContext("2d");
+
+      // Game State
+      let gameActive = false;
+      let animationId;
+      let score = 0;
+      let frameCount = 0;
+      let dashCooldown = 100;
+
+      // Dimensions
+      let width, height;
+
+      // Camera
+      const camera = { x: 0, y: 0 };
+
+      // Input State
+      const keys = {
+        ArrowUp: false,
+        ArrowDown: false,
+        ArrowLeft: false,
+        ArrowRight: false,
+        Space: false,
+      };
+      const touchInput = {
+        active: false,
+        startX: 0,
+        startY: 0,
+        currX: 0,
+        currY: 0,
+        lastTap: 0,
+      };
+
+      // Assets (Emojis as sprites)
+      const SPRITES = {
+        monkey: "🐒",
+        guard: "👮",
+        tourists: ["🧍", "🧍‍♀️", "🚶", "🚶‍♀️"],
+        loot: ["📱", "🍔", "📷", "🍦", "🕶️", "🥤"],
+        trees: ["🌴", "🏖️"],
+      };
+
+      // Entities
+      const player = {
+        x: 0,
+        y: 0,
+        size: 40,
+        speed: 5,
+        dashSpeed: 12,
+        isDashing: false,
+        dashDuration: 0,
+        vx: 0,
+        vy: 0,
+        angle: 0,
+      };
+
+      let entities = [];
+      let particles = [];
+      let worldWidth = 2000;
+      let worldHeight = 1500;
+
+      // --- Initialization & Events ---
+
+      function resize() {
+        width = window.innerWidth;
+        height = window.innerHeight;
+        canvas.width = width;
+        canvas.height = height;
+      }
+      window.addEventListener("resize", resize);
+      resize();
+
+      // Keyboard Controls
+      window.addEventListener("keydown", (e) => {
+        if (keys.hasOwnProperty(e.code) || e.code === "Space")
+          keys[e.code] = true;
+      });
+      window.addEventListener("keyup", (e) => {
+        if (keys.hasOwnProperty(e.code) || e.code === "Space")
+          keys[e.code] = false;
+      });
+
+      // Touch Controls (Virtual Joystick)
+      canvas.addEventListener(
+        "touchstart",
+        (e) => {
+          e.preventDefault();
+          const touch = e.touches[0];
+          touchInput.active = true;
+          touchInput.startX = touch.clientX;
+          touchInput.startY = touch.clientY;
+          touchInput.currX = touch.clientX;
+          touchInput.currY = touch.clientY;
+
+          // Double tap detection for dash
+          const now = Date.now();
+          if (now - touchInput.lastTap < 300) {
+            activateDash();
+          }
+          touchInput.lastTap = now;
+        },
+        { passive: false }
+      );
+
+      canvas.addEventListener(
+        "touchmove",
+        (e) => {
+          e.preventDefault();
+          if (!touchInput.active) return;
+          const touch = e.touches[0];
+          touchInput.currX = touch.clientX;
+          touchInput.currY = touch.clientY;
+        },
+        { passive: false }
+      );
+
+      canvas.addEventListener("touchend", (e) => {
+        touchInput.active = false;
+        // Reset velocity on touch end
+        player.vx = 0;
+        player.vy = 0;
+      });
+
+      // --- Game Logic ---
+
+      class Entity {
+        constructor(type, x, y) {
+          this.type = type;
+          this.x = x;
+          this.y = y;
+          this.size = 40;
+          this.markedForDeletion = false;
+
+          // Movement logic
+          this.speed = 1 + Math.random() * 1.5;
+          this.angle = Math.random() * Math.PI * 2;
+          this.changeDirTimer = 0;
+
+          // Specifics
+          if (type === "tourist") {
+            this.sprite =
+              SPRITES.tourists[
+                Math.floor(Math.random() * SPRITES.tourists.length)
+              ];
+            this.hasLoot = Math.random() > 0.3; // 70% chance to have loot
+            if (this.hasLoot) {
+              this.lootItem =
+                SPRITES.loot[Math.floor(Math.random() * SPRITES.loot.length)];
+            }
+            this.state = "walking"; // walking, fleeing
+            this.fleeTimer = 0;
+          } else if (type === "guard") {
+            this.sprite = SPRITES.guard;
+            this.speed = 3.2; // Slower than player dash, faster than walk
+            this.alertRange = 250;
+          } else if (type === "tree") {
+            this.sprite = SPRITES.trees[0];
+            this.size = 80;
+          }
+        }
+
+        update() {
+          if (this.type === "tree") return; // Static
+
+          // Tourist Logic
+          if (this.type === "tourist") {
+            if (this.state === "fleeing") {
+              this.speed = 4.5;
+              this.fleeTimer--;
+              if (this.fleeTimer <= 0) {
+                this.state = "walking";
+                this.speed = 1 + Math.random();
+              }
+            }
+
+            // Simple random walk
+            this.x += Math.cos(this.angle) * this.speed;
+            this.y += Math.sin(this.angle) * this.speed;
+
+            this.changeDirTimer--;
+            if (this.changeDirTimer <= 0 || this.isOutOfBounds()) {
+              this.angle = Math.random() * Math.PI * 2;
+              this.changeDirTimer = 60 + Math.random() * 100;
+
+              // Bounce off walls logic
+              if (this.x < 0) this.angle = 0;
+              if (this.x > worldWidth) this.angle = Math.PI;
+              if (this.y < 0) this.angle = Math.PI / 2;
+              if (this.y > worldHeight) this.angle = -Math.PI / 2;
+            }
+          }
+
+          // Guard Logic
+          if (this.type === "guard") {
+            const dx = player.x - this.x;
+            const dy = player.y - this.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            if (dist < this.alertRange) {
+              // Chase player
+              const angleToPlayer = Math.atan2(dy, dx);
+              this.x += Math.cos(angleToPlayer) * this.speed;
+              this.y += Math.sin(angleToPlayer) * this.speed;
+
+              // Visual alert
+              if (frameCount % 30 === 0)
+                createParticle(this.x, this.y - 30, "❗", "#f00");
+            } else {
+              // Patrol
+              this.x += Math.cos(this.angle) * (this.speed * 0.5);
+              this.y += Math.sin(this.angle) * (this.speed * 0.5);
+              this.changeDirTimer--;
+              if (this.changeDirTimer <= 0 || this.isOutOfBounds()) {
+                this.angle = Math.random() * Math.PI * 2;
+                this.changeDirTimer = 100;
+              }
+            }
+          }
+        }
+
+        isOutOfBounds() {
+          return (
+            this.x < 0 ||
+            this.x > worldWidth ||
+            this.y < 0 ||
+            this.y > worldHeight
+          );
+        }
+
+        draw(ctx, camX, camY) {
+          const drawX = this.x - camX;
+          const drawY = this.y - camY;
+
+          // Culling
+          if (
+            drawX < -100 ||
+            drawX > width + 100 ||
+            drawY < -100 ||
+            drawY > height + 100
+          )
+            return;
+
+          ctx.font = `${this.size}px Arial`;
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+
+          // Shadow
+          ctx.fillStyle = "rgba(0,0,0,0.2)";
+          ctx.beginPath();
+          ctx.ellipse(
+            drawX,
+            drawY + this.size / 2 - 5,
+            this.size / 3,
+            this.size / 5,
+            0,
+            0,
+            Math.PI * 2
+          );
+          ctx.fill();
+
+          // Sprite
+          ctx.fillStyle = "#000";
+          ctx.fillText(this.sprite, drawX, drawY);
+
+          // Draw Loot above head
+          if (this.type === "tourist" && this.hasLoot) {
+            // Bobbing effect
+            const bob = Math.sin(frameCount * 0.1) * 5;
+            ctx.font = "20px Arial";
+            ctx.fillText(this.lootItem, drawX, drawY - 35 + bob);
+          }
+        }
+      }
+
+      class Particle {
+        constructor(x, y, text, color) {
+          this.x = x;
+          this.y = y;
+          this.text = text;
+          this.color = color;
+          this.life = 1.0;
+          this.vy = -2;
+        }
+        update() {
+          this.y += this.vy;
+          this.life -= 0.02;
+        }
+        draw(ctx, camX, camY) {
+          ctx.globalAlpha = Math.max(0, this.life);
+          ctx.font = "bold 20px Arial";
+          ctx.fillStyle = this.color || "#fff";
+          ctx.strokeStyle = "#000";
+          ctx.lineWidth = 2;
+          ctx.strokeText(this.text, this.x - camX, this.y - camY);
+          ctx.fillText(this.text, this.x - camX, this.y - camY);
+          ctx.globalAlpha = 1.0;
+          ctx.lineWidth = 1;
+        }
+      }
+
+      function createParticle(x, y, text, color) {
+        particles.push(new Particle(x, y, text, color));
+      }
+
+      function activateDash() {
+        if (dashCooldown >= 100) {
+          player.isDashing = true;
+          player.dashDuration = 15; // frames
+          dashCooldown = 0;
+          createParticle(player.x, player.y, "WOOSH!", "#fff");
+        }
+      }
+
+      function spawnEntities() {
+        entities = [];
+        // Trees
+        for (let i = 0; i < 30; i++) {
+          entities.push(
+            new Entity(
+              "tree",
+              Math.random() * worldWidth,
+              Math.random() * worldHeight
+            )
+          );
+        }
+        // Tourists
+        for (let i = 0; i < 20; i++) {
+          entities.push(
+            new Entity(
+              "tourist",
+              Math.random() * worldWidth,
+              Math.random() * worldHeight
+            )
+          );
+        }
+        // Guards
+        for (let i = 0; i < 3; i++) {
+          entities.push(
+            new Entity(
+              "guard",
+              Math.random() * worldWidth,
+              Math.random() * worldHeight
+            )
+          );
+        }
+      }
+
+      function updatePlayer() {
+        // Input handling
+        let dx = 0;
+        let dy = 0;
+
+        // Keyboard
+        if (keys.ArrowUp) dy = -1;
+        if (keys.ArrowDown) dy = 1;
+        if (keys.ArrowLeft) dx = -1;
+        if (keys.ArrowRight) dx = 1;
+        if (keys.Space) activateDash();
+
+        // Touch Joystick
+        if (touchInput.active) {
+          const joyDx = touchInput.currX - touchInput.startX;
+          const joyDy = touchInput.currY - touchInput.startY;
+          const dist = Math.sqrt(joyDx * joyDx + joyDy * joyDy);
+          if (dist > 10) {
+            dx = joyDx / dist;
+            dy = joyDy / dist;
+          }
+        }
+
+        // Normalize diagonal movement
+        if (dx !== 0 || dy !== 0) {
+          const length = Math.sqrt(dx * dx + dy * dy);
+          dx /= length;
+          dy /= length;
+
+          // Store angle for sprite direction
+          player.angle = Math.atan2(dy, dx);
+        }
+
+        // Apply Speed
+        let currentSpeed = player.speed;
+        if (player.isDashing) {
+          currentSpeed = player.dashSpeed;
+          player.dashDuration--;
+          if (player.dashDuration <= 0) player.isDashing = false;
+        }
+
+        player.vx = dx * currentSpeed;
+        player.vy = dy * currentSpeed;
+
+        player.x += player.vx;
+        player.y += player.vy;
+
+        // Bounds
+        player.x = Math.max(20, Math.min(worldWidth - 20, player.x));
+        player.y = Math.max(20, Math.min(worldHeight - 20, player.y));
+
+        // Cooldown regen
+        if (dashCooldown < 100) dashCooldown++;
+      }
+
+      function checkCollisions() {
+        // Player vs Entities
+        entities.forEach((ent) => {
+          if (ent.type === "tree") return;
+
+          const dx = player.x - ent.x;
+          const dy = player.y - ent.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+
+          if (dist < player.size / 2 + ent.size / 2) {
+            // Caught by Guard
+            if (ent.type === "guard") {
+              endGame();
+            }
+
+            // Steal from Tourist
+            if (ent.type === "tourist" && ent.hasLoot) {
+              ent.hasLoot = false;
+              ent.state = "fleeing";
+              ent.fleeTimer = 120; // Run away for 2 seconds
+              ent.angle = Math.atan2(ent.y - player.y, ent.x - player.x); // Run opposite direction
+
+              // Score Logic
+              score += 100;
+              createParticle(ent.x, ent.y - 40, "+100", "#4ade80");
+              createParticle(ent.x, ent.y - 60, ent.lootItem, "#fff");
+
+              // Difficulty scaling: Spawn a new guard every 500 points
+              if (score % 500 === 0) {
+                entities.push(new Entity("guard", 0, 0)); // Spawn at corner
+                createParticle(
+                  player.x,
+                  player.y - 50,
+                  "NEW GUARD!",
+                  "#ef4444"
+                );
+              }
+            }
+          }
+        });
+      }
+
+      function updateCamera() {
+        // Camera follows player
+        camera.x = player.x - width / 2;
+        camera.y = player.y - height / 2;
+
+        // Clamp camera to world bounds
+        camera.x = Math.max(0, Math.min(worldWidth - width, camera.x));
+        camera.y = Math.max(0, Math.min(worldHeight - height, camera.y));
+      }
+
+      function drawWorld() {
+        // Clear Screen
+        ctx.fillStyle = "#e0c068"; // Sand
+        ctx.fillRect(0, 0, width, height);
+
+        // Draw Water Edge (Top)
+        ctx.fillStyle = "#60a5fa";
+        ctx.fillRect(0, 0 - camera.y, width, Math.max(0, 100 - camera.y));
+
+        // Draw Water Waves effect
+        ctx.strokeStyle = "rgba(255,255,255,0.3)";
+        ctx.lineWidth = 3;
+        for (let i = 0; i < width; i += 50) {
+          const waveY = 100 + Math.sin((frameCount + i) * 0.05) * 10;
+          ctx.beginPath();
+          ctx.moveTo(i, waveY - camera.y);
+          ctx.lineTo(i + 30, waveY - camera.y);
+          ctx.stroke();
+        }
+
+        // Draw Grid pattern (Subtle sand texture)
+        ctx.fillStyle = "rgba(0,0,0,0.03)";
+        for (let x = 0; x < worldWidth; x += 100) {
+          if (x - camera.x > -100 && x - camera.x < width) {
+            ctx.fillRect(x - camera.x, 0, 2, height);
+          }
+        }
+
+        // Sort entities by Y for pseudo-depth
+        const renderList = [...entities];
+        // Add player to render list
+        renderList.push({
+          type: "player",
+          x: player.x,
+          y: player.y,
+          size: player.size,
+          draw: (ctx, cx, cy) => {
+            const dx = player.x - cx;
+            const dy = player.y - cy;
+
+            // Shadow
+            ctx.fillStyle = "rgba(0,0,0,0.2)";
+            ctx.beginPath();
+            ctx.ellipse(dx, dy + 20, 15, 8, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Monkey Sprite
+            ctx.font = "40px Arial";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+
+            // Tilt based on movement
+            ctx.save();
+            ctx.translate(dx, dy);
+            if (player.vx !== 0) ctx.rotate(player.vx * 0.05);
+
+            ctx.fillText(SPRITES.monkey, 0, 0);
+            ctx.restore();
+
+            // Player name
+            ctx.font = "12px Arial";
+            ctx.fillStyle = "#000";
+            // ctx.fillText('You', dx, dy - 30);
+          },
+        });
+
+        renderList.sort((a, b) => a.y - b.y);
+
+        // Draw Entities
+        renderList.forEach((ent) => {
+          if (ent.type === "player") ent.draw(ctx, camera.x, camera.y);
+          else ent.draw(ctx, camera.x, camera.y);
+        });
+
+        // Particles
+        particles.forEach((p, index) => {
+          p.update();
+          p.draw(ctx, camera.x, camera.y);
+          if (p.life <= 0) particles.splice(index, 1);
+        });
+
+        // Joystick UI (if active)
+        if (touchInput.active) {
+          ctx.beginPath();
+          ctx.arc(touchInput.startX, touchInput.startY, 40, 0, Math.PI * 2);
+          ctx.strokeStyle = "rgba(255,255,255,0.5)";
+          ctx.lineWidth = 4;
+          ctx.stroke();
+
+          ctx.beginPath();
+          ctx.arc(touchInput.currX, touchInput.currY, 20, 0, Math.PI * 2);
+          ctx.fillStyle = "rgba(255,255,255,0.8)";
+          ctx.fill();
+        }
+      }
+
+      function updateHUD() {
+        document.getElementById("scoreDisplay").innerText = `Loot: $${score}`;
+        document.getElementById("dashDisplay").innerText = `⚡ ${Math.floor(
+          dashCooldown
+        )}%`;
+
+        const dashElem = document.getElementById("dashDisplay");
+        if (dashCooldown >= 100) dashElem.style.color = "#4ade80"; // Green
+        else dashElem.style.color = "#fbbf24"; // Yellow
+      }
+
+      function gameLoop() {
+        if (!gameActive) return;
+
+        frameCount++;
+
+        updatePlayer();
+
+        // Check Bounds for repopulation (simple logic)
+        if (
+          frameCount % 300 === 0 &&
+          entities.filter((e) => e.type === "tourist" && e.hasLoot).length < 5
+        ) {
+          entities.push(
+            new Entity(
+              "tourist",
+              Math.random() * worldWidth,
+              Math.random() * worldHeight
+            )
+          );
+        }
+
+        entities.forEach((ent) => ent.update());
+        checkCollisions();
+        updateCamera();
+        drawWorld();
+        updateHUD();
+
+        animationId = requestAnimationFrame(gameLoop);
+      }
+
+      // --- Game Flow ---
+
+      function startGame() {
+        document.getElementById("startScreen").style.display = "none";
+        document.getElementById("gameOverScreen").style.display = "none";
+
+        gameActive = true;
+        score = 0;
+        dashCooldown = 100;
+        player.x = worldWidth / 2;
+        player.y = worldHeight / 2;
+
+        spawnEntities();
+        gameLoop();
+      }
+
+      function endGame() {
+        gameActive = false;
+        cancelAnimationFrame(animationId);
+        document.getElementById("gameOverScreen").style.display = "block";
+        document.getElementById(
+          "finalScore"
+        ).innerText = `Loot Value: $${score}`;
+      }
+
+      function resetGame() {
+        startGame();
+      }
+
+      // Initial Draw
+      ctx.fillStyle = "#e0c068";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    </script>
+  </body>
+</html>
