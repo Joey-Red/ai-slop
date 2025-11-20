@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Void Drifter - Physics Engine</title>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        background-color: #050505;
+        font-family: "Courier New", Courier, monospace;
+        user-select: none;
+      }
+      canvas {
+        display: block;
+      }
+      #ui {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        color: rgba(255, 255, 255, 0.7);
+        pointer-events: none;
+      }
+      h1 {
+        margin: 0;
+        font-size: 18px;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+      }
+      p {
+        font-size: 12px;
+        color: #888;
+      }
+      .key {
+        color: #00d2ff;
+        font-weight: bold;
+      }
+    </style>
+  </head>
+  <body>
+    <style>
+      /* Minimal Floating Home Button */
+      .home-nav-btn {
+        position: fixed;
+        top: 15px;
+        left: 15px;
+        z-index: 10000; /* Ensure it sits above game UI/Canvases */
+        background: rgba(
+          30,
+          30,
+          30,
+          0.6
+        ); /* Dark semi-transparent for contrast */
+        color: #ffffff;
+        text-decoration: none;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+        font-size: 14px;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.2s ease;
+        backdrop-filter: blur(4px); /* Blurs background behind button */
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+
+      .home-nav-btn:hover {
+        background: rgba(30, 30, 30, 0.9);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      }
+
+      /* SVG Icon Style */
+      .home-nav-icon {
+        width: 16px;
+        height: 16px;
+      }
+    </style>
+
+    <!-- Link to your Hub (index.html) -->
+    <a href="index.html" class="home-nav-btn">
+      <svg
+        class="home-nav-icon"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+        <polyline points="9 22 9 12 15 12 15 22"></polyline>
+      </svg>
+      <span>Back to Hub</span>
+    </a>
+    <style>
+      /* Minimal Floating Home Button */
+      .home-nav-btn {
+        position: fixed;
+        top: 15px;
+        left: 15px;
+        z-index: 10000; /* Ensure it sits above game UI/Canvases */
+        background: rgba(
+          30,
+          30,
+          30,
+          0.6
+        ); /* Dark semi-transparent for contrast */
+        color: #ffffff;
+        text-decoration: none;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+        font-size: 14px;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.2s ease;
+        backdrop-filter: blur(4px); /* Blurs background behind button */
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+
+      .home-nav-btn:hover {
+        background: rgba(30, 30, 30, 0.9);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      }
+
+      /* SVG Icon Style */
+      .home-nav-icon {
+        width: 16px;
+        height: 16px;
+      }
+    </style>
+
+    <!-- Link to your Hub (index.html) -->
+    <a href="index.html" class="home-nav-btn">
+      <svg
+        class="home-nav-icon"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+        <polyline points="9 22 9 12 15 12 15 22"></polyline>
+      </svg>
+      <span>Back to Hub</span>
+    </a>
+    <div id="ui">
+      <h1>Void Drifter</h1>
+      <p>
+        LMB: <span class="key">GRAPPLE</span> | SPACE/RMB:
+        <span class="key">THRUST</span>
+      </p>
+      <p>Status: <span id="status">Drifting</span></p>
+    </div>
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+      /**
+       * REALISTIC PHYSICS ENGINE (Verlet Integration)
+       */
+
+      const canvas = document.getElementById("gameCanvas");
+      const ctx = canvas.getContext("2d");
+      let width, height;
+
+      // Configuration
+      const FRICTION = 0.99;
+      const GRAVITY = 0.25;
+      const ROPE_STIFFNESS = 1; // 1 = rigid, <1 = elastic
+      const CAMERA_SMOOTHING = 0.1;
+
+      // State
+      let mouse = { x: 0, y: 0, isDown: false, rightDown: false };
+      let particles = [];
+      let obstacles = [];
+      let camera = { x: 0, y: 0 };
+
+      // Resize handling
+      function resize() {
+        width = canvas.width = window.innerWidth;
+        height = canvas.height = window.innerHeight;
+      }
+      window.addEventListener("resize", resize);
+      resize();
+
+      // Input handling
+      window.addEventListener("mousemove", (e) => {
+        mouse.x = e.clientX;
+        mouse.y = e.clientY;
+      });
+      window.addEventListener("mousedown", (e) => {
+        if (e.button === 0) mouse.isDown = true;
+        if (e.button === 2) mouse.rightDown = true;
+      });
+      window.addEventListener("mouseup", (e) => {
+        if (e.button === 0) mouse.isDown = false;
+        if (e.button === 2) mouse.rightDown = false;
+      });
+      window.addEventListener("keydown", (e) => {
+        if (e.code === "Space") mouse.rightDown = true;
+      });
+      window.addEventListener("keyup", (e) => {
+        if (e.code === "Space") mouse.rightDown = false;
+      });
+      window.addEventListener("contextmenu", (e) => e.preventDefault());
+
+      // Vector Math Helper
+      const Vec2 = {
+        add: (v1, v2) => ({ x: v1.x + v2.x, y: v1.y + v2.y }),
+        sub: (v1, v2) => ({ x: v1.x - v2.x, y: v1.y - v2.y }),
+        mul: (v, s) => ({ x: v.x * s, y: v.y * s }),
+        dist: (v1, v2) => Math.sqrt((v1.x - v2.x) ** 2 + (v1.y - v2.y) ** 2),
+        norm: (v) => {
+          const len = Math.sqrt(v.x ** 2 + v.y ** 2);
+          return len === 0 ? { x: 0, y: 0 } : { x: v.x / len, y: v.y / len };
+        },
+        dot: (v1, v2) => v1.x * v2.x + v1.y * v2.y,
+      };
+
+      // Classes
+
+      class Player {
+        constructor(x, y) {
+          this.x = x;
+          this.y = y;
+          this.oldX = x;
+          this.oldY = y;
+          this.radius = 10;
+          this.hook = null; // { x, y, active }
+        }
+
+        update() {
+          // 1. Verlet Integration (Position based dynamics)
+          const vx = (this.x - this.oldX) * FRICTION;
+          const vy = (this.y - this.oldY) * FRICTION;
+
+          this.oldX = this.x;
+          this.oldY = this.y;
+
+          this.x += vx;
+          this.y += vy;
+          this.y += GRAVITY;
+
+          // 2. Handle Input Forces
+
+          // Thrusters
+          if (mouse.rightDown) {
+            // Calculate angle towards mouse (in world space)
+            const worldMouseX = mouse.x + camera.x;
+            const worldMouseY = mouse.y + camera.y;
+
+            const dir = Vec2.norm({
+              x: worldMouseX - this.x,
+              y: worldMouseY - this.y,
+            });
+            const force = 0.6; // Thruster power
+
+            this.x += dir.x * force;
+            this.y += dir.y * force;
+
+            // Emit Particles backwards
+            for (let i = 0; i < 2; i++) {
+              particles.push(
+                new Particle(
+                  this.x - dir.x * 15,
+                  this.y - dir.y * 15,
+                  -dir.x * (Math.random() * 5),
+                  -dir.y * (Math.random() * 5),
+                  "#00d2ff"
+                )
+              );
+            }
+          }
+
+          // Grappling Hook
+          if (mouse.isDown) {
+            if (!this.hook) {
+              this.shootHook();
+            }
+          } else {
+            this.hook = null;
+          }
+
+          // 3. Resolve Hook Constraint
+          if (this.hook) {
+            const dist = Vec2.dist(this, this.hook);
+            const targetDist = this.hook.length;
+
+            // If we are further than the rope length, pull back
+            if (dist > targetDist) {
+              const diff = dist - targetDist;
+              const dir = Vec2.norm(Vec2.sub(this, this.hook));
+
+              // Correction vector
+              const correction = Vec2.mul(dir, diff * ROPE_STIFFNESS);
+
+              this.x -= correction.x;
+              this.y -= correction.y;
+
+              // Add tension friction (dampens swinging slightly)
+              const velX = this.x - this.oldX;
+              const velY = this.y - this.oldY;
+              this.oldX = this.x - velX * 0.99;
+              this.oldY = this.y - velY * 0.99;
+            }
+          }
+
+          // 4. Floor Collision (Reset if falls too far)
+          if (this.y > 3000) {
+            this.y = 0;
+            this.oldY = 0;
+            this.x = 0;
+            this.oldX = 0;
+            this.hook = null;
+            camera.y = 0;
+          }
+
+          // 5. Obstacle Collision
+          // 5. Obstacle Collision (FIXED)
+          obstacles.forEach((obs) => {
+            // Find the closest point on the rectangle to the circle center
+            const closestX = Math.max(obs.x, Math.min(this.x, obs.x + obs.w));
+            const closestY = Math.max(obs.y, Math.min(this.y, obs.y + obs.h));
+
+            const dx = this.x - closestX;
+            const dy = this.y - closestY;
+            const distSq = dx * dx + dy * dy;
+
+            // Check collision
+            if (distSq < this.radius * this.radius && distSq > 0) {
+              const dist = Math.sqrt(distSq);
+              const pen = this.radius - dist; // Penetration depth
+
+              // Normal vector (direction to push out)
+              const nx = dx / dist;
+              const ny = dy / dist;
+
+              // 1. Push player out of wall
+              this.x += nx * pen;
+              this.y += ny * pen;
+
+              // 2. CRITICAL FIX: Adjust old position to prevent "velocity explosion"
+              // If we don't do this, the engine thinks we moved instantly and adds massive energy.
+              // We move the old position slightly to absorb the impact.
+              const impactFriction = 0.9; // Higher = less bouncy
+              this.oldX += nx * pen * impactFriction;
+              this.oldY += ny * pen * impactFriction;
+
+              // Visuals: Sparks
+              const velocity =
+                Math.abs(this.x - this.oldX) + Math.abs(this.y - this.oldY);
+              if (velocity > 1) {
+                for (let i = 0; i < 3; i++) {
+                  particles.push(
+                    new Particle(
+                      closestX,
+                      closestY,
+                      nx * Math.random() * 5,
+                      ny * Math.random() * 5,
+                      "#ffaa00"
+                    )
+                  );
+                }
+              }
+            }
+          });
+        }
+
+        shootHook() {
+          const worldMouseX = mouse.x + camera.x;
+          const worldMouseY = mouse.y + camera.y;
+
+          // Raycast to find closest obstacle in direction of mouse
+          let bestDist = Infinity;
+          let bestPoint = null;
+
+          // Simplified Raycast: Check all obstacles for intersection with line
+          // For performance in this demo, we will just attach to the nearest obstacle surface within range
+          // if the mouse is hovering over it or near it.
+
+          obstacles.forEach((obs) => {
+            // Check if mouse is inside or near obstacle
+            if (
+              worldMouseX >= obs.x - 20 &&
+              worldMouseX <= obs.x + obs.w + 20 &&
+              worldMouseY >= obs.y - 20 &&
+              worldMouseY <= obs.y + obs.h + 20
+            ) {
+              const cx = obs.x + obs.w / 2;
+              const cy = obs.y + obs.h / 2;
+
+              const dist = Math.sqrt(
+                (this.x - worldMouseX) ** 2 + (this.y - worldMouseY) ** 2
+              );
+
+              if (dist < 600) {
+                // Max rope length
+                bestPoint = { x: worldMouseX, y: worldMouseY, length: dist };
+              }
+            }
+          });
+
+          if (bestPoint) {
+            this.hook = bestPoint;
+            // visual flair
+            for (let i = 0; i < 5; i++) {
+              particles.push(
+                new Particle(
+                  bestPoint.x,
+                  bestPoint.y,
+                  (Math.random() - 0.5) * 3,
+                  (Math.random() - 0.5) * 3,
+                  "#fff"
+                )
+              );
+            }
+          }
+        }
+
+        draw() {
+          // Draw Rope
+          if (this.hook) {
+            ctx.beginPath();
+            ctx.moveTo(this.x, this.y);
+            ctx.lineTo(this.hook.x, this.hook.y);
+            ctx.strokeStyle = "#444";
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Rope glow
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = "#00d2ff";
+            ctx.strokeStyle = "#fff";
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+          }
+
+          // Draw Body
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+          ctx.fillStyle = "#111";
+          ctx.fill();
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = "#fff";
+          ctx.stroke();
+
+          // Internal Light
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, 4, 0, Math.PI * 2);
+          ctx.fillStyle = mouse.rightDown
+            ? "#00d2ff"
+            : this.hook
+            ? "#00ff00"
+            : "#ff0000";
+          ctx.fill();
+        }
+      }
+
+      class Particle {
+        constructor(x, y, vx, vy, color) {
+          this.x = x;
+          this.y = y;
+          this.vx = vx;
+          this.vy = vy;
+          this.life = 1.0;
+          this.decay = Math.random() * 0.03 + 0.01;
+          this.color = color;
+        }
+        update() {
+          this.x += this.vx;
+          this.y += this.vy;
+          this.life -= this.decay;
+        }
+        draw() {
+          ctx.globalAlpha = this.life;
+          ctx.fillStyle = this.color;
+          ctx.fillRect(this.x, this.y, 3, 3);
+          ctx.globalAlpha = 1.0;
+        }
+      }
+
+      // World Generation
+      function generateLevel() {
+        obstacles = [];
+        // Floor
+        obstacles.push({ x: -1000, y: 500, w: 4000, h: 100 });
+
+        // Random floating platforms
+        for (let i = 0; i < 50; i++) {
+          obstacles.push({
+            x: (Math.random() - 0.5) * 3000,
+            y: Math.random() * -2000 + 200,
+            w: Math.random() * 100 + 50,
+            h: Math.random() * 100 + 50,
+          });
+        }
+      }
+
+      // Initialization
+      const player = new Player(0, 0);
+      generateLevel();
+
+      // Main Loop
+      function loop() {
+        // Clear with motion blur trail
+        ctx.fillStyle = "rgba(5, 5, 5, 0.3)";
+        ctx.fillRect(0, 0, width, height);
+
+        // Camera Logic (Smooth follow)
+        // Target is player position minus half screen size (centered)
+        const targetCamX = player.x - width / 2;
+        const targetCamY = player.y - height / 2;
+
+        camera.x += (targetCamX - camera.x) * CAMERA_SMOOTHING;
+        camera.y += (targetCamY - camera.y) * CAMERA_SMOOTHING;
+
+        ctx.save();
+        ctx.translate(-camera.x, -camera.y);
+
+        // Draw Obstacles
+        ctx.fillStyle = "#222";
+        ctx.strokeStyle = "#555";
+        ctx.lineWidth = 2;
+
+        obstacles.forEach((obs) => {
+          // Optimization: only draw if on screen
+          if (
+            obs.x + obs.w > camera.x &&
+            obs.x < camera.x + width &&
+            obs.y + obs.h > camera.y &&
+            obs.y < camera.y + height
+          ) {
+            ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
+            ctx.strokeRect(obs.x, obs.y, obs.w, obs.h);
+
+            // Detail lines for realism
+            ctx.beginPath();
+            ctx.moveTo(obs.x, obs.y);
+            ctx.lineTo(obs.x + obs.w, obs.y + obs.h);
+            ctx.strokeStyle = "#333";
+            ctx.stroke();
+          }
+        });
+
+        // Update & Draw Particles
+        for (let i = particles.length - 1; i >= 0; i--) {
+          particles[i].update();
+          particles[i].draw();
+          if (particles[i].life <= 0) particles.splice(i, 1);
+        }
+
+        // Update & Draw Player
+        player.update();
+        player.draw();
+
+        // Cursor visual
+        const worldMouseX = mouse.x + camera.x;
+        const worldMouseY = mouse.y + camera.y;
+        ctx.beginPath();
+        ctx.arc(worldMouseX, worldMouseY, 5, 0, Math.PI * 2);
+        ctx.strokeStyle = "#fff";
+        ctx.stroke();
+
+        ctx.restore();
+
+        // UI Update
+        document.getElementById("status").innerText = `Alt: ${Math.floor(
+          -player.y
+        )} | Vel: ${Math.floor(
+          Math.abs(player.x - player.oldX) + Math.abs(player.y - player.oldY)
+        )}`;
+
+        requestAnimationFrame(loop);
+      }
+
+      loop();
+    </script>
+  </body>
+</html>
