@@ -2485,10 +2485,8 @@
                 this.spawnParticle(enemy.x, enemy.y, "#bdc3c7", 1);
             }
 
-            if (enemy.enrage) {
-              enemy.speed = Math.min(enemy.speed * 1.5, 150);
-              this.spawnParticle(enemy.x, enemy.y, "red", 2);
-            }
+            // REMOVED: Old Enrage Logic (Speed on Hit) caused infinite acceleration
+            // Replaced with passive HP scaling in Enemy.update()
 
             const damageDealt = Math.min(enemy.hp, finalDmg);
             enemy.takeDamage(finalDmg);
@@ -3166,6 +3164,7 @@
           this.maxHp = data.maxHp;
           this.hp = data.hp;
           this.speed = data.speed;
+          this.baseSpeed = data.speed; // Store Base Speed
           this.reward = data.reward;
           this.armor = data.armor || 0;
           this.color = data.color || "#8a0e0e";
@@ -3206,6 +3205,14 @@
         }
         update(dt) {
           if (this.dead) return;
+
+          // ENRAGE LOGIC: Scale speed based on missing HP
+          if (this.enrage) {
+            const hpPct = this.hp / this.maxHp;
+            // Speed increases as HP drops. Max 2.5x speed at 0 HP.
+            this.speed = this.baseSpeed * (1 + (1 - hpPct) * 1.5);
+          }
+
           if (
             this.regenRate > 0 &&
             this.burnTimer <= 0 &&
