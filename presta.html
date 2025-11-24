@@ -1,0 +1,3448 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>40k Defense: Sector Roguelite</title>
+    <style>
+      :root {
+        --bg-color: #1a1a1a;
+        --ui-bg: #2b2b2b;
+        --gold: #d4af37;
+        --red: #8a0e0e;
+        --green: #1e591e;
+        --text: #e0e0e0;
+        --imperium: #2c3e50;
+        --locked: #444;
+      }
+
+      body {
+        margin: 0;
+        padding: 0;
+        background-color: #050505;
+        color: var(--text);
+        font-family: "Courier New", Courier, monospace;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        overflow: hidden;
+        user-select: none;
+      }
+
+      #game-container {
+        display: flex;
+        width: 1200px;
+        height: 800px;
+        border: 4px solid var(--gold);
+        background: var(--bg-color);
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
+      }
+
+      canvas {
+        background-color: #111;
+        cursor: crosshair;
+        image-rendering: pixelated;
+      }
+
+      #sidebar {
+        width: 300px;
+        background: var(--ui-bg);
+        border-left: 2px solid var(--gold);
+        display: flex;
+        flex-direction: column;
+        padding: 10px;
+        overflow-y: auto;
+      }
+
+      h1,
+      h2,
+      h3 {
+        margin: 5px 0;
+        color: var(--gold);
+        text-transform: uppercase;
+        text-align: center;
+        letter-spacing: 1px;
+        border-bottom: 1px solid var(--gold);
+        padding-bottom: 5px;
+      }
+
+      .stat-box {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 5px;
+        font-weight: bold;
+      }
+
+      .resources {
+        background: #000;
+        padding: 10px;
+        border: 1px solid var(--gold);
+        margin-bottom: 15px;
+      }
+
+      .controls {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 5px;
+        margin-bottom: 15px;
+      }
+
+      button {
+        background: var(--imperium);
+        color: var(--gold);
+        border: 1px solid var(--gold);
+        padding: 8px;
+        cursor: pointer;
+        font-family: inherit;
+        font-weight: bold;
+        transition: all 0.1s;
+        text-transform: uppercase;
+        font-size: 10px;
+      }
+
+      button:hover {
+        background: var(--gold);
+        color: #000;
+      }
+
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        filter: grayscale(1);
+      }
+
+      .tower-btn {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 60px;
+        font-size: 9px;
+        border: 1px solid #444;
+      }
+
+      .tower-btn span {
+        margin-top: 2px;
+        color: #aaa;
+      }
+
+      #selection-panel {
+        margin-top: 10px;
+        border-top: 2px solid var(--gold);
+        padding-top: 10px;
+        display: none;
+      }
+
+      /* NEW: Current Stats Box */
+      #current-stats {
+        background: #111;
+        padding: 8px;
+        margin: 5px 0 10px 0;
+        border: 1px solid #444;
+        font-size: 10px;
+      }
+
+      .specials-list {
+        margin-top: 5px;
+        color: #aaa;
+        border-top: 1px dashed #444;
+        padding-top: 3px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+      }
+
+      .special-tag {
+        background: #222;
+        padding: 2px 4px;
+        border-radius: 3px;
+        color: var(--gold);
+      }
+
+      #preview-panel {
+        margin-top: 10px;
+        border-top: 2px solid var(--gold);
+        padding-top: 10px;
+        display: none;
+      }
+
+      .upgrade-row {
+        display: flex;
+        align-items: center;
+        margin-bottom: 5px;
+        background: #000;
+        padding: 5px;
+        border: 1px solid #444;
+        transition: opacity 0.3s;
+        cursor: help;
+      }
+
+      .upgrade-row:hover {
+        background: #222;
+        border-color: var(--gold);
+      }
+
+      .upgrade-row.locked {
+        opacity: 0.3;
+        pointer-events: none;
+        border-color: #333;
+      }
+
+      .upgrade-info {
+        flex: 1;
+        font-size: 10px;
+      }
+
+      .path-name {
+        font-weight: bold;
+        margin-bottom: 2px;
+      }
+
+      .upgrade-btn {
+        width: 60px;
+        margin-left: 5px;
+        background: var(--green);
+        color: white;
+      }
+
+      .sell-btn {
+        width: 100%;
+        background: var(--red);
+        color: white;
+        margin-top: 10px;
+      }
+
+      /* New Priority Button Style */
+      .priority-btn {
+        width: 100%;
+        background: #333;
+        color: var(--gold);
+        margin-top: 5px;
+        margin-bottom: 10px;
+        border: 1px dashed var(--gold);
+      }
+      .priority-btn:hover {
+        background: #444;
+      }
+
+      .info-btn {
+        width: 100%;
+        background: #444;
+        color: var(--gold);
+        margin-top: 5px;
+        margin-bottom: 5px;
+      }
+
+      /* Roguelite Modal & Tower Info Modal */
+      .modal-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.9);
+        display: none;
+        justify-content: center;
+        align-items: center;
+        z-index: 2000; /* FIX: Increased Z-Index to guarantee it shows over everything */
+        flex-direction: column;
+      }
+
+      .card-container {
+        display: flex;
+        gap: 20px;
+      }
+
+      .rogue-card {
+        width: 200px;
+        height: 300px;
+        background: var(--ui-bg);
+        border: 2px solid var(--gold);
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        cursor: pointer;
+        transition: transform 0.2s;
+      }
+
+      .rogue-card:hover {
+        transform: scale(1.05);
+        background: #333;
+      }
+
+      .card-title {
+        color: var(--gold);
+        font-size: 18px;
+        margin-bottom: 15px;
+        border-bottom: 1px solid #555;
+        width: 100%;
+        padding-bottom: 10px;
+      }
+
+      .card-desc {
+        font-size: 12px;
+        line-height: 1.4;
+        flex: 1;
+      }
+
+      /* Tower Detail Specifics */
+      #tower-detail-content {
+        background: var(--ui-bg);
+        border: 2px solid var(--gold);
+        padding: 30px;
+        width: 500px;
+        max-width: 90%;
+        color: var(--text);
+        font-family: "Courier New", Courier, monospace;
+      }
+
+      .detail-row {
+        display: flex;
+        justify-content: space-between;
+        border-bottom: 1px solid #444;
+        padding: 10px 0;
+      }
+
+      .detail-row:last-child {
+        border-bottom: none;
+      }
+
+      #game-over {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(50, 0, 0, 0.9);
+        display: none;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        color: var(--gold);
+        z-index: 200;
+      }
+
+      #tooltip {
+        position: absolute;
+        background: rgba(0, 0, 0, 0.95);
+        border: 1px solid var(--gold);
+        padding: 8px;
+        pointer-events: none;
+        display: none;
+        font-size: 12px;
+        max-width: 220px;
+        z-index: 300;
+        color: white;
+        box-shadow: 0 0 10px #000;
+      }
+
+      /* NEW INTEL TOOLTIP STYLES */
+      .intel-icon {
+        cursor: help;
+        color: cyan;
+        font-size: 12px;
+        margin-left: 5px;
+        border-bottom: 1px dotted cyan;
+      }
+
+      #intel-popup {
+        position: absolute;
+        left: 320px; /* To the right of sidebar */
+        top: 100px;
+        background: var(--ui-bg);
+        border: 2px solid var(--gold);
+        padding: 15px;
+        width: 250px;
+        display: none;
+        z-index: 500;
+        box-shadow: 0 0 20px #000;
+      }
+
+      .intel-row {
+        display: flex;
+        align-items: center;
+        margin-bottom: 8px;
+        font-size: 11px;
+        color: #ccc;
+      }
+
+      .intel-shape {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        margin-right: 10px;
+        border: 1px solid #000;
+        flex-shrink: 0;
+      }
+
+      .tooltip-title {
+        color: var(--gold);
+        font-weight: bold;
+        border-bottom: 1px solid #555;
+        padding-bottom: 3px;
+        margin-bottom: 3px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="game-container">
+      <canvas id="gameCanvas" width="900" height="800"></canvas>
+
+      <div id="sidebar">
+        <h2>Sector Command</h2>
+
+        <div class="resources">
+          <div class="stat-box">
+            <span>Wave:</span> <span id="wave-display">1</span>
+          </div>
+          <div class="stat-box">
+            <span>Lives:</span>
+            <span id="lives-display" style="color: var(--red)">20</span>
+          </div>
+          <div class="stat-box">
+            <span>Requisition:</span>
+            <span id="money-display" style="color: var(--gold)">100</span>
+          </div>
+          <div class="stat-box">
+            <span>Enemies:</span>
+            <span>
+              <span id="enemy-display">0</span>
+              <span
+                class="intel-icon"
+                onmouseenter="document.getElementById('intel-popup').style.display='block'"
+                onmouseleave="document.getElementById('intel-popup').style.display='none'"
+                >[?]</span
+              >
+            </span>
+          </div>
+        </div>
+
+        <!-- NEW INTEL POPUP -->
+        <div id="intel-popup">
+          <h3 style="margin-top: 0; font-size: 14px">Xenos Identification</h3>
+
+          <div class="intel-row">
+            <div
+              class="intel-shape"
+              style="background: #d35400; width: 16px; height: 16px"
+            ></div>
+            <div><strong>Cultist (Orange):</strong><br />Fast, Low Health.</div>
+          </div>
+          <div class="intel-row">
+            <div class="intel-shape" style="background: #8a0e0e"></div>
+            <div><strong>Traitor (Red):</strong><br />Standard Infantry.</div>
+          </div>
+          <div class="intel-row">
+            <div
+              class="intel-shape"
+              style="background: #1e591e; width: 26px; height: 26px"
+            ></div>
+            <div><strong>Marine (Green):</strong><br />Slow, High HP Tank.</div>
+          </div>
+          <hr style="border: 0; border-top: 1px solid #444; margin: 5px 0" />
+          <div class="intel-row">
+            <div
+              class="intel-shape"
+              style="background: #333; border: 3px solid #bdc3c7"
+            ></div>
+            <div>
+              <strong>Silver Border:</strong><br />Represents Armor Rating.<br />Thicker
+              = Higher Armor.
+            </div>
+          </div>
+          <div class="intel-row">
+            <div
+              class="intel-shape"
+              style="background: #8a0e0e; border: 2px solid red"
+            ></div>
+            <div><strong>Red Outline:</strong><br />Armor Shredded (Vuln).</div>
+          </div>
+        </div>
+
+        <div class="controls">
+          <button
+            id="start-wave-btn"
+            onclick="if(window.game) game.startWave()"
+          >
+            Start Purge
+          </button>
+          <button onclick="if(window.game) game.toggleSpeed()">
+            Speed: <span id="speed-display">1x</span>
+          </button>
+        </div>
+
+        <h3>Deploy Defenses</h3>
+        <div class="controls" id="build-menu">
+          <!-- Buttons generated by JS -->
+        </div>
+
+        <div id="selection-panel">
+          <h3>Unit Cogitator</h3>
+          <div
+            id="selected-info"
+            style="margin-bottom: 5px; text-align: center; font-weight: bold"
+          ></div>
+
+          <!-- NEW LIVE DIAGNOSTICS PANEL -->
+          <div id="current-stats">
+            <div style="text-align: center; color: #777; margin-bottom: 3px">
+              -- LIVE DIAGNOSTICS --
+            </div>
+            <div class="stat-box">
+              <span>Damage:</span>
+              <span id="cs-dmg" style="color: cyan">0</span>
+            </div>
+            <div class="stat-box">
+              <span>Fire Rate:</span>
+              <span id="cs-rate" style="color: orange">0</span>
+            </div>
+            <div class="stat-box">
+              <span>Range:</span> <span id="cs-rng" style="color: lime">0</span>
+            </div>
+            <div class="stat-box">
+              <span>Crit Chance:</span>
+              <span id="cs-crit" style="color: magenta">0%</span>
+            </div>
+
+            <!-- NEW COMBAT RECORD -->
+            <div
+              style="
+                border-top: 1px dashed #444;
+                margin: 5px 0;
+                padding-top: 5px;
+              "
+            >
+              <div class="stat-box">
+                <span>Kills:</span>
+                <span id="cs-kills" style="color: red">0</span>
+              </div>
+              <div class="stat-box">
+                <span>Total Dmg:</span>
+                <span id="cs-total-dmg" style="color: gold">0</span>
+              </div>
+            </div>
+
+            <div id="cs-specials" class="specials-list"></div>
+          </div>
+
+          <button class="info-btn" onclick="game.showTowerDetails()">
+            Unit Data Log
+          </button>
+
+          <!-- NEW PRIORITY BUTTON -->
+          <button
+            class="priority-btn"
+            id="btn-priority"
+            onclick="game.togglePriority()"
+          >
+            Target: First
+          </button>
+
+          <div class="upgrade-row" id="row-up-0">
+            <div class="upgrade-info">
+              <div class="path-name" id="name-up-0" style="color: cyan">
+                Path 1
+              </div>
+              <div id="lvl-up-0">Lvl: 0</div>
+            </div>
+            <button
+              class="upgrade-btn"
+              id="btn-up-0"
+              onclick="game.upgradeTower(0)"
+            >
+              + <span id="cost-up-0">10</span>
+            </button>
+          </div>
+
+          <div class="upgrade-row" id="row-up-1">
+            <div class="upgrade-info">
+              <div class="path-name" id="name-up-1" style="color: orange">
+                Path 2
+              </div>
+              <div id="lvl-up-1">Lvl: 0</div>
+            </div>
+            <button
+              class="upgrade-btn"
+              id="btn-up-1"
+              onclick="game.upgradeTower(1)"
+            >
+              + <span id="cost-up-1">10</span>
+            </button>
+          </div>
+
+          <div class="upgrade-row" id="row-up-2">
+            <div class="upgrade-info">
+              <div class="path-name" id="name-up-2" style="color: lime">
+                Path 3
+              </div>
+              <div id="lvl-up-2">Lvl: 0</div>
+            </div>
+            <button
+              class="upgrade-btn"
+              id="btn-up-2"
+              onclick="game.upgradeTower(2)"
+            >
+              + <span id="cost-up-2">10</span>
+            </button>
+          </div>
+
+          <div
+            style="
+              font-size: 9px;
+              color: #777;
+              margin-top: 5px;
+              text-align: center;
+            "
+          >
+            Limit: 2 Paths. Max Specialization: 1 Path > Lvl 2.
+          </div>
+
+          <button class="sell-btn" onclick="game.sellTower()">
+            Sacrifice Unit (+<span id="sell-val">0</span>)
+          </button>
+        </div>
+
+        <div id="preview-panel">
+          <h3 id="prev-name" style="color: var(--gold)">Unit Info</h3>
+          <div
+            id="prev-desc"
+            style="
+              font-style: italic;
+              font-size: 11px;
+              margin-bottom: 10px;
+              color: #aaa;
+              text-align: center;
+            "
+          ></div>
+          <div class="stat-box">
+            <span>Damage:</span> <span id="prev-dmg" style="color: cyan"></span>
+          </div>
+          <div class="stat-box">
+            <span>Range:</span> <span id="prev-rng" style="color: lime"></span>
+          </div>
+          <div class="stat-box">
+            <span>Fire Rate:</span>
+            <span id="prev-spd" style="color: orange"></span>
+          </div>
+          <div
+            style="
+              font-size: 10px;
+              margin-top: 5px;
+              color: #777;
+              border-top: 1px solid #333;
+              padding-top: 5px;
+            "
+          >
+            <div style="margin-bottom: 3px; font-weight: bold">Tech Paths:</div>
+            <div id="prev-paths" style="color: #aaa"></div>
+          </div>
+        </div>
+
+        <div
+          style="
+            margin-top: auto;
+            font-size: 10px;
+            color: #555;
+            text-align: center;
+          "
+        >
+          Praise the Omnissiah.<br />Defend until wave 100.
+        </div>
+      </div>
+    </div>
+
+    <div id="rogue-modal" class="modal-overlay">
+      <h1 style="font-size: 40px; margin-bottom: 40px">
+        STC Fragment Discovered
+      </h1>
+      <div class="card-container" id="rogue-cards">
+        <!-- Cards go here -->
+      </div>
+      <!-- ADDED: Fail-safe close button -->
+      <button
+        onclick="if(window.game) { window.game.lastRogueliteWave = window.game.wave - 1; document.getElementById('rogue-modal').style.display='none'; }"
+        style="
+          margin-top: 30px;
+          padding: 10px 20px;
+          background: #333;
+          color: #777;
+          border: 1px solid #555;
+          cursor: pointer;
+        "
+      >
+        Dismiss Signal (Skip)
+      </button>
+    </div>
+
+    <div
+      id="tower-modal"
+      class="modal-overlay"
+      style="z-index: 150"
+      onclick="this.style.display='none'"
+    >
+      <div id="tower-detail-content" onclick="event.stopPropagation()">
+        <h2 id="td-title">Tower Name</h2>
+        <p
+          id="td-desc"
+          style="font-style: italic; color: #aaa; margin-bottom: 20px"
+        ></p>
+
+        <div class="detail-row">
+          <strong style="color: cyan">Path 1:</strong>
+          <span id="td-p1"></span>
+        </div>
+        <div class="detail-row">
+          <strong style="color: orange">Path 2:</strong>
+          <span id="td-p2"></span>
+        </div>
+        <div class="detail-row">
+          <strong style="color: lime">Path 3:</strong>
+          <span id="td-p3"></span>
+        </div>
+
+        <button
+          onclick="document.getElementById('tower-modal').style.display='none'"
+          style="width: 100%; margin-top: 20px"
+        >
+          Close Log
+        </button>
+      </div>
+    </div>
+
+    <div id="game-over">
+      <h1 style="font-size: 60px; color: red">SECTOR LOST</h1>
+      <h2 id="final-wave">Wave Reached: 0</h2>
+      <button
+        onclick="location.reload()"
+        style="font-size: 20px; padding: 20px; margin-top: 20px"
+      >
+        Restart Simulation
+      </button>
+    </div>
+
+    <div id="tooltip"></div>
+
+    <script>
+      /**
+       * 40k TOWER DEFENSE - Single File
+       */
+
+      // --- CONFIGURATION ---
+
+      const TOWER_TYPES = [
+        {
+          // BUFF: Dmg 6 -> 7
+          id: 0,
+          name: "Guardsman",
+          cost: 25,
+          color: "#5a6e49",
+          range: 100,
+          damage: 7,
+          speed: 40,
+          desc: "Cheap, reliable mass infantry.",
+          upgrades: [
+            {
+              name: "Las-Tech",
+              base: { type: "damage", val: 0.15 },
+              milestones: [
+                {
+                  lvl: 1,
+                  type: "burn",
+                  val: 1,
+                  name: "Hotshot Pack",
+                  desc: "Applies Burn",
+                },
+                {
+                  lvl: 3,
+                  type: "pierce",
+                  val: 1,
+                  name: "Overcharge",
+                  desc: "+1 Pierce",
+                },
+                {
+                  lvl: 5,
+                  type: "shred",
+                  val: 0.3,
+                  name: "Hellgun",
+                  desc: "Shreds Armor (+30%)",
+                }, // Buffed Shred
+              ],
+            },
+            {
+              name: "Orders",
+              base: { type: "speed", val: 0.1 },
+              milestones: [
+                {
+                  lvl: 1,
+                  type: "crit",
+                  val: 0.1,
+                  name: "Take Aim!",
+                  desc: "+10% Crit",
+                },
+                {
+                  lvl: 3,
+                  type: "range",
+                  val: 0.4,
+                  name: "Move Move!",
+                  desc: "+40% Range",
+                },
+                {
+                  lvl: 5,
+                  type: "multishot",
+                  val: 2,
+                  name: "Rank Fire!",
+                  desc: "+2 Projectiles",
+                },
+              ],
+            },
+            {
+              name: "Equipment",
+              base: { type: "range", val: 0.15 },
+              milestones: [
+                {
+                  lvl: 1,
+                  type: "stun",
+                  val: 0.1,
+                  name: "Frag Grenade",
+                  desc: "Mini-Stun",
+                },
+                {
+                  lvl: 3,
+                  type: "splash",
+                  val: 20,
+                  name: "Grenade Launcher",
+                  desc: "20px Splash",
+                },
+                {
+                  lvl: 5,
+                  type: "explode",
+                  val: 30,
+                  name: "Melta Bomb",
+                  desc: "Enemies Explode (30dmg)",
+                },
+              ],
+            },
+          ],
+        },
+        {
+          id: 1,
+          name: "Sniper",
+          cost: 55,
+          color: "#333",
+          range: 250,
+          damage: 30,
+          speed: 120,
+          desc: "Long range, high single damage.",
+          upgrades: [
+            {
+              name: "Vindicare",
+              base: { type: "damage", val: 0.2 },
+              milestones: [
+                {
+                  lvl: 1,
+                  type: "crit",
+                  val: 0.2,
+                  name: "Headshot",
+                  desc: "+20% Crit",
+                },
+                {
+                  lvl: 3,
+                  type: "execute",
+                  val: 0.2,
+                  name: "Deadshot",
+                  desc: "Execute < 20% HP",
+                }, // Buffed Execute
+                {
+                  lvl: 5,
+                  type: "global",
+                  val: 1,
+                  name: "Exitus Rifle",
+                  desc: "Infinite Range",
+                },
+              ],
+            },
+            {
+              name: "Ratling",
+              base: { type: "speed", val: 0.15 },
+              milestones: [
+                {
+                  lvl: 1,
+                  type: "multishot",
+                  val: 1,
+                  name: "Rapid Reload",
+                  desc: "+1 Shot",
+                },
+                {
+                  lvl: 3,
+                  type: "pierce",
+                  val: 2,
+                  name: "Needle Round",
+                  desc: "+2 Pierce",
+                },
+                {
+                  lvl: 5,
+                  type: "shred",
+                  val: 0.3,
+                  name: "Toxin Coating",
+                  desc: "+30% Shred",
+                },
+              ],
+            },
+            {
+              name: "Stealth",
+              base: { type: "range", val: 0.1 },
+              milestones: [
+                {
+                  lvl: 1,
+                  type: "slow",
+                  val: 0.2,
+                  name: "Pinning Fire",
+                  desc: "20% Slow",
+                },
+                {
+                  lvl: 3,
+                  type: "crit",
+                  val: 0.3,
+                  name: "Ambush",
+                  desc: "+30% Crit",
+                },
+                {
+                  lvl: 5,
+                  type: "damage",
+                  val: 1.0,
+                  name: "Kill Zone",
+                  desc: "+100% Damage",
+                },
+              ],
+            },
+          ],
+        },
+        {
+          // BUFF: Dmg 3 -> 4. Burn Upgrades boosted (Burn ignores armor)
+          id: 2,
+          name: "Flamer",
+          cost: 70,
+          color: "#d35400",
+          range: 70,
+          damage: 4,
+          speed: 5,
+          aoe: true,
+          desc: "Short range AOE spray.",
+          upgrades: [
+            {
+              name: "Promethium",
+              base: { type: "damage", val: 0.2 },
+              milestones: [
+                {
+                  lvl: 1,
+                  type: "burn",
+                  val: 3,
+                  name: "Ignition",
+                  desc: "Strong Burn (3)",
+                },
+                {
+                  lvl: 3,
+                  type: "burn",
+                  val: 6,
+                  name: "Chemical Mix",
+                  desc: "Intense Burn (6)",
+                },
+                {
+                  lvl: 5,
+                  type: "shred",
+                  val: 0.25,
+                  name: "Melting Point",
+                  desc: "+25% Shred",
+                },
+              ],
+            },
+            {
+              name: "Projection",
+              base: { type: "range", val: 0.2 },
+              milestones: [
+                {
+                  lvl: 1,
+                  type: "slow",
+                  val: 0.15,
+                  name: "Sticky Fuel",
+                  desc: "15% Slow",
+                },
+                {
+                  lvl: 3,
+                  type: "range",
+                  val: 0.5,
+                  name: "High Pressure",
+                  desc: "+50% Range",
+                },
+                {
+                  lvl: 5,
+                  type: "stun",
+                  val: 0.1,
+                  name: "Heat Shock",
+                  desc: "Mini-Stun",
+                },
+              ],
+            },
+            {
+              name: "Cataclysm",
+              base: { type: "damage", val: 0.1 },
+              milestones: [
+                {
+                  lvl: 1,
+                  type: "explode",
+                  val: 15,
+                  name: "Combust",
+                  desc: "Explode (15dmg)",
+                },
+                {
+                  lvl: 3,
+                  type: "explode",
+                  val: 40,
+                  name: "Chain Reaction",
+                  desc: "Explode (40dmg)",
+                },
+                {
+                  lvl: 5,
+                  type: "explode",
+                  val: 100,
+                  name: "Inferno",
+                  desc: "Explode (100dmg)",
+                },
+              ],
+            },
+          ],
+        },
+        {
+          id: 3,
+          name: "Bolter Turret",
+          cost: 110,
+          color: "#2980b9",
+          range: 120,
+          damage: 18,
+          speed: 25,
+          desc: "Heavy armor piercing rounds.",
+          upgrades: [
+            {
+              name: "Heavy Bolter",
+              base: { type: "damage", val: 0.2 },
+              milestones: [
+                {
+                  lvl: 1,
+                  type: "pierce",
+                  val: 1,
+                  name: "Armor Piercing",
+                  desc: "+1 Pierce",
+                },
+                {
+                  lvl: 3,
+                  type: "shred",
+                  val: 0.15,
+                  name: "Shatter",
+                  desc: "+15% Shred",
+                },
+                {
+                  lvl: 5,
+                  type: "execute",
+                  val: 0.1,
+                  name: "Mass Reactive",
+                  desc: "Execute < 10%",
+                },
+              ],
+            },
+            {
+              name: "Hurricane",
+              base: { type: "speed", val: 0.15 },
+              milestones: [
+                {
+                  lvl: 1,
+                  type: "multishot",
+                  val: 1,
+                  name: "Twin-Linked",
+                  desc: "+1 Shot",
+                },
+                {
+                  lvl: 3,
+                  type: "multishot",
+                  val: 1,
+                  name: "Quad-Gun",
+                  desc: "+1 Shot",
+                },
+                {
+                  lvl: 5,
+                  type: "multishot",
+                  val: 2,
+                  name: "Hurricane",
+                  desc: "+2 Shots",
+                },
+              ],
+            },
+            {
+              name: "Special Issue",
+              base: { type: "range", val: 0.1 },
+              milestones: [
+                {
+                  lvl: 1,
+                  type: "burn",
+                  val: 2,
+                  name: "Dragonfire",
+                  desc: "Burn Ammo",
+                },
+                {
+                  lvl: 3,
+                  type: "range",
+                  val: 0.4,
+                  name: "Kraken Bolts",
+                  desc: "+40% Range",
+                },
+                {
+                  lvl: 5,
+                  type: "splash",
+                  val: 40,
+                  name: "Vengeance",
+                  desc: "40px Splash",
+                },
+              ],
+            },
+          ],
+        },
+        {
+          // BUFF: Chain count increased early game
+          id: 4,
+          name: "Psyker",
+          cost: 150,
+          color: "#8e44ad",
+          range: 140,
+          damage: 8,
+          speed: 60,
+          slow: 0.3,
+          desc: "Slows enemies with warp energy.",
+          upgrades: [
+            {
+              name: "Telekine",
+              base: { type: "slow", val: 0.05 },
+              milestones: [
+                {
+                  lvl: 1,
+                  type: "stun",
+                  val: 0.4,
+                  name: "Hold",
+                  desc: "0.4s Stun",
+                },
+                {
+                  lvl: 3,
+                  type: "splash",
+                  val: 50,
+                  name: "Crush",
+                  desc: "50px Radius",
+                },
+                {
+                  lvl: 5,
+                  type: "stun",
+                  val: 1.5,
+                  name: "Stasis",
+                  desc: "1.5s Stun",
+                },
+              ],
+            },
+            {
+              name: "Biomancy",
+              base: { type: "damage", val: 0.2 },
+              milestones: [
+                {
+                  lvl: 1,
+                  type: "chain",
+                  val: 2,
+                  name: "Lightning",
+                  desc: "Chain +2",
+                },
+                {
+                  lvl: 3,
+                  type: "chain",
+                  val: 3,
+                  name: "Arcing Energy",
+                  desc: "Chain +3",
+                },
+                {
+                  lvl: 5,
+                  type: "chain",
+                  val: 6,
+                  name: "Smite",
+                  desc: "Chain +6",
+                },
+              ],
+            },
+            {
+              name: "Divination",
+              base: { type: "range", val: 0.15 },
+              milestones: [
+                {
+                  lvl: 1,
+                  type: "shred",
+                  val: 0.15,
+                  name: "Misfortune",
+                  desc: "+15% Shred",
+                },
+                {
+                  lvl: 3,
+                  type: "crit",
+                  val: 0.25,
+                  name: "Prescience",
+                  desc: "+25% Crit",
+                },
+                {
+                  lvl: 5,
+                  type: "execute",
+                  val: 0.2,
+                  name: "Doom",
+                  desc: "Execute < 20%",
+                },
+              ],
+            },
+          ],
+        },
+        {
+          // BUFF: Dmg 70->80. Cost 250->275.
+          id: 5,
+          name: "Plasma Cannon",
+          cost: 275,
+          color: "#3498db",
+          range: 160,
+          damage: 80,
+          speed: 90,
+          splash: 45,
+          desc: "Explosive plasma blasts.",
+          upgrades: [
+            {
+              name: "Reactor",
+              base: { type: "damage", val: 0.25 },
+              milestones: [
+                {
+                  lvl: 1,
+                  type: "splash",
+                  val: 15,
+                  name: "Vent Heat",
+                  desc: "+15px Splash",
+                },
+                {
+                  lvl: 3,
+                  type: "burn",
+                  val: 5,
+                  name: "Plasma Burn",
+                  desc: "High Burn",
+                },
+                {
+                  lvl: 5,
+                  type: "damage",
+                  val: 1.0,
+                  name: "Sunfury",
+                  desc: "+100% Damage",
+                },
+              ],
+            },
+            {
+              name: "Overcharge",
+              base: { type: "range", val: 0.1 },
+              milestones: [
+                {
+                  lvl: 1,
+                  type: "crit",
+                  val: 0.2,
+                  name: "Risk",
+                  desc: "+20% Crit",
+                },
+                {
+                  lvl: 3,
+                  type: "crit",
+                  val: 0.3,
+                  name: "Danger",
+                  desc: "+30% Crit",
+                },
+                {
+                  lvl: 5,
+                  type: "crit",
+                  val: 0.5,
+                  name: "Max Power",
+                  desc: "+50% Crit",
+                },
+              ],
+            },
+            {
+              name: "Rapid Fire",
+              base: { type: "speed", val: 0.15 },
+              milestones: [
+                {
+                  lvl: 1,
+                  type: "multishot",
+                  val: 1,
+                  name: "Double Tap",
+                  desc: "+1 Shot",
+                },
+                {
+                  lvl: 3,
+                  type: "pierce",
+                  val: 2,
+                  name: "Phasing",
+                  desc: "+2 Pierce",
+                },
+                {
+                  lvl: 5,
+                  type: "multishot",
+                  val: 2,
+                  name: "Barrage",
+                  desc: "+2 Shots",
+                },
+              ],
+            },
+          ],
+        },
+        {
+          id: 6,
+          name: "Melta Gun",
+          cost: 350,
+          color: "#f1c40f",
+          range: 90,
+          damage: 160,
+          speed: 80,
+          desc: "Melts armor close up.",
+          upgrades: [
+            {
+              name: "Fusion",
+              base: { type: "damage", val: 0.3 },
+              milestones: [
+                {
+                  lvl: 1,
+                  type: "shred",
+                  val: 0.2,
+                  name: "Melting",
+                  desc: "+20% Shred",
+                },
+                {
+                  lvl: 3,
+                  type: "shred",
+                  val: 0.3,
+                  name: "Slag",
+                  desc: "+30% Shred",
+                },
+                {
+                  lvl: 5,
+                  type: "execute",
+                  val: 0.25,
+                  name: "Vaporize",
+                  desc: "Execute < 25%",
+                },
+              ],
+            },
+            {
+              name: "Beams",
+              base: { type: "range", val: 0.1 },
+              milestones: [
+                {
+                  lvl: 1,
+                  type: "pierce",
+                  val: 2,
+                  name: "Punch Through",
+                  desc: "+2 Pierce",
+                },
+                {
+                  lvl: 3,
+                  type: "pierce",
+                  val: 3,
+                  name: "Lance",
+                  desc: "+3 Pierce",
+                },
+                {
+                  lvl: 5,
+                  type: "pierce",
+                  val: 10,
+                  name: "Orbital Beam",
+                  desc: "+10 Pierce",
+                },
+              ],
+            },
+            {
+              name: "Thermal",
+              base: { type: "speed", val: 0.1 },
+              milestones: [
+                {
+                  lvl: 1,
+                  type: "slow",
+                  val: 0.2,
+                  name: "Heat Haze",
+                  desc: "20% Slow",
+                },
+                {
+                  lvl: 3,
+                  type: "burn",
+                  val: 10,
+                  name: "Magma",
+                  desc: "Extreme Burn",
+                },
+                {
+                  lvl: 5,
+                  type: "splash",
+                  val: 50,
+                  name: "Eruption",
+                  desc: "50px Splash",
+                },
+              ],
+            },
+          ],
+        },
+        {
+          // NERF: Cost 500->550. Speed 15->18.
+          id: 7,
+          name: "Autocannon",
+          cost: 550,
+          color: "#7f8c8d",
+          range: 200,
+          damage: 45,
+          speed: 18,
+          desc: "Rapid fire suppression.",
+          upgrades: [
+            {
+              name: "Suppressor",
+              base: { type: "speed", val: 0.2 },
+              milestones: [
+                {
+                  lvl: 1,
+                  type: "stun",
+                  val: 0.1,
+                  name: "Impact",
+                  desc: "Micro-Stun",
+                },
+                {
+                  lvl: 3,
+                  type: "slow",
+                  val: 0.5,
+                  name: "Pinning",
+                  desc: "50% Slow",
+                }, // Buffed Slow
+                {
+                  lvl: 5,
+                  type: "stun",
+                  val: 0.3,
+                  name: "Lockdown",
+                  desc: "0.3s Stun",
+                },
+              ],
+            },
+            {
+              name: "Havoc",
+              base: { type: "damage", val: 0.15 },
+              milestones: [
+                {
+                  lvl: 1,
+                  type: "splash",
+                  val: 20,
+                  name: "HE Rounds",
+                  desc: "20px Splash",
+                },
+                {
+                  lvl: 3,
+                  type: "pierce",
+                  val: 2,
+                  name: "AP Rounds",
+                  desc: "+2 Pierce",
+                },
+                {
+                  lvl: 5,
+                  type: "multishot",
+                  val: 2,
+                  name: "Quad-Link",
+                  desc: "+2 Shots",
+                },
+              ],
+            },
+            {
+              name: "Reaper",
+              base: { type: "range", val: 0.2 },
+              milestones: [
+                {
+                  lvl: 1,
+                  type: "shred",
+                  val: 0.1,
+                  name: "Rend",
+                  desc: "+10% Shred",
+                },
+                {
+                  lvl: 3,
+                  type: "crit",
+                  val: 0.2,
+                  name: "Shredder",
+                  desc: "+20% Crit",
+                },
+                {
+                  lvl: 5,
+                  type: "execute",
+                  val: 0.15,
+                  name: "Reaper",
+                  desc: "Execute < 15%",
+                },
+              ],
+            },
+          ],
+        },
+        {
+          id: 8,
+          name: "Missile Silo",
+          cost: 800,
+          color: "#c0392b",
+          range: 400,
+          damage: 120,
+          speed: 150,
+          splash: 60,
+          desc: "Map-wide artillery support.",
+          upgrades: [
+            {
+              name: "Whirlwind",
+              base: { type: "speed", val: 0.15 },
+              milestones: [
+                {
+                  lvl: 1,
+                  type: "multishot",
+                  val: 1,
+                  name: "Battery",
+                  desc: "+1 Shot",
+                },
+                {
+                  lvl: 3,
+                  type: "multishot",
+                  val: 2,
+                  name: "Barrage",
+                  desc: "+2 Shots",
+                },
+                {
+                  lvl: 5,
+                  type: "multishot",
+                  val: 4,
+                  name: "Saturation",
+                  desc: "+4 Shots",
+                },
+              ],
+            },
+            {
+              name: "Manticore",
+              base: { type: "damage", val: 0.2 },
+              milestones: [
+                {
+                  lvl: 1,
+                  type: "splash",
+                  val: 30,
+                  name: "Big Boom",
+                  desc: "+30px Splash",
+                },
+                {
+                  lvl: 3,
+                  type: "burn",
+                  val: 5,
+                  name: "Incendiary",
+                  desc: "High Burn",
+                },
+                {
+                  lvl: 5,
+                  type: "splash",
+                  val: 100,
+                  name: "Storm Eagle",
+                  desc: "+100px Splash",
+                },
+              ],
+            },
+            {
+              name: "Hunter",
+              base: { type: "range", val: 0.5 },
+              milestones: [
+                {
+                  lvl: 1,
+                  type: "global",
+                  val: 1,
+                  name: "Uplink",
+                  desc: "Global Range",
+                },
+                {
+                  lvl: 3,
+                  type: "crit",
+                  val: 0.5,
+                  name: "Guidance",
+                  desc: "+50% Crit",
+                },
+                {
+                  lvl: 5,
+                  type: "execute",
+                  val: 0.2,
+                  name: "HK Missile",
+                  desc: "Execute < 20%",
+                },
+              ],
+            },
+          ],
+        },
+        {
+          // BUFF: Range 220 -> 250
+          id: 9,
+          name: "Titan",
+          cost: 3500,
+          color: "#ecf0f1",
+          range: 250,
+          damage: 800,
+          speed: 40,
+          splash: 80,
+          desc: "The God-Machine. Devastation.",
+          upgrades: [
+            {
+              name: "God-Breaker",
+              base: { type: "damage", val: 0.3 },
+              milestones: [
+                {
+                  lvl: 1,
+                  type: "execute",
+                  val: 0.1,
+                  name: "Crush",
+                  desc: "Execute < 10%",
+                },
+                {
+                  lvl: 3,
+                  type: "shred",
+                  val: 0.5,
+                  name: "Annihilate",
+                  desc: "+50% Shred",
+                },
+                {
+                  lvl: 5,
+                  type: "execute",
+                  val: 0.4,
+                  name: "God-Slayer",
+                  desc: "Execute < 40%",
+                },
+              ],
+            },
+            {
+              name: "Void Shield",
+              base: { type: "range", val: 0.2 },
+              milestones: [
+                {
+                  lvl: 1,
+                  type: "slow",
+                  val: 0.4,
+                  name: "Gravity",
+                  desc: "40% Slow",
+                },
+                {
+                  lvl: 3,
+                  type: "stun",
+                  val: 0.5,
+                  name: "Quake",
+                  desc: "0.5s Stun",
+                },
+                {
+                  lvl: 5,
+                  type: "stun",
+                  val: 2.0,
+                  name: "Time Stop",
+                  desc: "2.0s Stun",
+                },
+              ],
+            },
+            {
+              name: "Apocalypse",
+              base: { type: "speed", val: 0.1 },
+              milestones: [
+                {
+                  lvl: 1,
+                  type: "multishot",
+                  val: 2,
+                  name: "Secondary",
+                  desc: "+2 Shots",
+                },
+                {
+                  lvl: 3,
+                  type: "splash",
+                  val: 100,
+                  name: "Macro",
+                  desc: "+100px Splash",
+                },
+                {
+                  lvl: 5,
+                  type: "multishot",
+                  val: 6,
+                  name: "Full Battery",
+                  desc: "+6 Shots",
+                },
+              ],
+            },
+          ],
+        },
+      ];
+
+      const ROGUE_POWERUPS = [
+        {
+          name: "Bolter Drills",
+          desc: "All towers deal 20% more damage.",
+          apply: (s) => (s.globalDmg *= 1.2),
+        },
+        {
+          name: "Servo Skulls",
+          desc: "All towers have 20% more range.",
+          apply: (s) => (s.globalRange *= 1.2),
+        },
+        {
+          name: "Machine Spirit",
+          desc: "All towers attack 15% faster.",
+          apply: (s) => (s.globalSpeed *= 0.85),
+        },
+        {
+          name: "Tithe",
+          desc: "Enemies drop 25% more Requisition.",
+          apply: (s) => (s.moneyMult *= 1.25),
+        },
+        {
+          name: "Fortification",
+          desc: "Towers cost 15% less to build.",
+          apply: (s) => (s.costDiscount *= 0.85),
+        },
+        {
+          name: "Warp Storm",
+          desc: "Enemies spawn with 10% less HP.",
+          apply: (s) => (s.enemyHpMult *= 0.9),
+        }, // NERFED: 20% -> 10%
+        {
+          name: "Salvage Rights",
+          desc: "Sell refund increased to 90%.",
+          apply: (s) => (s.sellRefund = 0.9),
+        },
+        {
+          name: "Explosive Rounds",
+          // Dynamic description based on current state
+          getDesc: (s) =>
+            s.globalSplash
+              ? "Increases Blast Radius by 15."
+              : "All Projectiles gain Splash (30px).",
+          apply: (s) => {
+            s.globalSplash = true;
+            s.globalSplashRadius =
+              (s.globalSplashRadius || 0) +
+              (s.globalSplashRadius === 0 ? 30 : 15);
+          },
+        },
+        {
+          name: "Critical Weakness",
+          desc: "10% chance for 3x Damage.",
+          apply: (s) => (s.critChance += 0.1),
+        },
+        {
+          name: "Emperor's Grace",
+          desc: "Restore 10 Lives.",
+          apply: (s) => (s.lives += 10),
+        },
+      ];
+
+      // --- ENGINE ---
+
+      class Game {
+        constructor() {
+          this.canvas = document.getElementById("gameCanvas");
+          this.ctx = this.canvas.getContext("2d");
+          this.width = this.canvas.width;
+          this.height = this.canvas.height;
+
+          // Randomize Theme & Map
+          this.generateTheme();
+          this.path = this.generatePath();
+          this.generateMapDetails();
+
+          this.reset();
+          this.initInput();
+          this.initUI();
+
+          // FIX: Force UI update immediately to gray out unaffordable towers
+          this.updateUI();
+
+          this.lastTime = 0;
+          requestAnimationFrame((t) => this.loop(t));
+        }
+
+        generateTheme() {
+          const themes = [
+            {
+              bg: "#111111",
+              grid: "#333333",
+              detail: "#0a0a0a",
+              name: "Void Station",
+            },
+            {
+              bg: "#221515",
+              grid: "#442222",
+              detail: "#150a0a",
+              name: "Mars Wastes",
+            },
+            {
+              bg: "#111811",
+              grid: "#1a331a",
+              detail: "#0a110a",
+              name: "Death World",
+            },
+            {
+              bg: "#111118",
+              grid: "#1a1a33",
+              detail: "#0a0a15",
+              name: "Ice World",
+            },
+          ];
+          this.theme = themes[Math.floor(Math.random() * themes.length)];
+          console.log("Sector Theme:", this.theme.name);
+        }
+
+        generatePath() {
+          const points = [];
+          // Start on left side, random height (15% to 85% height)
+          let currentY = 0.15 + Math.random() * 0.7;
+          let currentX = 0;
+
+          points.push({ x: currentX, y: currentY });
+
+          // Orthogonal Path Generation
+          while (currentX < 1) {
+            // 1. Move Horizontally (Right)
+            const moveX = 0.1 + Math.random() * 0.2; // Advance 10-30% width
+            currentX += moveX;
+
+            // Cap at end
+            if (currentX >= 0.95) {
+              currentX = 1.0;
+              points.push({ x: currentX, y: currentY });
+              break;
+            }
+            points.push({ x: currentX, y: currentY });
+
+            // 2. Move Vertically (Change Rows)
+            // Pick a new Y at least 20% away from current Y to avoid tiny jogs
+            let nextY = 0.15 + Math.random() * 0.7;
+            let attempts = 0;
+            while (Math.abs(nextY - currentY) < 0.2 && attempts < 10) {
+              nextY = 0.15 + Math.random() * 0.7;
+              attempts++;
+            }
+
+            points.push({ x: currentX, y: nextY });
+            currentY = nextY;
+          }
+
+          return points.map((p) => ({
+            x: p.x * this.width,
+            y: p.y * this.height,
+          }));
+        }
+
+        generateMapDetails() {
+          this.bgDetails = [];
+
+          // Generate random terrain details (Craters/Ruins)
+          // These are visual only
+          const count = 15 + Math.random() * 10;
+          for (let i = 0; i < count; i++) {
+            this.bgDetails.push({
+              x: Math.random() * this.width,
+              y: Math.random() * this.height,
+              w: 40 + Math.random() * 100,
+              h: 40 + Math.random() * 100,
+              type: Math.random() > 0.5 ? "rect" : "circle",
+            });
+          }
+        }
+
+        reset() {
+          this.wave = 1;
+          this.money = 350; // REDUCED STARTING CASH (Was 450)
+          this.lives = 20;
+          this.enemies = [];
+          this.towers = [];
+          this.projectiles = [];
+          this.particles = [];
+
+          this.waveActive = false;
+          this.waveTimer = 0;
+          this.enemiesToSpawn = [];
+          this.spawnTimer = 0;
+
+          this.selectedTower = null;
+          this.speed = 1;
+          this.placingTowerId = null;
+          this.lastRogueliteWave = 0;
+
+          // Roguelite Stats
+          this.stats = {
+            globalDmg: 1,
+            globalRange: 1,
+            globalSpeed: 1,
+            moneyMult: 1,
+            costDiscount: 1,
+            enemyHpMult: 1,
+            sellRefund: 0.7,
+            globalSplash: false,
+            globalSplashRadius: 0,
+            critChance: 0,
+          };
+        }
+
+        // Math helper
+        distToSegment(p, v, w) {
+          const l2 = (v.x - w.x) ** 2 + (v.y - w.y) ** 2;
+          if (l2 == 0) return Math.hypot(p.x - v.x, p.y - v.y);
+          let t = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2;
+          t = Math.max(0, Math.min(1, t));
+          return Math.hypot(
+            p.x - (v.x + t * (w.x - v.x)),
+            p.y - (v.y + t * (w.y - v.y))
+          );
+        }
+
+        initUI() {
+          const menu = document.getElementById("build-menu");
+          menu.innerHTML = "";
+          TOWER_TYPES.forEach((t) => {
+            const btn = document.createElement("button");
+            btn.className = "tower-btn";
+            btn.innerHTML = `<div style="width:10px; height:10px; background:${t.color}; border-radius:50%"></div>
+                             <span>${t.name}</span>
+                             <span style="color:gold">${t.cost}</span>`;
+            btn.onclick = () => {
+              this.placingTowerId = t.id;
+              this.selectedTower = null;
+              this.updateSelectionPanel();
+              this.showPreviewPanel(t); // Show preview
+            };
+
+            // Tooltip
+            btn.onmouseenter = (e) =>
+              this.showTooltip(e, `${t.name}: ${t.desc}`);
+            btn.onmouseleave = () => this.hideTooltip();
+
+            menu.appendChild(btn);
+          });
+        }
+
+        showPreviewPanel(t) {
+          const panel = document.getElementById("preview-panel");
+          panel.style.display = "block";
+
+          document.getElementById("prev-name").innerText = t.name;
+          document.getElementById("prev-desc").innerText = t.desc;
+          document.getElementById("prev-dmg").innerText = t.damage;
+          document.getElementById("prev-rng").innerText = t.range;
+
+          // Convert frame delay to Shots Per Second for readability
+          // 60 frames / speed = shots per sec
+          const rate = (60 / t.speed).toFixed(1);
+          document.getElementById("prev-spd").innerText = `${rate}/sec`;
+
+          const pathNames = t.upgrades.map((u) => u.name).join(", ");
+          document.getElementById("prev-paths").innerText = pathNames;
+        }
+
+        hidePreviewPanel() {
+          document.getElementById("preview-panel").style.display = "none";
+        }
+
+        showTooltip(e, text) {
+          const tt = document.getElementById("tooltip");
+          tt.innerHTML = text;
+          tt.style.display = "block";
+          tt.style.left = e.pageX + 15 + "px";
+          tt.style.top = e.pageY + 15 + "px";
+        }
+
+        hideTooltip() {
+          document.getElementById("tooltip").style.display = "none";
+        }
+
+        initInput() {
+          this.canvas.addEventListener("mousedown", (e) => {
+            const rect = this.canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            this.handleClick(x, y);
+          });
+
+          // Right click to cancel build
+          this.canvas.addEventListener("contextmenu", (e) => {
+            e.preventDefault();
+            this.placingTowerId = null;
+            this.hidePreviewPanel();
+          });
+
+          // Mouse move for placement preview
+          this.canvas.addEventListener("mousemove", (e) => {
+            const rect = this.canvas.getBoundingClientRect();
+            this.mouseX = e.clientX - rect.left;
+            this.mouseY = e.clientY - rect.top;
+          });
+        }
+
+        handleClick(x, y) {
+          if (this.placingTowerId !== null) {
+            this.tryBuildTower(x, y);
+          } else {
+            // Select logic
+            const clicked = this.towers.find(
+              (t) => Math.hypot(t.x - x, t.y - y) < 20
+            );
+            if (clicked) {
+              this.selectedTower = clicked;
+              this.updateSelectionPanel();
+              this.hidePreviewPanel(); // Ensure preview is hidden when selecting existing
+            } else {
+              this.selectedTower = null;
+              document.getElementById("selection-panel").style.display = "none";
+            }
+          }
+        }
+
+        getModifiedCost(baseCost) {
+          return Math.floor(baseCost * this.stats.costDiscount);
+        }
+
+        tryBuildTower(x, y) {
+          // Check path collision (simple point distance to line segments)
+          let onPath = false;
+          const p = 25; // path radius buffer
+
+          for (let i = 0; i < this.path.length - 1; i++) {
+            const A = this.path[i];
+            const B = this.path[i + 1];
+            const dist = this.distToSegment({ x, y }, A, B);
+            if (dist < p + 15) {
+              // 15 is tower radius
+              onPath = true;
+              break;
+            }
+          }
+
+          // Check overlap
+          const overlap = this.towers.some(
+            (t) => Math.hypot(t.x - x, t.y - y) < 35
+          );
+
+          if (onPath || overlap) return; // Invalid placement
+
+          const type = TOWER_TYPES[this.placingTowerId];
+          const cost = this.getModifiedCost(type.cost);
+
+          if (this.money >= cost) {
+            this.money -= cost;
+            this.towers.push(new Tower(x, y, type, cost));
+            this.placingTowerId = null; // Stop placing
+            this.updateUI();
+            this.hidePreviewPanel(); // Hide preview on success
+
+            // Particle effect
+            for (let i = 0; i < 5; i++) this.spawnParticle(x, y, type.color);
+          }
+        }
+
+        startWave() {
+          if (this.waveActive) return;
+
+          const prevWave = this.wave - 1;
+          if (
+            prevWave > 0 &&
+            prevWave % 5 === 0 &&
+            this.lastRogueliteWave !== prevWave
+          ) {
+            this.triggerRoguelite();
+            return;
+          }
+
+          this.waveActive = true;
+
+          // --- DIFFICULTY & ECONOMY SCALING ---
+
+          const baseScale = Math.pow(1.12, this.wave);
+          const edictTier = Math.floor((this.wave - 1) / 5);
+          const difficultySpike = 1 + edictTier * 0.25;
+
+          let baseHp =
+            25 * baseScale * difficultySpike * this.stats.enemyHpMult;
+          const moneyScale = Math.pow(1.045, this.wave);
+          let rewardVal = 3 * moneyScale * this.stats.moneyMult;
+          let baseReward = Math.max(1, Math.floor(rewardVal));
+
+          const count = Math.floor(5 + this.wave * 1.5);
+          let baseSpeed = 1 + this.wave * 0.015;
+          let armor = Math.floor(this.wave / 4);
+
+          this.enemiesToSpawn = [];
+
+          // Enemy Variants
+          const variants = [
+            {
+              name: "Standard",
+              hpMult: 1,
+              spdMult: 1,
+              size: 10,
+              color: "#8a0e0e",
+              chance: 0.6,
+            },
+            {
+              name: "Fast",
+              hpMult: 0.6,
+              spdMult: 1.4,
+              size: 8,
+              color: "#d35400",
+              chance: 0.25,
+            },
+            {
+              name: "Heavy",
+              hpMult: 2.5,
+              spdMult: 0.6,
+              size: 13,
+              color: "#1e591e",
+              chance: 0.15,
+            },
+          ];
+
+          for (let i = 0; i < count; i++) {
+            const r = Math.random();
+            let type = variants[0];
+            if (r > 0.85) type = variants[2]; // 15% Heavy
+            else if (r > 0.6) type = variants[1]; // 25% Fast
+
+            this.enemiesToSpawn.push({
+              hp: baseHp * type.hpMult,
+              maxHp: baseHp * type.hpMult,
+              speed: baseSpeed * type.spdMult,
+              armor: armor,
+              reward: Math.floor(baseReward * type.hpMult),
+              color: type.color,
+              radius: type.size,
+            });
+          }
+
+          // SORTING LOGIC: Sort by Speed Descending [Fast, ..., Slow]
+          // pop() takes from the end, so Slowest (at end) spawn FIRST.
+          // Fastest (at start) spawn LAST.
+          // This allows fast units to catch up to slow units, forming a deathball.
+          this.enemiesToSpawn.sort((a, b) => b.speed - a.speed);
+
+          this.spawnTimer = 0;
+        }
+
+        triggerRoguelite() {
+          const modal = document.getElementById("rogue-modal");
+          const container = document.getElementById("rogue-cards");
+
+          // Safety check
+          if (!modal || !container) return;
+
+          container.innerHTML = "";
+
+          // Force display style directly
+          modal.style.display = "flex";
+          modal.style.zIndex = "2000"; // Ensure top level
+
+          // Pick 3 random unique cards
+          let pool =
+            typeof ROGUE_POWERUPS !== "undefined" ? [...ROGUE_POWERUPS] : [];
+
+          // FAILSAFE: If pool is empty or missing, skip the reward logic to unblock the game
+          if (pool.length === 0) {
+            console.error("No powerups found");
+            this.lastRogueliteWave = this.wave - 1;
+            modal.style.display = "none";
+            return;
+          }
+
+          const choices = [];
+          // Safety limit: don't loop more than pool size
+          const count = Math.min(3, pool.length);
+
+          for (let i = 0; i < count; i++) {
+            const idx = Math.floor(Math.random() * pool.length);
+            choices.push(pool[idx]);
+            pool.splice(idx, 1);
+          }
+
+          choices.forEach((card) => {
+            try {
+              const el = document.createElement("div");
+              el.className = "rogue-card";
+
+              // Safe description handling
+              let descText = card.desc;
+              if (card.getDesc && typeof card.getDesc === "function") {
+                try {
+                  descText = card.getDesc(this.stats);
+                } catch (err) {
+                  descText = card.desc; // Fallback description
+                }
+              }
+
+              el.innerHTML = `<div class="card-title">${card.name}</div>
+                                <div class="card-desc">${descText}</div>
+                                <div style="font-size:10px; color:#666;">IMPERIAL EDICT</div>`;
+              el.onclick = () => {
+                if (card.apply) {
+                  try {
+                    card.apply(this.stats);
+                  } catch (e) {
+                    console.error("Error applying card:", e);
+                  }
+                }
+                this.lastRogueliteWave = this.wave - 1;
+                modal.style.display = "none";
+                // Force UI update to reflect price changes immediately
+                try {
+                  this.updateUI();
+                } catch (e) {}
+              };
+              container.appendChild(el);
+            } catch (e) {
+              console.error("Error rendering card:", e);
+            }
+          });
+        }
+
+        toggleSpeed() {
+          if (this.speed === 1) this.speed = 4;
+          else if (this.speed === 4) this.speed = 10;
+          else this.speed = 1;
+          document.getElementById("speed-display").innerText = this.speed + "x";
+        }
+
+        // NEW: Toggle Priority
+        togglePriority() {
+          if (!this.selectedTower) return;
+          const t = this.selectedTower;
+          const modes = ["first", "last", "strongest"];
+          const nextIdx = (modes.indexOf(t.priority) + 1) % modes.length;
+          t.priority = modes[nextIdx];
+          this.updateSelectionPanel();
+        }
+
+        update(dt) {
+          if (this.lives <= 0) return;
+
+          dt *= this.speed;
+
+          // Spawning
+          if (this.waveActive && this.enemiesToSpawn.length > 0) {
+            this.spawnTimer -= dt;
+            if (this.spawnTimer <= 0) {
+              const data = this.enemiesToSpawn.pop();
+              this.enemies.push(new Enemy(this.path, data));
+              this.spawnTimer = 12;
+            }
+          } else if (
+            this.waveActive &&
+            this.enemiesToSpawn.length === 0 &&
+            this.enemies.length === 0
+          ) {
+            this.waveActive = false;
+            this.wave++;
+
+            // FIX: Protect critical game loop from UI errors
+            try {
+              this.updateUI();
+            } catch (e) {
+              console.error("UI Update Error:", e);
+            }
+
+            // Auto-trigger Roguelite menu on wave completion (every 5 waves)
+            // Now runs even if updateUI failed
+            if ((this.wave - 1) % 5 === 0) {
+              console.log("Triggering STC Event for Wave " + (this.wave - 1));
+              try {
+                this.triggerRoguelite();
+              } catch (e) {
+                console.error("Failed to trigger roguelite:", e);
+                this.lastRogueliteWave = this.wave - 1; // Skip if error
+              }
+            }
+          }
+
+          // Entities
+          this.enemies.forEach((e) => e.update(dt));
+          this.towers.forEach((t) =>
+            t.update(dt, this.enemies, this.projectiles, this.stats)
+          );
+          this.projectiles.forEach((p) => p.update(dt));
+          this.particles.forEach((p) => p.update(dt));
+
+          // Collisions & Cleanup
+          for (let i = this.projectiles.length - 1; i >= 0; i--) {
+            const p = this.projectiles[i];
+            if (p.dead) {
+              this.projectiles.splice(i, 1);
+              continue;
+            }
+
+            // Simple circle collision
+            let hit = false;
+
+            if (p.target && !p.target.dead && p.homing) {
+              // Homing logic handled in update, check dist here
+              const dist = Math.hypot(p.x - p.target.x, p.y - p.target.y);
+              if (dist < p.target.radius + 5) hit = true;
+            } else {
+              // Splash or skill shot
+              for (let e of this.enemies) {
+                // Avoid hitting the same enemy twice with one pierce projectile
+                if (p.hitList.includes(e)) continue;
+
+                if (Math.hypot(p.x - e.x, p.y - e.y) < e.radius + 5) {
+                  hit = true;
+                  p.target = e; // For damage calc
+                  break;
+                }
+              }
+            }
+
+            if (hit || p.reachedDest) {
+              this.dealDamage(p);
+              if (p.pierce > 0 && hit) {
+                p.pierce--;
+                p.hitList.push(p.target);
+                p.homing = false; // Stop homing if we pierced, continue trajectory?
+                // For simplicity in 2D, pierce continues straight or towards next?
+                // Let's just let it continue its vector.
+                if (p.pierce < 0) p.dead = true;
+              } else if (p.chain > 0 && hit) {
+                p.chain--;
+                p.hitList.push(p.target);
+                // Find new target nearby
+                const nextTarget = this.enemies.find(
+                  (e) =>
+                    !e.dead &&
+                    !p.hitList.includes(e) &&
+                    Math.hypot(e.x - p.x, e.y - p.y) < 150
+                );
+                if (nextTarget) {
+                  p.target = nextTarget;
+                  p.homing = true;
+                  p.tx = nextTarget.x;
+                  p.ty = nextTarget.y;
+                  p.reachedDest = false; // Keep going
+                } else {
+                  p.dead = true;
+                }
+              } else {
+                p.dead = true; // Dies on impact
+              }
+
+              if (p.reachedDest && !hit) p.dead = true; // Missed skillshot
+            }
+          }
+
+          // 2. Remove dead enemies
+          for (let i = this.enemies.length - 1; i >= 0; i--) {
+            if (this.enemies[i].dead) {
+              // Reached end?
+              if (this.enemies[i].reachedEnd) {
+                this.lives--;
+                if (this.lives <= 0) this.gameOver();
+              } else {
+                this.money += this.enemies[i].reward;
+
+                // Explode on death upgrade logic?
+                // Requires storing source of kill, complex.
+                // Simplification: Enemies killed by FLAMER explosion check?
+                // For now skipping advanced "on kill" triggers to save complexity
+              }
+              this.enemies.splice(i, 1);
+              this.updateUI();
+            }
+          }
+
+          // 3. Remove particles
+          this.particles = this.particles.filter((p) => p.life > 0);
+        }
+
+        dealDamage(proj) {
+          const dmg = proj.damage;
+          const sourceTower = proj.source; // Get the tower that fired this
+
+          // Helper to hurt one enemy
+          const hit = (enemy) => {
+            // Crit
+            let finalDmg = dmg;
+            let critChance = this.stats.critChance + (proj.critBonus || 0);
+
+            if (Math.random() < critChance) {
+              finalDmg *= 3;
+              this.spawnParticle(enemy.x, enemy.y, "red", 3);
+            }
+
+            // Execute Logic
+            if (proj.executeThreshold > 0) {
+              if (enemy.hp < enemy.maxHp * proj.executeThreshold) {
+                finalDmg = enemy.hp + 10; // Instant kill
+                this.spawnParticle(enemy.x, enemy.y, "cyan", 5);
+              }
+            }
+
+            // Shred Logic (Damage Amplification)
+            if (enemy.shredded > 0) {
+              finalDmg *= 1 + enemy.shredded;
+            }
+
+            // ARMOR LOGIC
+            if (enemy.armor > 0) {
+              finalDmg = Math.max(1, finalDmg - enemy.armor);
+              if (dmg > 1 && finalDmg <= dmg * 0.5) {
+                this.spawnParticle(enemy.x, enemy.y, "#bdc3c7", 1);
+              }
+            }
+
+            // TRACKING: Calculate effective damage (don't count overkill)
+            const damageDealt = Math.min(enemy.hp, finalDmg);
+
+            enemy.takeDamage(finalDmg);
+
+            // Update Source Tower Stats
+            if (sourceTower) {
+              sourceTower.damageDealt += damageDealt;
+              if (enemy.dead) sourceTower.kills++;
+            }
+
+            // Apply Status Effects
+            if (proj.slow) enemy.applySlow(proj.slow, 100);
+            if (proj.stun > 0) enemy.applyStun(proj.stun);
+            if (proj.burn > 0) {
+              enemy.applyBurn(proj.burn, sourceTower); // Pass source to burn for DOT credit
+            }
+            if (proj.shred > 0) enemy.applyShred(proj.shred);
+            if (proj.explode > 0 && enemy.hp <= 0) {
+              // Manual explosion trigger if killed by this hit
+              this.spawnExplosion(
+                enemy.x,
+                enemy.y,
+                50,
+                proj.explode,
+                "orange",
+                null,
+                8,
+                sourceTower
+              );
+            }
+
+            // Visuals
+            for (let k = 0; k < 3; k++)
+              this.spawnParticle(enemy.x, enemy.y, "#fff");
+          };
+
+          // Logic: Use Projectile splash if exists, plus global splash bonus
+          let effectiveSplash = 0;
+          if (proj.splash) effectiveSplash = proj.splash;
+
+          if (this.stats.globalSplash) {
+            effectiveSplash += this.stats.globalSplashRadius || 0;
+          }
+
+          if (effectiveSplash > 0) {
+            // Pass sourceTower to explosion
+            const limit = proj.stun > 0 ? 4 : 8;
+            this.spawnExplosion(
+              proj.x,
+              proj.y,
+              effectiveSplash,
+              dmg,
+              "orange",
+              hit,
+              limit,
+              sourceTower
+            );
+          } else if (proj.target) {
+            hit(proj.target);
+          }
+        }
+
+        spawnExplosion(
+          x,
+          y,
+          radius,
+          dmg,
+          color,
+          hitCallback,
+          maxTargets = 8,
+          sourceTower = null
+        ) {
+          // 1. Find all candidates
+          const targets = this.enemies.filter(
+            (e) => Math.hypot(e.x - x, e.y - y) < radius
+          );
+
+          // 2. Sort by distance
+          targets.sort((a, b) => {
+            const distA = Math.hypot(a.x - x, a.y - y);
+            const distB = Math.hypot(b.x - x, b.y - y);
+            return distA - distB;
+          });
+
+          // 3. Limit hits
+          targets.slice(0, maxTargets).forEach((e) => {
+            if (hitCallback) {
+              hitCallback(e);
+            } else {
+              // Default explosion logic if no callback provided
+              const effectiveDmg = Math.min(e.hp, dmg);
+              e.takeDamage(dmg);
+              if (sourceTower) {
+                sourceTower.damageDealt += effectiveDmg;
+                if (e.dead) sourceTower.kills++;
+              }
+            }
+          });
+
+          this.spawnParticle(x, y, color, radius / 3);
+        }
+
+        spawnParticle(x, y, color, size = 2) {
+          this.particles.push(new Particle(x, y, color, size));
+        }
+
+        draw() {
+          // Clear & Background Theme
+          this.ctx.fillStyle = this.theme.bg;
+          this.ctx.fillRect(0, 0, this.width, this.height);
+
+          // Draw Map Details (Terrain)
+          this.ctx.fillStyle = this.theme.detail;
+          this.bgDetails.forEach((d) => {
+            this.ctx.beginPath();
+            if (d.type === "rect") {
+              this.ctx.fillRect(d.x, d.y, d.w, d.h);
+            } else {
+              this.ctx.arc(d.x, d.y, d.w / 2, 0, Math.PI * 2);
+              this.ctx.fill();
+            }
+          });
+
+          // Draw Grid
+          this.ctx.strokeStyle = this.theme.grid;
+          this.ctx.lineWidth = 1;
+          this.ctx.beginPath();
+          for (let x = 0; x < this.width; x += 50) {
+            this.ctx.moveTo(x, 0);
+            this.ctx.lineTo(x, this.height);
+          }
+          for (let y = 0; y < this.height; y += 50) {
+            this.ctx.moveTo(0, y);
+            this.ctx.lineTo(this.width, y);
+          }
+          this.ctx.stroke();
+
+          // Draw Path
+          this.ctx.strokeStyle = "#333";
+          this.ctx.lineWidth = 40;
+          this.ctx.lineCap = "round";
+          this.ctx.lineJoin = "round";
+          this.ctx.beginPath();
+          this.ctx.moveTo(this.path[0].x, this.path[0].y);
+          this.path.forEach((p) => this.ctx.lineTo(p.x, p.y));
+          this.ctx.stroke();
+
+          // Draw Path Line (Guide)
+          this.ctx.strokeStyle = "#555";
+          this.ctx.lineWidth = 2;
+          this.ctx.stroke();
+
+          // LAYER 1: Physical Entities (Bodies)
+          // We draw bodies first so they don't cover each other's health bars
+          this.towers.forEach((t) =>
+            t.draw(this.ctx, t === this.selectedTower, this.stats)
+          );
+          this.enemies.forEach((e) => e.drawBody(this.ctx));
+          this.projectiles.forEach((p) => p.draw(this.ctx));
+          this.particles.forEach((p) => p.draw(this.ctx));
+
+          // LAYER 2: Interface Overlays (Health Bars & Text)
+          // Drawn last to ensure they float on top of everything
+          // SORTING FIX: Sort by Path Progress so "Front" enemies draw their UI on top of "Back" enemies
+          const sortedUI = [...this.enemies].sort((a, b) => {
+            // 1. Compare Segment Index (Higher index = Further ahead)
+            if (a.pathIndex !== b.pathIndex) return a.pathIndex - b.pathIndex;
+
+            // 2. Compare Distance to Next Node (Smaller distance = Further ahead)
+            // We want the unit with smaller distance (Front) to be sorted LAST (Draws on top).
+            // So we sort by Distance Descending (Large -> Small).
+            const nextA = a.path[a.pathIndex + 1];
+            const nextB = b.path[b.pathIndex + 1];
+            if (!nextA || !nextB) return 0;
+
+            const distA = Math.hypot(nextA.x - a.x, nextA.y - a.y);
+            const distB = Math.hypot(nextB.x - b.x, nextB.y - b.y);
+            return distB - distA;
+          });
+
+          sortedUI.forEach((e) => e.drawUI(this.ctx, this.mouseX, this.mouseY));
+
+          // Placement Preview
+          if (this.placingTowerId !== null) {
+            const t = TOWER_TYPES[this.placingTowerId];
+            this.ctx.beginPath();
+            this.ctx.arc(
+              this.mouseX,
+              this.mouseY,
+              t.range * this.stats.globalRange,
+              0,
+              Math.PI * 2
+            );
+            this.ctx.fillStyle = "rgba(255, 255, 255, 0.1)";
+            this.ctx.fill();
+            this.ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
+            this.ctx.stroke();
+
+            this.ctx.beginPath();
+            this.ctx.arc(this.mouseX, this.mouseY, 15, 0, Math.PI * 2);
+            this.ctx.fillStyle = t.color;
+            this.ctx.fill();
+          }
+        }
+
+        loop(timestamp) {
+          const dt = timestamp - this.lastTime;
+          this.lastTime = timestamp;
+
+          const safeDt = Math.min(dt, 100);
+          this.update(safeDt / 16.66);
+          this.draw();
+
+          if (this.lives > 0) {
+            requestAnimationFrame((t) => this.loop(t));
+          }
+        }
+
+        // --- UPGRADE SYSTEM ---
+
+        upgradeTower(pathIndex) {
+          if (!this.selectedTower) return;
+          const t = this.selectedTower;
+          const currentLvl = t.upgrades[pathIndex];
+
+          if (currentLvl >= 5) return;
+
+          const activePaths = t.upgrades.reduce(
+            (acc, lvl, idx) => (lvl > 0 ? acc + 1 : acc),
+            0
+          );
+          const isStarted = currentLvl > 0;
+          if (activePaths >= 2 && !isStarted) return;
+
+          if (currentLvl >= 2) {
+            const hasMajorPath = t.upgrades.some(
+              (lvl, idx) => idx !== pathIndex && lvl > 2
+            );
+            if (hasMajorPath) return;
+          }
+
+          const cost = Math.floor(t.baseCost * (0.4 * (currentLvl + 1)));
+
+          if (this.money >= cost) {
+            this.money -= cost;
+            t.totalInvested += cost;
+            t.upgrades[pathIndex]++;
+            this.updateSelectionPanel();
+            this.updateUI();
+            this.spawnParticle(t.x, t.y, "lime", 5);
+          }
+        }
+
+        sellTower() {
+          if (!this.selectedTower) return;
+          const t = this.selectedTower;
+          const val = Math.floor(t.totalInvested * this.stats.sellRefund);
+
+          this.money += val;
+          this.towers = this.towers.filter((x) => x !== t);
+          this.selectedTower = null;
+          document.getElementById("selection-panel").style.display = "none";
+          this.updateUI();
+
+          for (let i = 0; i < 10; i++) this.spawnParticle(t.x, t.y, "gold", 3);
+        }
+
+        updateUI() {
+          document.getElementById("wave-display").innerText = this.wave;
+          document.getElementById("lives-display").innerText = this.lives;
+          document.getElementById("money-display").innerText = Math.floor(
+            this.money
+          );
+          document.getElementById("enemy-display").innerText =
+            this.enemies.length + this.enemiesToSpawn.length;
+
+          const btns = document.getElementById("build-menu").children;
+          for (let i = 0; i < btns.length; i++) {
+            const cost = this.getModifiedCost(TOWER_TYPES[i].cost);
+            btns[i].querySelector("span:last-child").innerText = cost;
+            btns[i].disabled = this.money < cost;
+            btns[i].style.opacity = this.money < cost ? "0.5" : "1";
+          }
+
+          if (this.selectedTower) {
+            this.updateSelectionPanel();
+          }
+        }
+
+        getUpgradeDesc(u) {
+          const pct = Math.round(u.val * 100);
+          switch (u.type) {
+            case "damage":
+              return `+${pct}% Damage`;
+            case "speed":
+              return `+${pct}% Fire Rate`;
+            case "range":
+              return `+${pct}% Range`;
+            case "crit":
+              return `+${pct}% Crit Chance`;
+            case "splash":
+              return `+${u.val}px Splash Area`;
+            case "slow":
+              return `+${pct}% Slow Power`;
+            case "burn":
+              return `Apply Burn (${u.val} DPS)`;
+            case "stun":
+              return `Apply Stun (${u.val}s)`;
+            case "multishot":
+              return `Fires +${u.val} Projectiles`;
+            case "pierce":
+              return `Pierces +${u.val} Enemies`;
+            case "chain":
+              return `Chains to +${u.val} Targets`;
+            case "execute":
+              return `Kill if HP < ${pct}%`;
+            case "shred":
+              return `Target takes +${pct}% Dmg`;
+            case "global":
+              return `Infinite Range`;
+            case "explode":
+              return `Explodes on Death`;
+            default:
+              return "Unknown Effect";
+          }
+        }
+
+        showTowerDetails() {
+          if (!this.selectedTower) return;
+          const t = this.selectedTower.def;
+          const modal = document.getElementById("tower-modal");
+
+          document.getElementById("td-title").innerText = t.name;
+          document.getElementById("td-desc").innerText = t.desc;
+
+          const renderPath = (path) => {
+            let html = `<div>Base: ${this.getUpgradeDesc(
+              path.base
+            )} per lvl</div>`;
+            path.milestones.forEach((m) => {
+              html += `<div style="font-size:10px; margin-left:10px; color:#aaa">Lvl ${
+                m.lvl
+              }: ${m.name} (${this.getUpgradeDesc(m)})</div>`;
+            });
+            return html;
+          };
+
+          document.getElementById("td-p1").innerHTML = renderPath(
+            t.upgrades[0]
+          );
+          document.getElementById("td-p2").innerHTML = renderPath(
+            t.upgrades[1]
+          );
+          document.getElementById("td-p3").innerHTML = renderPath(
+            t.upgrades[2]
+          );
+
+          modal.style.display = "flex";
+        }
+
+        updateSelectionPanel() {
+          const panel = document.getElementById("selection-panel");
+          if (!this.selectedTower) {
+            panel.style.display = "none";
+            return;
+          }
+
+          panel.style.display = "block";
+          const t = this.selectedTower;
+          document.getElementById(
+            "selected-info"
+          ).innerText = `${t.def.name} (Val: ${t.totalInvested})`;
+          document.getElementById("sell-val").innerText = Math.floor(
+            t.totalInvested * this.stats.sellRefund
+          );
+
+          // --- NEW STATS CALCULATION ---
+          const stats = t.getStats(this.stats);
+
+          // 1. Base Stats
+          document.getElementById("cs-dmg").innerText = Math.floor(
+            stats.damage
+          );
+
+          // Rate
+          const rate = (60 / stats.cooldownMax).toFixed(2);
+          document.getElementById("cs-rate").innerText = `${rate}/s`;
+
+          // Range
+          document.getElementById("cs-rng").innerText =
+            stats.range > 5000 ? "GLOBAL" : Math.floor(stats.range);
+
+          // Crit
+          const totalCrit = (this.stats.critChance + stats.critBonus) * 100;
+          document.getElementById("cs-crit").innerText = `${Math.round(
+            totalCrit
+          )}%`;
+
+          // NEW: Combat Stats
+          document.getElementById("cs-kills").innerText = t.kills;
+          // Format damage with K/M if large
+          let dmgDisplay = t.damageDealt;
+          if (dmgDisplay > 1000000)
+            dmgDisplay = (dmgDisplay / 1000000).toFixed(1) + "M";
+          else if (dmgDisplay > 1000)
+            dmgDisplay = (dmgDisplay / 1000).toFixed(1) + "k";
+          document.getElementById("cs-total-dmg").innerText = dmgDisplay;
+
+          // 2. Specials List
+          const specialsContainer = document.getElementById("cs-specials");
+          specialsContainer.innerHTML = "";
+
+          const addTag = (text) => {
+            const s = document.createElement("div");
+            s.className = "special-tag";
+            s.innerText = text;
+            specialsContainer.appendChild(s);
+          };
+
+          if (stats.multishot > 0) addTag(`Multishot: +${stats.multishot}`);
+          if (stats.pierce > 0) addTag(`Pierce: ${stats.pierce}`);
+          if (stats.chain > 0) addTag(`Chain: ${stats.chain}`);
+          if (stats.splash > 0) addTag(`Splash: ${stats.splash}px`);
+          if (stats.burn > 0) addTag(`Burn: ${stats.burn} dmg`);
+          if (stats.stun > 0) addTag(`Stun: ${stats.stun}s`);
+          if (stats.slow > 0) addTag(`Slow: ${Math.round(stats.slow * 100)}%`);
+          if (stats.shred > 0)
+            addTag(`Shred: +${Math.round(stats.shred * 100)}%`);
+          if (stats.execute > 0)
+            addTag(`Execute: <${Math.round(stats.execute * 100)}% HP`);
+          if (stats.explode > 0) addTag(`Death Boom: ${stats.explode} dmg`);
+
+          // Update Priority Button Text
+          const pBtn = document.getElementById("btn-priority");
+          const pText =
+            t.priority.charAt(0).toUpperCase() + t.priority.slice(1);
+          pBtn.innerText = `Target: ${pText}`;
+
+          const activePathIndices = [];
+          t.upgrades.forEach((lvl, idx) => {
+            if (lvl > 0) activePathIndices.push(idx);
+          });
+
+          const majorPathIndex = t.upgrades.findIndex((lvl) => lvl > 2);
+
+          for (let i = 0; i < 3; i++) {
+            const lvl = t.upgrades[i];
+            const row = document.getElementById(`row-up-${i}`);
+            const btn = document.getElementById(`btn-up-${i}`);
+            const nameTxt = document.getElementById(`name-up-${i}`);
+            const lvlTxt = document.getElementById(`lvl-up-${i}`);
+            const costTxt = document.getElementById(`cost-up-${i}`);
+            const def = t.def.upgrades[i];
+
+            nameTxt.innerText = def.name;
+            lvlTxt.innerText = `Lvl: ${lvl}`;
+
+            row.className = "upgrade-row";
+            btn.style.display = "block";
+
+            let desc = `<div class="tooltip-title">${def.name}</div>`;
+            desc += `<div>${this.getUpgradeDesc(def.base)} (Per Level)</div>`;
+
+            const nextMilestone = def.milestones.find((m) => m.lvl > lvl);
+            if (nextMilestone) {
+              desc += `<div style="margin-top:5px; color:cyan">Next (Lvl ${nextMilestone.lvl}): ${nextMilestone.name}</div>`;
+              desc += `<div style="font-size:10px">${this.getUpgradeDesc(
+                nextMilestone
+              )}</div>`;
+            } else if (lvl >= 5) {
+              desc += `<div style="margin-top:5px; color:lime">PATH MAXED</div>`;
+            }
+
+            row.onmouseenter = (e) => this.showTooltip(e, desc);
+            row.onmouseleave = () => this.hideTooltip();
+
+            if (
+              activePathIndices.length >= 2 &&
+              !activePathIndices.includes(i)
+            ) {
+              row.classList.add("locked");
+              lvlTxt.innerText = "LOCKED";
+              continue;
+            }
+
+            let isMaxed = lvl >= 5;
+            let isCapped = false;
+
+            if (majorPathIndex !== -1 && majorPathIndex !== i && lvl >= 2) {
+              isCapped = true;
+              lvlTxt.innerText = "MAX (Minor)";
+            }
+
+            if (isMaxed) lvlTxt.innerText = "MAX (Major)";
+
+            if (isMaxed || isCapped) {
+              btn.style.display = "none";
+            } else {
+              const cost = Math.floor(t.baseCost * (0.4 * (lvl + 1)));
+              costTxt.innerText = cost;
+              btn.disabled = this.money < cost;
+            }
+          }
+        }
+
+        gameOver() {
+          document.getElementById("game-over").style.display = "flex";
+          document.getElementById("final-wave").innerText =
+            "Waves Survived: " + (this.wave - 1);
+        }
+      }
+
+      // --- ENTITIES ---
+
+      class Tower {
+        constructor(x, y, def, cost) {
+          this.x = x;
+          this.y = y;
+          this.def = def;
+          this.baseCost = cost;
+          this.totalInvested = cost;
+
+          this.upgrades = [0, 0, 0];
+          this.cooldown = 0;
+          this.angle = 0;
+          this.priority = "first";
+
+          // NEW: Stats
+          this.kills = 0;
+          this.damageDealt = 0;
+        }
+
+        getStats(globalStats) {
+          let damage = this.def.damage;
+          let range = this.def.range;
+          let speed = this.def.speed;
+          let splash = this.def.splash || 0;
+          let slow = this.def.slow || 0;
+          let critBonus = 0;
+
+          // New Stats
+          let burn = 0;
+          let stun = 0;
+          let multishot = 0;
+          let pierce = 0;
+          let chain = 0;
+          let execute = 0;
+          let shred = 0;
+          let explode = 0;
+          let infiniteRange = false;
+
+          this.def.upgrades.forEach((path, idx) => {
+            const lvl = this.upgrades[idx];
+            if (lvl === 0) return;
+
+            // 1. Apply Base Scaling (Linear)
+            const u = path.base;
+            const multiplier = 1 + lvl * u.val;
+
+            if (u.type === "damage") damage *= multiplier;
+            if (u.type === "range") range *= multiplier;
+            if (u.type === "speed") speed /= multiplier;
+
+            // Additive Bases
+            if (u.type === "splash") splash += lvl * u.val;
+            if (u.type === "slow") slow += lvl * u.val;
+            if (u.type === "crit") critBonus += lvl * u.val;
+
+            // 2. Apply Milestones (Unlocked at specific levels)
+            path.milestones.forEach((m) => {
+              if (lvl >= m.lvl) {
+                // Milestones stack
+                if (m.type === "damage") damage *= 1 + m.val;
+                if (m.type === "range") range *= 1 + m.val;
+                if (m.type === "speed") speed /= 1 + m.val;
+
+                if (m.type === "splash") splash += m.val;
+                if (m.type === "slow") slow += m.val;
+                if (m.type === "crit") critBonus += m.val;
+
+                if (m.type === "burn") burn += m.val;
+                if (m.type === "stun") stun += m.val;
+                if (m.type === "multishot") multishot += m.val;
+                if (m.type === "pierce") pierce += m.val;
+                if (m.type === "chain") chain += m.val;
+                if (m.type === "execute") execute += m.val;
+                if (m.type === "shred") shred += m.val;
+                if (m.type === "explode") explode += m.val;
+                if (m.type === "global") infiniteRange = true;
+              }
+            });
+          });
+
+          return {
+            damage: damage * globalStats.globalDmg,
+            range: infiniteRange ? 9999 : range * globalStats.globalRange,
+            cooldownMax: speed * globalStats.globalSpeed,
+            splash: splash,
+            slow: slow,
+            critBonus: critBonus,
+            burn: burn,
+            stun: stun,
+            multishot: multishot,
+            pierce: pierce,
+            chain: chain,
+            execute: execute,
+            shred: shred,
+            explode: explode,
+          };
+        }
+
+        update(dt, enemies, projectiles, globalStats) {
+          if (this.cooldown > 0) this.cooldown -= dt;
+
+          const stats = this.getStats(globalStats);
+
+          const inRange = enemies.filter(
+            (e) => Math.hypot(e.x - this.x, e.y - this.y) <= stats.range
+          );
+
+          if (inRange.length > 0) {
+            let target = null;
+
+            // TARGETING LOGIC
+            if (this.priority === "first") {
+              // Sort by Path Progress (Highest Index -> Lowest Dist to next node)
+              target = inRange.sort((a, b) => {
+                if (a.pathIndex !== b.pathIndex)
+                  return b.pathIndex - a.pathIndex; // Higher path index = further
+                // Same index, check distance to next node (smaller dist = further)
+                const distA = Math.hypot(
+                  a.path[a.pathIndex + 1].x - a.x,
+                  a.path[a.pathIndex + 1].y - a.y
+                );
+                const distB = Math.hypot(
+                  b.path[b.pathIndex + 1].x - b.x,
+                  b.path[b.pathIndex + 1].y - b.y
+                );
+                return distA - distB;
+              })[0];
+            } else if (this.priority === "last") {
+              // Opposite of First
+              target = inRange.sort((a, b) => {
+                if (a.pathIndex !== b.pathIndex)
+                  return a.pathIndex - b.pathIndex;
+                const distA = Math.hypot(
+                  a.path[a.pathIndex + 1].x - a.x,
+                  a.path[a.pathIndex + 1].y - a.y
+                );
+                const distB = Math.hypot(
+                  b.path[b.pathIndex + 1].x - b.x,
+                  b.path[b.pathIndex + 1].y - b.y
+                );
+                return distB - distA;
+              })[0];
+            } else if (this.priority === "strongest") {
+              // Sort by HP Descending
+              target = inRange.sort((a, b) => b.hp - a.hp)[0];
+            }
+
+            // Fallback just in case
+            if (!target) target = inRange[0];
+
+            this.angle = Math.atan2(target.y - this.y, target.x - this.x);
+
+            if (this.cooldown <= 0) {
+              this.shoot(target, stats, projectiles);
+              this.cooldown = stats.cooldownMax;
+            }
+          }
+        }
+
+        shoot(target, stats, projectiles) {
+          const createProj = (offsetAngle = 0) => {
+            projectiles.push(
+              new Projectile(
+                this.x,
+                this.y,
+                target,
+                this.def.aoe ? "aoe" : "bullet",
+                stats.damage,
+                this.def.color,
+                stats,
+                this, // Pass 'this' as source
+                offsetAngle
+              )
+            );
+          };
+
+          // NEW LOGIC: Exact Count Distribution
+          const totalShots = 1 + Math.floor(stats.multishot);
+
+          if (totalShots === 1) {
+            // Single shot (accurate/homing)
+            createProj(0);
+          } else {
+            // Multiple shots (spread pattern)
+            // Calculate spread to center the cone on the target
+            const spread = 0.15; // Radians between shots
+            const startOffset = -((totalShots - 1) * spread) / 2;
+
+            for (let i = 0; i < totalShots; i++) {
+              createProj(startOffset + i * spread);
+            }
+          }
+        }
+
+        draw(ctx, isSelected, globalStats) {
+          ctx.save();
+          ctx.translate(this.x, this.y);
+
+          // Range indicator
+          if (isSelected) {
+            // FIX: Use getStats() to calculate actual current range including upgrades/buffs
+            // If globalStats isn't passed (e.g. edge cases), fallback to a dummy object
+            const activeStats = this.getStats(
+              globalStats || { globalRange: 1, globalDmg: 1, globalSpeed: 1 }
+            );
+
+            // Cap visual range for infinite/global towers so we don't break canvas rendering
+            const r = activeStats.range > 3000 ? 3000 : activeStats.range;
+
+            ctx.beginPath();
+            ctx.arc(0, 0, r, 0, Math.PI * 2);
+            ctx.strokeStyle = "rgba(212, 175, 55, 0.5)";
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            ctx.fillStyle = "rgba(212, 175, 55, 0.1)";
+            ctx.fill();
+          }
+
+          // Base
+          ctx.fillStyle = "#222";
+          ctx.fillRect(-12, -12, 24, 24);
+
+          // Turret Rotated
+          ctx.rotate(this.angle);
+          ctx.fillStyle = this.def.color;
+          ctx.fillRect(-8, -8, 16, 16);
+          ctx.fillStyle = "#000";
+          ctx.fillRect(0, -2, 14, 4);
+
+          ctx.rotate(-this.angle);
+
+          const totalLvl =
+            this.upgrades[0] + this.upgrades[1] + this.upgrades[2];
+          if (totalLvl > 0) {
+            ctx.fillStyle = "gold";
+            ctx.font = "10px Arial";
+            ctx.textAlign = "center";
+            ctx.fillText("★".repeat(Math.min(3, totalLvl)), 0, 4);
+            if (totalLvl > 3) ctx.fillStyle = "cyan";
+          }
+
+          ctx.restore();
+        }
+      }
+
+      class Enemy {
+        constructor(path, data) {
+          this.path = path;
+          this.pathIndex = 0;
+          this.x = path[0].x;
+          this.y = path[0].y;
+
+          this.maxHp = data.maxHp;
+          this.hp = data.hp;
+          this.speed = data.speed;
+          this.reward = data.reward;
+          this.armor = data.armor || 0;
+          this.color = data.color || "#8a0e0e";
+
+          this.radius = data.radius || 10;
+          this.dead = false;
+          this.reachedEnd = false;
+
+          // Status Effects
+          this.slowTimer = 0;
+          this.slowFactor = 1;
+
+          this.burnTimer = 0;
+          this.burnDmg = 0;
+          this.burnSource = null; // Track source of burn
+          this.stunTimer = 0;
+          this.shredded = 0;
+        }
+
+        applySlow(amount, time) {
+          this.slowFactor = 1 - amount;
+          this.slowTimer = time;
+        }
+
+        applyBurn(dmg, source) {
+          this.burnDmg = dmg;
+          this.burnTimer = 100;
+          this.burnSource = source; // Store source
+        }
+
+        applyStun(duration) {
+          this.stunTimer = duration * 60;
+        }
+
+        applyShred(amount) {
+          this.shredded = Math.max(this.shredded, amount);
+        }
+
+        takeDamage(amt) {
+          this.hp -= amt;
+          if (this.hp <= 0) this.dead = true;
+        }
+
+        update(dt) {
+          if (this.dead) return;
+
+          // Status Updates
+          if (this.slowTimer > 0) {
+            this.slowTimer -= dt;
+            if (this.slowTimer <= 0) this.slowFactor = 1;
+          }
+          if (this.stunTimer > 0) {
+            this.stunTimer -= dt;
+          }
+          if (this.burnTimer > 0) {
+            this.burnTimer -= dt;
+            // Apply burn damage periodically (every 10 frames ~ 6 times per sec)
+            if (Math.floor(this.burnTimer) % 10 === 0) {
+              const tickDmg = Math.min(this.hp, this.burnDmg);
+              this.takeDamage(this.burnDmg);
+
+              // Credit burn damage/kills to source
+              if (this.burnSource) {
+                this.burnSource.damageDealt += tickDmg;
+                if (this.dead) this.burnSource.kills++;
+              }
+            }
+          }
+
+          // Movement (Stop if stunned)
+          if (this.stunTimer <= 0) {
+            const moveDist = this.speed * this.slowFactor * (dt / 2);
+            const target = this.path[this.pathIndex + 1];
+
+            if (!target) {
+              this.dead = true;
+              this.reachedEnd = true;
+              return;
+            }
+
+            const dx = target.x - this.x;
+            const dy = target.y - this.y;
+            const dist = Math.hypot(dx, dy);
+
+            if (dist <= moveDist) {
+              this.x = target.x;
+              this.y = target.y;
+              this.pathIndex++;
+            } else {
+              this.x += (dx / dist) * moveDist;
+              this.y += (dy / dist) * moveDist;
+            }
+          }
+        }
+
+        // CHANGED: Split draw into drawBody and drawUI
+        drawBody(ctx) {
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+          ctx.fillStyle = this.color;
+
+          // Visual Status Overlays
+          if (this.stunTimer > 0) ctx.fillStyle = "cyan";
+          else if (this.slowFactor < 1) ctx.fillStyle = "#8e44ad";
+          else if (this.burnTimer > 0) ctx.fillStyle = "orange";
+
+          ctx.fill();
+
+          // ARMOR VISUAL (Grey Border)
+          const armorWidth = 1 + Math.min(5, this.armor / 3);
+          ctx.lineWidth = armorWidth;
+          ctx.strokeStyle = "#bdc3c7"; // Silver
+
+          // Shredded Override (Red Outline)
+          if (this.shredded > 0) {
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = "red";
+          }
+
+          ctx.stroke();
+        }
+
+        drawUI(ctx, mx, my) {
+          // HP Bar Background
+          ctx.fillStyle = "black";
+          ctx.fillRect(this.x - 12, this.y - 18, 24, 6);
+
+          // HP Bar Foreground
+          const hpPct = Math.max(0, this.hp / this.maxHp);
+          ctx.fillStyle =
+            hpPct > 0.5 ? "#2ecc71" : hpPct > 0.25 ? "#f1c40f" : "#e74c3c";
+          ctx.fillRect(this.x - 11, this.y - 17, 22 * hpPct, 4);
+
+          // SMART TEXT: Only show HP number if mouse is close (< 150px)
+          // This prevents the "jumble" of numbers when many units stack
+          const dist = Math.hypot(mx - this.x, my - this.y);
+
+          if (dist < 150) {
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "bold 10px Arial";
+            ctx.textAlign = "center";
+            ctx.strokeStyle = "black";
+            ctx.lineWidth = 3;
+
+            // Stroke first for outline effect
+            ctx.strokeText(Math.ceil(this.hp), this.x, this.y - 22);
+            // Fill second
+            ctx.fillText(Math.ceil(this.hp), this.x, this.y - 22);
+          }
+        }
+      }
+
+      class Projectile {
+        constructor(
+          x,
+          y,
+          target,
+          type,
+          damage,
+          color,
+          stats,
+          source,
+          offsetAngle = 0
+        ) {
+          this.x = x;
+          this.y = y;
+          this.target = target;
+          this.type = type;
+          this.damage = damage;
+          this.color = color;
+          this.source = source; // Store reference to tower
+
+          // Copy specific stats
+          this.splash = stats.splash;
+          this.slow = stats.slow;
+          this.critBonus = stats.critBonus;
+          this.burn = stats.burn;
+          this.stun = stats.stun;
+          this.pierce = stats.pierce;
+          this.chain = stats.chain;
+          this.executeThreshold = stats.execute;
+          this.shred = stats.shred;
+          this.explode = stats.explode;
+
+          this.speed = 10;
+          this.dead = false;
+          this.reachedDest = false;
+          this.homing = true;
+          this.hitList = []; // For Pierce/Chain memory
+
+          // Initial target
+          this.tx = target.x;
+          this.ty = target.y;
+
+          // Handle Angle Offset (Multishot)
+          if (offsetAngle !== 0) {
+            const angle =
+              Math.atan2(this.ty - this.y, this.tx - this.x) + offsetAngle;
+            // Project out a distance since we don't have a specific target for the spread
+            this.tx = this.x + Math.cos(angle) * 1000;
+            this.ty = this.y + Math.sin(angle) * 1000;
+            this.homing = false; // Spread shots aren't homing initially
+          }
+        }
+
+        update(dt) {
+          if (this.type === "aoe") {
+            this.reachedDest = true;
+            return;
+          }
+
+          let tx = this.tx;
+          let ty = this.ty;
+
+          if (this.homing && this.target && !this.target.dead) {
+            tx = this.target.x;
+            ty = this.target.y;
+            this.tx = tx;
+            this.ty = ty;
+          }
+
+          const dx = tx - this.x;
+          const dy = ty - this.y;
+          const dist = Math.hypot(dx, dy);
+          const move = this.speed * dt;
+
+          if (dist <= move) {
+            this.x = tx;
+            this.y = ty;
+            this.reachedDest = true;
+          } else {
+            this.x += (dx / dist) * move;
+            this.y += (dy / dist) * move;
+          }
+        }
+
+        draw(ctx) {
+          if (this.type === "aoe") {
+            ctx.beginPath();
+            ctx.moveTo(this.x, this.y);
+            ctx.lineTo(this.tx, this.ty);
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = "orange";
+            ctx.stroke();
+            return;
+          }
+
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, 3, 0, Math.PI * 2);
+          ctx.fillStyle = this.color;
+          ctx.fill();
+        }
+      }
+
+      class Particle {
+        constructor(x, y, color, size) {
+          this.x = x;
+          this.y = y;
+          this.color = color;
+          this.size = size;
+          this.life = 20;
+          this.vx = (Math.random() - 0.5) * 5;
+          this.vy = (Math.random() - 0.5) * 5;
+        }
+        update(dt) {
+          this.x += this.vx * dt;
+          this.y += this.vy * dt;
+          this.life -= dt;
+          this.size *= 0.9;
+        }
+        draw(ctx) {
+          ctx.globalAlpha = this.life / 20;
+          ctx.fillStyle = this.color;
+          ctx.fillRect(this.x, this.y, this.size, this.size);
+          ctx.globalAlpha = 1.0;
+        }
+      }
+
+      // --- INIT ---
+      window.game = new Game();
+    </script>
+  </body>
+</html>

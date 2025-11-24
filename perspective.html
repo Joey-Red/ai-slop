@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Perspective Fusion Prototype</title>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        background-color: #1a1a1a;
+        font-family: "Courier New", Courier, monospace;
+      }
+      #canvas-container {
+        width: 100vw;
+        height: 100vh;
+        display: block;
+      }
+
+      /* UI Overlay */
+      #ui-layer {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        color: white;
+        pointer-events: none;
+        user-select: none;
+      }
+      h1 {
+        margin: 0;
+        font-size: 1.5rem;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+      }
+      p {
+        font-size: 0.9rem;
+        color: #aaa;
+        margin-top: 5px;
+        max-width: 300px;
+        line-height: 1.4;
+      }
+      .key {
+        color: #ffd700;
+        font-weight: bold;
+      }
+
+      /* Alignment Indicator */
+      #status-indicator {
+        position: absolute;
+        bottom: 40px;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 15px 30px;
+        border: 2px solid #555;
+        background: rgba(0, 0, 0, 0.8);
+        color: #555;
+        font-weight: bold;
+        font-size: 1.2rem;
+        border-radius: 30px;
+        transition: all 0.3s ease;
+        text-align: center;
+      }
+
+      #status-indicator.ready {
+        border-color: #00ff88;
+        color: #00ff88;
+        box-shadow: 0 0 20px rgba(0, 255, 136, 0.4);
+      }
+
+      #status-indicator.locked {
+        border-color: #00aaff;
+        color: #00aaff;
+        background: rgba(0, 100, 200, 0.2);
+      }
+
+      /* Scanline effect for retro feel */
+      .scanlines {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(
+          rgba(18, 16, 16, 0) 50%,
+          rgba(0, 0, 0, 0.1) 50%
+        );
+        background-size: 100% 4px;
+        pointer-events: none;
+        z-index: 10;
+      }
+    </style>
+
+    <!-- IMPORT MAP: This fixes the "module specifier" error by telling the browser where 'three' is -->
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <div id="ui-layer">
+      <h1>Perspective Fusion</h1>
+      <p>1. Move with <span class="key">WASD</span>.</p>
+      <p>2. Drag mouse to rotate view.</p>
+      <p>
+        3. Align the <span style="color: hotpink">PINK BLOCK</span> to bridge
+        the gap.
+      </p>
+      <p>
+        4. Press <span class="key">SPACE</span> when aligned to FUSE reality.
+      </p>
+    </div>
+
+    <div id="status-indicator">ALIGNMENT: 0%</div>
+    <div class="scanlines"></div>
+    <div id="canvas-container"></div>
+
+    <!-- Main Game Script -->
+    <script type="module">
+      // Now we can import from 'three' directly because of the import map above
+      import * as THREE from "three";
+      import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+
+      // --- CONFIGURATION ---
+      const ALIGN_TOLERANCE = 0.15; // How precise the player needs to be
+      const PLAYER_SPEED = 0.15;
+
+      // Target camera spherical coordinates for the solution
+      const SOLUTION_AZIMUTH = Math.PI / 4; // 45 degrees
+      const SOLUTION_POLAR = Math.PI / 3.5; // Slightly top-down
+
+      // --- GLOBAL VARIABLES ---
+      let scene, camera, renderer, controls;
+      let perspectiveCam, orthoCam;
+      let player, startPlat, endPlat, illusionPlat, ghostBridge;
+      let isAligned = false;
+      let isFused = false; // "Locked" state
+      let keys = { w: false, a: false, s: false, d: false };
+
+      const uiStatus = document.getElementById("status-indicator");
+
+      init();
+      animate();
+
+      function init() {
+        // 1. Scene Setup
+        const container = document.getElementById("canvas-container");
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x202025);
+        scene.fog = new THREE.Fog(0x202025, 10, 50);
+
+        // 2. Renderers
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        container.appendChild(renderer.domElement);
+
+        // 3. Cameras
+        const aspect = window.innerWidth / window.innerHeight;
+
+        // Perspective Camera (Exploration Mode)
+        perspectiveCam = new THREE.PerspectiveCamera(45, aspect, 0.1, 1000);
+        perspectiveCam.position.set(-15, 15, 15);
+
+        // Orthographic Camera (Puzzle/Locked Mode)
+        const frustumSize = 25;
+        orthoCam = new THREE.OrthographicCamera(
+          (frustumSize * aspect) / -2,
+          (frustumSize * aspect) / 2,
+          frustumSize / 2,
+          frustumSize / -2,
+          0.1,
+          1000
+        );
+
+        camera = perspectiveCam; // Start with perspective
+
+        // 4. Controls
+        controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.minDistance = 10;
+        controls.maxDistance = 40;
+
+        // 5. Lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+        dirLight.position.set(10, 20, 10);
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.width = 2048;
+        dirLight.shadow.mapSize.height = 2048;
+        scene.add(dirLight);
+
+        // 6. Level Construction
+        buildLevel();
+
+        // 7. Event Listeners
+        window.addEventListener("resize", onWindowResize);
+        window.addEventListener("keydown", (e) => handleKey(e, true));
+        window.addEventListener("keyup", (e) => handleKey(e, false));
+      }
+
+      function buildLevel() {
+        // Materials
+        const matBase = new THREE.MeshStandardMaterial({
+          color: 0x555555,
+          roughness: 0.8,
+        });
+        const matStart = new THREE.MeshStandardMaterial({ color: 0x444444 });
+        const matEnd = new THREE.MeshStandardMaterial({ color: 0x00ff88 }); // Green goal
+        const matIllusion = new THREE.MeshStandardMaterial({
+          color: 0xff1493,
+          emissive: 0x330011,
+        }); // Hot pink
+        const matPlayer = new THREE.MeshStandardMaterial({ color: 0xffcc00 });
+
+        // --- Platform 1 (Start) ---
+        startPlat = new THREE.Mesh(new THREE.BoxGeometry(6, 1, 6), matStart);
+        startPlat.position.set(-5, 0, 5); // Front Left
+        startPlat.castShadow = true;
+        startPlat.receiveShadow = true;
+        scene.add(startPlat);
+
+        // --- Platform 2 (Goal) ---
+        endPlat = new THREE.Mesh(new THREE.BoxGeometry(6, 1, 6), matEnd);
+        endPlat.position.set(5, 0, -5); // Back Right
+        endPlat.castShadow = true;
+        endPlat.receiveShadow = true;
+        scene.add(endPlat);
+
+        // --- The Illusion Block ---
+        illusionPlat = new THREE.Mesh(
+          new THREE.BoxGeometry(6, 1, 16),
+          matIllusion
+        );
+        // Positioned high and centered between the X coords, but offset in Y and Z
+        illusionPlat.position.set(0, 4, 0);
+        // We rotate it slightly so it looks chaotic until aligned
+        illusionPlat.rotation.x = -Math.PI / 8;
+        illusionPlat.rotation.y = Math.PI / 8;
+        illusionPlat.castShadow = true;
+        illusionPlat.receiveShadow = true;
+        scene.add(illusionPlat);
+
+        // --- Ghost Bridge (Invisible physics floor) ---
+        // This represents the path the player walks when "Fused"
+        const dist = new THREE.Vector3(-5, 0, 5).distanceTo(
+          new THREE.Vector3(5, 0, -5)
+        );
+        ghostBridge = new THREE.Mesh(
+          new THREE.BoxGeometry(dist, 1, 4),
+          new THREE.MeshBasicMaterial({
+            visible: false,
+            color: 0xff0000,
+            wireframe: true,
+          })
+        );
+
+        // Math to position the invisible bridge between platforms
+        const midX = (startPlat.position.x + endPlat.position.x) / 2;
+        const midZ = (startPlat.position.z + endPlat.position.z) / 2;
+        ghostBridge.position.set(midX, 0, midZ);
+        ghostBridge.lookAt(endPlat.position);
+
+        scene.add(ghostBridge);
+
+        // --- Player ---
+        player = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), matPlayer);
+        player.position.set(-5, 1.5, 5); // On start plat
+        player.castShadow = true;
+        scene.add(player);
+
+        // --- Decor ---
+        const geoDebris = new THREE.TetrahedronGeometry(0.5);
+        for (let i = 0; i < 10; i++) {
+          const mesh = new THREE.Mesh(geoDebris, matBase);
+          mesh.position.set(
+            (Math.random() - 0.5) * 20,
+            Math.random() * 10,
+            (Math.random() - 0.5) * 20
+          );
+          scene.add(mesh);
+        }
+      }
+
+      function handleKey(e, pressed) {
+        const key = e.key.toLowerCase();
+        if (keys.hasOwnProperty(key)) keys[key] = pressed;
+
+        if (pressed && e.code === "Space") {
+          if (isAligned && !isFused) {
+            toggleFusion(true);
+          } else if (isFused) {
+            toggleFusion(false);
+          }
+        }
+      }
+
+      function checkAlignment() {
+        if (isFused) return;
+
+        // Get current spherical coordinates of camera
+        const offset = new THREE.Vector3().subVectors(
+          camera.position,
+          controls.target
+        );
+        const r = offset.length();
+        const theta = Math.atan2(offset.x, offset.z); // Azimuth
+        const phi = Math.acos(offset.y / r); // Polar
+
+        // Define target angle
+        const targetTheta = Math.PI / 4;
+        const targetPhi = Math.PI / 3;
+
+        // Simple distance check on angles
+        const thetaDiff = Math.abs(theta - targetTheta);
+        const phiDiff = Math.abs(phi - targetPhi);
+
+        const combinedDiff = thetaDiff + phiDiff;
+        const alignmentScore = Math.max(0, 1 - combinedDiff * 2);
+
+        if (combinedDiff < ALIGN_TOLERANCE) {
+          isAligned = true;
+          uiStatus.textContent = "ALIGNMENT DETECTED [PRESS SPACE]";
+          uiStatus.className = "ready";
+          illusionPlat.material.emissive.setHex(0xff00ff);
+        } else {
+          isAligned = false;
+          uiStatus.textContent = `ALIGNMENT: ${Math.floor(
+            alignmentScore * 100
+          )}%`;
+          uiStatus.className = "";
+          illusionPlat.material.emissive.setHex(0x330011);
+        }
+      }
+
+      function toggleFusion(activate) {
+        isFused = activate;
+
+        if (activate) {
+          // LOCK REALITY
+          uiStatus.textContent = "REALITY FUSED";
+          uiStatus.className = "locked";
+
+          // Sync ortho cam to perspective
+          orthoCam.position.copy(camera.position);
+          orthoCam.rotation.copy(camera.rotation);
+          orthoCam.zoom = 1;
+          orthoCam.updateProjectionMatrix();
+
+          // Snap the illusion object
+          illusionPlat.originalRot = illusionPlat.rotation.clone();
+          illusionPlat.originalPos = illusionPlat.position.clone();
+
+          illusionPlat.rotation.set(0, Math.PI / 4, 0);
+          illusionPlat.position.y = 0;
+
+          // Switch active camera
+          camera = orthoCam;
+          controls.object = orthoCam;
+          controls.enableRotate = false;
+        } else {
+          // UNLOCK REALITY
+          uiStatus.textContent = "REALITY BROKEN";
+
+          // Reset Illusion Object
+          illusionPlat.rotation.copy(illusionPlat.originalRot);
+          illusionPlat.position.copy(illusionPlat.originalPos);
+
+          // Switch back to Perspective
+          camera = perspectiveCam;
+          controls.object = perspectiveCam;
+          controls.enableRotate = true;
+        }
+      }
+
+      function movePlayer() {
+        if (!player) return;
+
+        const speed = PLAYER_SPEED;
+        const forward = new THREE.Vector3();
+        const right = new THREE.Vector3();
+
+        camera.getWorldDirection(forward);
+        forward.y = 0;
+        forward.normalize();
+
+        right.crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
+
+        const moveVec = new THREE.Vector3();
+
+        if (keys.w) moveVec.add(forward);
+        if (keys.s) moveVec.sub(forward);
+        if (keys.a) moveVec.sub(right);
+        if (keys.d) moveVec.add(right);
+
+        if (moveVec.length() > 0) {
+          moveVec.normalize().multiplyScalar(speed);
+
+          const nextPos = player.position.clone().add(moveVec);
+
+          // Collision Detection
+          let onGround = false;
+          const inBounds = (pos, mesh, tolerance = 1.0) => {
+            const halfW = mesh.geometry.parameters.width / 2 + tolerance;
+            const halfD = mesh.geometry.parameters.depth / 2 + tolerance;
+            const dx = Math.abs(pos.x - mesh.position.x);
+            const dz = Math.abs(pos.z - mesh.position.z);
+            return dx < halfW && dz < halfD;
+          };
+
+          if (inBounds(nextPos, startPlat, 0)) onGround = true;
+          if (inBounds(nextPos, endPlat, 0)) onGround = true;
+
+          if (isFused && inBounds(nextPos, ghostBridge, 0.5)) {
+            onGround = true;
+          }
+
+          if (onGround) {
+            player.position.copy(nextPos);
+          }
+        }
+      }
+
+      function animate() {
+        requestAnimationFrame(animate);
+        movePlayer();
+        checkAlignment();
+        controls.update();
+        renderer.render(scene, camera);
+      }
+
+      function onWindowResize() {
+        const aspect = window.innerWidth / window.innerHeight;
+
+        perspectiveCam.aspect = aspect;
+        perspectiveCam.updateProjectionMatrix();
+
+        const frustumSize = 25;
+        orthoCam.left = (-frustumSize * aspect) / 2;
+        orthoCam.right = (frustumSize * aspect) / 2;
+        orthoCam.top = frustumSize / 2;
+        orthoCam.bottom = -frustumSize / 2;
+        orthoCam.updateProjectionMatrix();
+
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      }
+    </script>
+  </body>
+</html>

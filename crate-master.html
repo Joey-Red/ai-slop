@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Crate Master: Logistics Legend</title>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Roboto+Mono:wght@400;700&display=swap");
+
+      :root {
+        --bg-color: #1a1a1a;
+        --accent-yellow: #ffb700;
+        --accent-danger: #ff4444;
+        --text-color: #e0e0e0;
+        --ui-bg: rgba(0, 0, 0, 0.85);
+      }
+
+      body {
+        margin: 0;
+        padding: 0;
+        background-color: var(--bg-color);
+        color: var(--text-color);
+        font-family: "Roboto Mono", monospace;
+        overflow: hidden;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        user-select: none;
+      }
+
+      #game-container {
+        position: relative;
+        box-shadow: 0 0 50px rgba(0, 0, 0, 0.5);
+        border: 4px solid #333;
+      }
+
+      canvas {
+        display: block;
+        background-color: #2a2a2a;
+      }
+
+      #ui-layer {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+      }
+
+      .hud-panel {
+        padding: 20px;
+        display: flex;
+        justify-content: space-between;
+        text-shadow: 2px 2px 0 #000;
+      }
+
+      h1 {
+        font-family: "Black Ops One", cursive;
+        margin: 0;
+        color: var(--accent-yellow);
+        font-size: 2rem;
+        text-transform: uppercase;
+      }
+
+      .stat-box {
+        background: rgba(0, 0, 0, 0.6);
+        padding: 10px 20px;
+        border-left: 4px solid var(--accent-yellow);
+        font-size: 1.2rem;
+      }
+
+      #message-overlay {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: var(--ui-bg);
+        padding: 40px;
+        text-align: center;
+        border: 2px solid var(--accent-yellow);
+        pointer-events: auto;
+        max-width: 500px;
+        width: 80%;
+        z-index: 100;
+      }
+
+      .hidden {
+        display: none !important;
+      }
+
+      button {
+        background: var(--accent-yellow);
+        color: #000;
+        border: none;
+        padding: 15px 30px;
+        font-family: "Black Ops One", cursive;
+        font-size: 1.5rem;
+        cursor: pointer;
+        margin-top: 20px;
+        transition: transform 0.1s, background 0.2s;
+        text-transform: uppercase;
+      }
+
+      button:hover {
+        transform: scale(1.05);
+        background: #ffcc00;
+      }
+
+      button:active {
+        transform: scale(0.95);
+      }
+
+      .tutorial-text {
+        color: #aaa;
+        font-size: 0.9rem;
+        margin-top: 10px;
+        line-height: 1.4;
+      }
+
+      #instructions {
+        margin-bottom: 20px;
+        font-size: 1.1rem;
+      }
+
+      /* Stripes effect for hazard warning */
+      .hazard-stripes {
+        background: repeating-linear-gradient(
+          45deg,
+          #000,
+          #000 10px,
+          #ffb700 10px,
+          #ffb700 20px
+        );
+        height: 10px;
+        width: 100%;
+        margin-bottom: 10px;
+      }
+
+      .danger-text {
+        color: var(--accent-danger);
+        font-weight: bold;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="game-container">
+      <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+      <div id="ui-layer">
+        <div class="hud-panel">
+          <div class="stat-box">SCORE: <span id="score-display">0</span></div>
+          <div class="stat-box">QUOTA: <span id="quota-display">0/5</span></div>
+        </div>
+        <div class="hud-panel" style="justify-content: center">
+          <div id="phase-indicator" class="stat-box" style="border-color: #fff">
+            PHASE: STANDBY
+          </div>
+        </div>
+      </div>
+
+      <div id="message-overlay">
+        <div class="hazard-stripes"></div>
+        <h1 id="overlay-title">WAREHOUSE 99</h1>
+        <p id="instructions">
+          New Shift Started. Complete the daily quota to win.
+        </p>
+        <div id="tutorial-content" class="tutorial-text">
+          <strong>NEW HAZARDS DETECTED:</strong><br />
+          <span style="color: #ff8888">SAW JAM:</span> Missed cuts disable saw
+          for 2s.<br />
+          <span style="color: #cd7f32">RUSTY NAILS:</span> Require 2 hits to
+          hammer.<br />
+          <span style="color: #88ccff">UNSTABLE LOAD:</span> Don't turn too fast
+          or crate slides off!
+        </div>
+        <button id="action-btn">CLOCK IN</button>
+        <div class="hazard-stripes" style="margin-top: 20px"></div>
+      </div>
+    </div>
+
+    <script>
+      /**
+       * CRATE MASTER
+       * Single file game implementation
+       */
+
+      // --- AUDIO SYSTEM ---
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+      const Sound = {
+        playTone: (freq, type, duration, vol = 0.1) => {
+          if (audioCtx.state === "suspended") audioCtx.resume();
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+          gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(
+            0.01,
+            audioCtx.currentTime + duration
+          );
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start();
+          osc.stop(audioCtx.currentTime + duration);
+        },
+        saw: () => {
+          Sound.playTone(100, "sawtooth", 0.1, 0.1);
+          Sound.playTone(150, "square", 0.1, 0.05);
+        },
+        hammer: (heavy = false) => {
+          const f = heavy ? 400 : 800;
+          Sound.playTone(f, "square", 0.05, 0.2);
+          Sound.playTone(100, "triangle", 0.1, 0.3);
+        },
+        engine: (speed) => {
+          if (Math.random() > 0.8)
+            Sound.playTone(40 + speed * 5, "sawtooth", 0.1, 0.05);
+        },
+        slide: () => {
+          Sound.playTone(800, "sawtooth", 0.05, 0.05); // Screech
+        },
+        jam: () => {
+          Sound.playTone(100, "sawtooth", 0.5, 0.2);
+          Sound.playTone(80, "square", 0.5, 0.2);
+        },
+        success: () => {
+          Sound.playTone(440, "sine", 0.2, 0.2);
+          setTimeout(() => Sound.playTone(554, "sine", 0.4, 0.2), 100);
+        },
+        fail: () => {
+          Sound.playTone(150, "sawtooth", 0.3, 0.2);
+          setTimeout(() => Sound.playTone(100, "sawtooth", 0.3, 0.2), 100);
+        },
+        win: () => {
+          // Victory fanfare
+          [440, 554, 659, 880].forEach((f, i) => {
+            setTimeout(() => Sound.playTone(f, "square", 0.4, 0.2), i * 150);
+          });
+        },
+      };
+
+      // --- GAME CONSTANTS & STATE ---
+      const canvas = document.getElementById("gameCanvas");
+      const ctx = canvas.getContext("2d");
+      const uiScore = document.getElementById("score-display");
+      const uiQuota = document.getElementById("quota-display");
+      const uiPhase = document.getElementById("phase-indicator");
+      const overlay = document.getElementById("message-overlay");
+      const overlayTitle = document.getElementById("overlay-title");
+      const instructions = document.getElementById("instructions");
+      const actionBtn = document.getElementById("action-btn");
+      const tutorial = document.getElementById("tutorial-content");
+
+      const PHASES = {
+        MENU: 0,
+        SAWING: 1,
+        ASSEMBLY: 2,
+        SHIPPING: 3,
+        GAMEOVER: 4,
+        VICTORY: 5,
+      };
+
+      const MAX_QUOTA = 5;
+
+      let gameState = {
+        phase: PHASES.MENU,
+        score: 0,
+        startTime: 0,
+        cratesShipped: 0,
+        currentObject: null,
+
+        // Sawing State
+        sawCursor: 0,
+        sawDirection: 1,
+        sawSpeed: 5,
+        planksCut: 0,
+        requiredPlanks: 4,
+        sawJamTimer: 0,
+
+        // Assembly State
+        nails: [],
+
+        // Shipping State
+        palletJack: { x: 100, y: 300, angle: 0, speed: 0, holdingBox: true },
+        boxSlideOffset: 0,
+
+        particles: [],
+      };
+
+      // --- INPUT HANDLING ---
+      const keys = {};
+      let mouse = { x: 0, y: 0, clicked: false };
+
+      window.addEventListener("keydown", (e) => {
+        keys[e.code] = true;
+        if (e.code === "Space" && gameState.phase === PHASES.SAWING) {
+          attemptCut();
+        }
+      });
+      window.addEventListener("keyup", (e) => (keys[e.code] = false));
+      canvas.addEventListener("mousemove", (e) => {
+        const rect = canvas.getBoundingClientRect();
+        mouse.x = e.clientX - rect.left;
+        mouse.y = e.clientY - rect.top;
+      });
+      canvas.addEventListener("mousedown", () => {
+        mouse.clicked = true;
+        if (gameState.phase === PHASES.ASSEMBLY) {
+          attemptHammer();
+        }
+      });
+      canvas.addEventListener("mouseup", () => (mouse.clicked = false));
+
+      actionBtn.addEventListener("click", () => {
+        if (
+          gameState.phase === PHASES.MENU ||
+          gameState.phase === PHASES.GAMEOVER ||
+          gameState.phase === PHASES.VICTORY
+        ) {
+          startGame();
+        }
+      });
+
+      // --- GAME LOGIC ---
+
+      function generateObject() {
+        const types = [
+          {
+            name: "Engine Block",
+            w: 100,
+            h: 100,
+            color: "#777",
+            label: "HEAVY",
+          },
+          {
+            name: "Antique Vase",
+            w: 60,
+            h: 120,
+            color: "#a64d4d",
+            label: "FRAGILE",
+          },
+          {
+            name: "Toxic Waste",
+            w: 80,
+            h: 100,
+            color: "#4da64d",
+            label: "TOXIC",
+          },
+          {
+            name: "Gold Bars",
+            w: 120,
+            h: 60,
+            color: "#d4af37",
+            label: "HIGH VAL",
+          },
+          {
+            name: "Prototype X",
+            w: 90,
+            h: 90,
+            color: "#551a8b",
+            label: "SECRET",
+          },
+        ];
+        const type = types[Math.floor(Math.random() * types.length)];
+        const width = type.w + (Math.random() * 40 - 20);
+        const height = type.h + (Math.random() * 40 - 20);
+
+        return {
+          ...type,
+          width: width,
+          height: height,
+          requiredNails: 5 + Math.floor(gameState.cratesShipped * 0.5),
+        };
+      }
+
+      function startGame() {
+        gameState.score = 0;
+        gameState.cratesShipped = 0;
+        gameState.startTime = Date.now();
+        uiQuota.textContent = `0/${MAX_QUOTA}`;
+        startLevel();
+        overlay.classList.add("hidden");
+      }
+
+      function startLevel() {
+        gameState.currentObject = generateObject();
+
+        // Reset Sawing
+        gameState.phase = PHASES.SAWING;
+        gameState.sawCursor = 0;
+        // Speed increases with crates shipped
+        gameState.sawSpeed = 6 + gameState.cratesShipped * 1.5;
+        gameState.planksCut = 0;
+        gameState.sawJamTimer = 0;
+
+        uiPhase.textContent = "PHASE 1: CUTTING";
+        uiPhase.style.borderColor = "#ffb700";
+      }
+
+      function startAssembly() {
+        gameState.phase = PHASES.ASSEMBLY;
+        gameState.nails = [];
+        const obj = gameState.currentObject;
+
+        for (let i = 0; i < obj.requiredNails; i++) {
+          // Mechanic: Rusty Nails (30% chance)
+          const isRusty = Math.random() < 0.35;
+          gameState.nails.push({
+            x: 400 - obj.width / 2 - 10 + Math.random() * (obj.width + 20),
+            y: 300 - obj.height / 2 - 10 + Math.random() * (obj.height + 20),
+            hitsRequired: isRusty ? 2 : 1,
+            maxHits: isRusty ? 2 : 1,
+            isRusty: isRusty,
+          });
+        }
+        uiPhase.textContent = "PHASE 2: ASSEMBLY";
+        uiPhase.style.borderColor = "#44ff44";
+      }
+
+      function startShipping() {
+        gameState.phase = PHASES.SHIPPING;
+        gameState.palletJack = {
+          x: 100,
+          y: 400,
+          angle: 0,
+          speed: 0,
+          holdingBox: true,
+        };
+        gameState.boxSlideOffset = 0;
+        uiPhase.textContent = "PHASE 3: LOADING";
+        uiPhase.style.borderColor = "#4444ff";
+      }
+
+      // --- UPDATE LOOPS ---
+
+      function update() {
+        if (
+          gameState.phase === PHASES.MENU ||
+          gameState.phase === PHASES.VICTORY
+        )
+          return;
+
+        uiScore.textContent = gameState.score;
+        uiQuota.textContent = `${gameState.cratesShipped}/${MAX_QUOTA}`;
+
+        if (gameState.phase === PHASES.SAWING) {
+          updateSawing();
+        } else if (gameState.phase === PHASES.ASSEMBLY) {
+          updateAssembly();
+        } else if (gameState.phase === PHASES.SHIPPING) {
+          updateShipping();
+        }
+
+        updateParticles();
+      }
+
+      function updateSawing() {
+        if (gameState.sawJamTimer > 0) {
+          gameState.sawJamTimer--;
+          return; // Stalled
+        }
+
+        gameState.sawCursor += gameState.sawSpeed * gameState.sawDirection;
+        const limit = 300;
+        if (gameState.sawCursor > limit || gameState.sawCursor < -limit) {
+          gameState.sawDirection *= -1;
+        }
+
+        if (Math.abs(gameState.sawCursor) % 20 < 5) Sound.saw();
+      }
+
+      function attemptCut() {
+        if (gameState.sawJamTimer > 0) return; // Cannot cut while jammed
+
+        const targetWidth = 50 - gameState.cratesShipped * 5; // Target gets smaller!
+
+        if (Math.abs(gameState.sawCursor) < Math.max(10, targetWidth)) {
+          // Success
+          gameState.planksCut++;
+          createParticles(400 + gameState.sawCursor, 300, "#C19A6B", 20);
+          Sound.success();
+          gameState.score += 50;
+
+          // Speed up slightly within level
+          gameState.sawSpeed += 0.5;
+
+          if (gameState.planksCut >= gameState.requiredPlanks) {
+            startAssembly();
+          }
+        } else {
+          // Fail - JAM MECHANIC
+          Sound.jam();
+          gameState.score -= 50;
+          createParticles(400 + gameState.sawCursor, 300, "#ff4444", 15);
+          gameState.sawJamTimer = 120; // 2 seconds at 60fps
+        }
+      }
+
+      function updateAssembly() {
+        const allDone = gameState.nails.every((n) => n.hitsRequired <= 0);
+        if (allDone) {
+          setTimeout(startShipping, 300);
+        }
+      }
+
+      function attemptHammer() {
+        let hitSomething = false;
+        gameState.nails.forEach((nail) => {
+          if (nail.hitsRequired > 0) {
+            const dx = mouse.x - nail.x;
+            const dy = mouse.y - nail.y;
+            if (Math.sqrt(dx * dx + dy * dy) < 25) {
+              nail.hitsRequired--;
+              hitSomething = true;
+
+              if (nail.hitsRequired === 0) {
+                Sound.hammer(); // Final hit
+                createParticles(nail.x, nail.y, "#aaa", 5);
+                gameState.score += 25;
+              } else {
+                Sound.hammer(true); // Rusty thud
+                createParticles(nail.x, nail.y, "#8B4513", 3);
+                gameState.score += 10;
+              }
+            }
+          }
+        });
+
+        if (!hitSomething) {
+          Sound.playTone(50, "square", 0.05, 0.1);
+        }
+      }
+
+      function updateShipping() {
+        const p = gameState.palletJack;
+        const oldAngle = p.angle;
+
+        // Car physics
+        if (keys["ArrowUp"] || keys["KeyW"]) p.speed += 0.2;
+        if (keys["ArrowDown"] || keys["KeyS"]) p.speed -= 0.2;
+
+        // Turn logic
+        let turn = 0;
+        if (Math.abs(p.speed) > 0.1) {
+          if (keys["ArrowLeft"] || keys["KeyA"]) turn = -0.06;
+          if (keys["ArrowRight"] || keys["KeyD"]) turn = 0.06;
+        }
+
+        // Reverse turning logic
+        if (p.speed < 0) turn *= -1;
+        p.angle += turn;
+
+        // Friction
+        p.speed *= 0.96;
+
+        // Movement
+        p.x += Math.cos(p.angle) * p.speed;
+        p.y += Math.sin(p.angle) * p.speed;
+
+        // MECHANIC: SLIPPERY CARGO / CENTRIFUGAL FORCE
+        // The force is proportional to speed * turn sharpness
+        const centrifugalForce = turn * p.speed * 25;
+        gameState.boxSlideOffset -= centrifugalForce; // Slide opposite to turn
+
+        // Slide Friction (box trying to stay on)
+        gameState.boxSlideOffset *= 0.95;
+
+        // Warning Sound if sliding
+        if (Math.abs(gameState.boxSlideOffset) > 15) Sound.slide();
+
+        // Check Drop condition (Fail)
+        if (Math.abs(gameState.boxSlideOffset) > 45) {
+          failShipping();
+          return;
+        }
+
+        // Engine Sound
+        if (Math.abs(p.speed) > 0.5) Sound.engine(Math.abs(p.speed));
+
+        // Boundaries
+        if (p.x < 20) {
+          p.x = 20;
+          p.speed = 0;
+        }
+        if (p.x > 780) {
+          p.x = 780;
+          p.speed = 0;
+        }
+        if (p.y < 20) {
+          p.y = 20;
+          p.speed = 0;
+        }
+        if (p.y > 580) {
+          p.y = 580;
+          p.speed = 0;
+        }
+
+        // Win Zone
+        if (
+          p.x > 600 &&
+          p.x < 750 &&
+          p.y > 50 &&
+          p.y < 250 &&
+          Math.abs(p.speed) < 2
+        ) {
+          completeLevel();
+        }
+      }
+
+      function failShipping() {
+        Sound.fail();
+        gameState.score -= 100;
+        createParticles(
+          gameState.palletJack.x,
+          gameState.palletJack.y,
+          "#C19A6B",
+          50
+        ); // Box explosion
+
+        // Restart Shipping Phase
+        uiPhase.textContent = "CARGO LOST! RESETTING...";
+        uiPhase.style.borderColor = "#ff0000";
+        setTimeout(startShipping, 1500);
+      }
+
+      function completeLevel() {
+        Sound.success();
+        gameState.cratesShipped++;
+        gameState.score += 200 + gameState.cratesShipped * 50;
+
+        if (gameState.cratesShipped >= MAX_QUOTA) {
+          victory();
+        } else {
+          startLevel();
+        }
+      }
+
+      function victory() {
+        gameState.phase = PHASES.VICTORY;
+        Sound.win();
+        overlayTitle.textContent = "SHIFT COMPLETE";
+        instructions.textContent = `Excellent work! Final Score: ${gameState.score}`;
+        tutorial.innerHTML = "You survived the shift.";
+        actionBtn.textContent = "NEXT SHIFT";
+        overlay.classList.remove("hidden");
+      }
+
+      function createParticles(x, y, color, count) {
+        for (let i = 0; i < count; i++) {
+          gameState.particles.push({
+            x: x,
+            y: y,
+            vx: (Math.random() - 0.5) * 10,
+            vy: (Math.random() - 0.5) * 10,
+            life: 1.0,
+            color: color,
+          });
+        }
+      }
+
+      function updateParticles() {
+        for (let i = gameState.particles.length - 1; i >= 0; i--) {
+          const p = gameState.particles[i];
+          p.x += p.vx;
+          p.y += p.vy;
+          p.life -= 0.05;
+          p.vy += 0.5; // Gravity
+          if (p.life <= 0) gameState.particles.splice(i, 1);
+        }
+      }
+
+      // --- DRAWING ---
+
+      function draw() {
+        ctx.fillStyle = "#1a1a1a";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Grid
+        ctx.strokeStyle = "#333";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for (let x = 0; x < canvas.width; x += 50) {
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, canvas.height);
+        }
+        for (let y = 0; y < canvas.height; y += 50) {
+          ctx.moveTo(0, y);
+          ctx.lineTo(canvas.width, y);
+        }
+        ctx.stroke();
+
+        if (gameState.phase === PHASES.SAWING) {
+          drawSawing();
+        } else if (gameState.phase === PHASES.ASSEMBLY) {
+          drawAssembly();
+        } else if (gameState.phase === PHASES.SHIPPING) {
+          drawShipping();
+        }
+
+        drawParticles();
+
+        requestAnimationFrame(() => {
+          update();
+          draw();
+        });
+      }
+
+      function drawSawing() {
+        ctx.globalAlpha = 0.3;
+        ctx.fillStyle = gameState.currentObject.color;
+        ctx.fillRect(
+          400 - gameState.currentObject.width / 2,
+          100,
+          gameState.currentObject.width,
+          gameState.currentObject.height
+        );
+        ctx.globalAlpha = 1.0;
+
+        ctx.fillStyle = "#fff";
+        ctx.font = "20px Roboto Mono";
+        ctx.textAlign = "center";
+
+        if (gameState.sawJamTimer > 0) {
+          ctx.fillStyle = "#ff4444";
+          ctx.fillText("SAW JAMMED! CLEARING DEBRIS...", 400, 80);
+        } else {
+          ctx.fillText(
+            `CUT PLANKS: ${gameState.planksCut}/${gameState.requiredPlanks}`,
+            400,
+            80
+          );
+        }
+
+        // Log
+        ctx.fillStyle = "#8B5A2B";
+        ctx.fillRect(50, 250, 700, 100);
+
+        // Target Zone (Shrinks)
+        const center = 400;
+        const tolerance = 50 - gameState.cratesShipped * 5;
+        const tWidth = Math.max(10, tolerance);
+
+        ctx.fillStyle = "rgba(0, 255, 0, 0.3)";
+        ctx.fillRect(center - tWidth, 250, tWidth * 2, 100);
+        ctx.strokeStyle = "#0f0";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(center - tWidth, 250, tWidth * 2, 100);
+
+        // Blade
+        const cursorX = center + gameState.sawCursor;
+        ctx.fillStyle = gameState.sawJamTimer > 0 ? "#ff4444" : "#ccc";
+        ctx.beginPath();
+        ctx.moveTo(cursorX, 230);
+        ctx.lineTo(cursorX - 10, 210);
+        ctx.lineTo(cursorX + 10, 210);
+        ctx.fill();
+
+        ctx.strokeStyle = gameState.sawJamTimer > 0 ? "#ff4444" : "#fff";
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath();
+        ctx.moveTo(cursorX, 250);
+        ctx.lineTo(cursorX, 350);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      function drawAssembly() {
+        const cx = 400;
+        const cy = 300;
+        const w = gameState.currentObject.width + 40;
+        const h = gameState.currentObject.height + 40;
+
+        ctx.fillStyle = "rgba(0,0,0,0.5)";
+        ctx.fillRect(cx - w / 2 + 10, cy - h / 2 + 10, w, h);
+
+        ctx.fillStyle = "#C19A6B";
+        ctx.fillRect(cx - w / 2, cy - h / 2, w, h);
+
+        ctx.strokeStyle = "#8B5A2B";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        for (let i = 0; i < w; i += 20) {
+          ctx.moveTo(cx - w / 2 + i, cy - h / 2);
+          ctx.lineTo(cx - w / 2 + i - 20, cy + h / 2);
+        }
+        ctx.stroke();
+
+        ctx.fillStyle = "#5C3A16";
+        ctx.font = "bold 24px Stencil";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(gameState.currentObject.label, cx, cy);
+
+        // Nails
+        gameState.nails.forEach((nail) => {
+          ctx.beginPath();
+          if (nail.hitsRequired <= 0) {
+            // Done
+            ctx.fillStyle = "#aaa";
+            ctx.arc(nail.x, nail.y, 6, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = "#555";
+            ctx.stroke();
+          } else {
+            // Needs hit
+            // Check rust
+            if (nail.isRusty) {
+              ctx.fillStyle = "#8B4513"; // Rust color
+            } else {
+              ctx.fillStyle = "#ff4444"; // Standard
+            }
+
+            // Visual feedback for hits remaining
+            const radius = nail.hitsRequired === 2 ? 10 : 7;
+
+            ctx.arc(nail.x, nail.y, radius, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Highlight text
+            ctx.fillStyle = "#fff";
+            ctx.font = "10px Arial";
+            ctx.fillText(nail.isRusty ? "HARD" : "HIT", nail.x, nail.y - 15);
+          }
+        });
+
+        // Hammer
+        ctx.save();
+        ctx.translate(mouse.x, mouse.y);
+        if (mouse.clicked) ctx.rotate(-0.5);
+        ctx.fillStyle = "#8B4513";
+        ctx.fillRect(0, 0, 10, 60);
+        ctx.fillStyle = "#555";
+        ctx.fillRect(-15, -10, 40, 20);
+        ctx.restore();
+      }
+
+      function drawShipping() {
+        // Goal
+        ctx.fillStyle = "#3a4a5a";
+        ctx.fillRect(600, 50, 250, 200);
+        ctx.fillStyle = "#2a3a4a";
+        ctx.fillRect(610, 60, 230, 180);
+
+        ctx.strokeStyle = "#ffff00";
+        ctx.lineWidth = 4;
+        ctx.setLineDash([10, 10]);
+        ctx.strokeRect(620, 70, 150, 160);
+        ctx.setLineDash([]);
+        ctx.fillStyle = "rgba(255, 255, 0, 0.1)";
+        ctx.fillRect(620, 70, 150, 160);
+
+        ctx.fillStyle = "#fff";
+        ctx.font = "16px Roboto Mono";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "alphabetic";
+        ctx.fillText("DROP ZONE", 695, 150);
+
+        // Player
+        const p = gameState.palletJack;
+
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.angle);
+
+        // Forks
+        ctx.fillStyle = "#e0e0e0";
+        ctx.fillRect(10, -10, 40, 5);
+        ctx.fillRect(10, 5, 40, 5);
+
+        // The Sliding Box!
+        const slide = gameState.boxSlideOffset;
+        const boxW = gameState.currentObject.width * 0.5;
+        const boxH = gameState.currentObject.height * 0.5;
+
+        // Visual warning color if sliding too much
+        if (Math.abs(slide) > 20) ctx.fillStyle = "#ff4444";
+        else ctx.fillStyle = "#C19A6B";
+
+        ctx.fillRect(15, -boxH / 2 + slide, boxW, boxH);
+
+        // Jack Body
+        ctx.fillStyle = "#ffcc00";
+        ctx.beginPath();
+        ctx.roundRect(-20, -15, 30, 30, 5);
+        ctx.fill();
+
+        // Wheels
+        ctx.fillStyle = "#111";
+        ctx.fillRect(-15, -18, 10, 3);
+        ctx.fillRect(-15, 15, 10, 3);
+
+        // Handle
+        ctx.fillStyle = "#111";
+        ctx.fillRect(-35, -2, 15, 4);
+
+        ctx.restore();
+
+        // UI for sliding
+        if (Math.abs(slide) > 10) {
+          ctx.fillStyle = "#ff4444";
+          ctx.font = "bold 20px Roboto Mono";
+          ctx.fillText("UNSTABLE!", p.x, p.y - 40);
+        }
+      }
+
+      function drawParticles() {
+        gameState.particles.forEach((p) => {
+          ctx.fillStyle = p.color;
+          ctx.globalAlpha = p.life;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+          ctx.fill();
+        });
+        ctx.globalAlpha = 1.0;
+      }
+
+      requestAnimationFrame(() => {
+        update();
+        draw();
+      });
+    </script>
+  </body>
+</html>
