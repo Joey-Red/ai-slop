@@ -1,0 +1,1239 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Physics Claw Arcade</title>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Roboto:wght@400;700&display=swap");
+
+      body {
+        margin: 0;
+        overflow: hidden;
+        background-color: #050505;
+        font-family: "Roboto", sans-serif;
+        color: white;
+        user-select: none;
+      }
+
+      #ui-layer {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+      }
+
+      .hud-top {
+        display: flex;
+        justify-content: space-between;
+        padding: 20px;
+        background: linear-gradient(to bottom, rgba(0, 0, 0, 0.8), transparent);
+      }
+
+      .money-box {
+        font-family: "Press Start 2P", cursive;
+        color: #4ade80;
+        font-size: 20px;
+        text-shadow: 0 0 10px #4ade80;
+      }
+
+      #center-crosshair {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 10px;
+        height: 10px;
+        background-color: white;
+        border-radius: 50%;
+        transform: translate(-50%, -50%);
+        mix-blend-mode: exclusion;
+        pointer-events: none;
+        opacity: 0.8;
+      }
+
+      #interaction-prompt {
+        position: absolute;
+        top: 60%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-family: "Press Start 2P", cursive;
+        font-size: 14px;
+        color: #fbbf24;
+        text-shadow: 0 0 5px black;
+        display: none;
+        text-align: center;
+        line-height: 1.5;
+      }
+
+      #inventory-screen {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 80%;
+        max-width: 600px;
+        height: 70%;
+        background: rgba(20, 20, 30, 0.95);
+        border: 2px solid #a855f7;
+        border-radius: 10px;
+        display: none;
+        pointer-events: auto;
+        flex-direction: column;
+        box-shadow: 0 0 50px rgba(168, 85, 247, 0.3);
+        z-index: 100;
+      }
+
+      .inv-header {
+        padding: 20px;
+        border-bottom: 1px solid #444;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .inv-header h2 {
+        margin: 0;
+        font-family: "Press Start 2P";
+        color: #a855f7;
+      }
+
+      .close-btn {
+        background: none;
+        border: none;
+        color: white;
+        font-family: "Press Start 2P";
+        cursor: pointer;
+        font-size: 20px;
+      }
+
+      .inv-grid {
+        flex: 1;
+        padding: 20px;
+        overflow-y: auto;
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+        gap: 15px;
+      }
+
+      .inv-item {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 5px;
+        padding: 10px;
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: space-between;
+        transition: transform 0.1s;
+      }
+
+      .inv-item:hover {
+        transform: scale(1.05);
+        background: rgba(255, 255, 255, 0.15);
+      }
+
+      .inv-item button {
+        background: #ef4444;
+        border: none;
+        color: white;
+        padding: 5px 10px;
+        border-radius: 3px;
+        cursor: pointer;
+        font-size: 10px;
+        margin-top: 5px;
+        font-family: "Press Start 2P";
+      }
+
+      .controls-hint {
+        position: absolute;
+        bottom: 20px;
+        left: 20px;
+        color: #aaa;
+        font-size: 12px;
+        background: rgba(0, 0, 0, 0.5);
+        padding: 10px;
+        border-radius: 5px;
+      }
+
+      #notification-area {
+        position: absolute;
+        top: 20%;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        pointer-events: none;
+      }
+
+      .toast {
+        background: rgba(0, 0, 0, 0.8);
+        border-left: 4px solid #4ade80;
+        padding: 15px 25px;
+        color: white;
+        font-family: "Press Start 2P";
+        font-size: 12px;
+        animation: fadeInOut 3s forwards;
+        border-radius: 4px;
+      }
+
+      @keyframes fadeInOut {
+        0% {
+          opacity: 0;
+          transform: translateY(20px);
+        }
+        10% {
+          opacity: 1;
+          transform: translateY(0);
+        }
+        90% {
+          opacity: 1;
+          transform: translateY(0);
+        }
+        100% {
+          opacity: 0;
+          transform: translateY(-20px);
+        }
+      }
+
+      /* Loading Screen */
+      #loader {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: #111;
+        z-index: 999;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        color: #a855f7;
+        font-family: "Press Start 2P";
+        flex-direction: column;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="loader">
+      <h1>LOADING ARCADE...</h1>
+      <p>Initializing Physics Engine</p>
+    </div>
+
+    <!-- UI Overlay -->
+    <div id="ui-layer">
+      <div class="hud-top">
+        <div class="money-box">
+          CREDITS: $<span id="money-display">0.00</span>
+        </div>
+        <div class="money-box" style="font-size: 12px; color: #fff">
+          INVENTORY (I)
+        </div>
+      </div>
+      <div id="notification-area"></div>
+      <div id="center-crosshair"></div>
+      <div id="interaction-prompt">PRESS E TO INTERACT</div>
+      <div class="controls-hint">
+        WASD: Move/Drive Claw<br />
+        SPACE: Drop Claw<br />
+        E: Interact/Action<br />
+        ESC: Release Mouse
+      </div>
+    </div>
+
+    <!-- Inventory Screen -->
+    <div id="inventory-screen">
+      <div class="inv-header">
+        <h2>COLLECTION</h2>
+        <button class="close-btn" onclick="toggleInventory()">X</button>
+      </div>
+      <div class="inv-grid" id="inv-container">
+        <!-- Items go here -->
+      </div>
+    </div>
+
+    <!-- Main Libraries -->
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
+          "cannon-es": "https://unpkg.com/cannon-es@0.20.0/dist/cannon-es.js"
+        }
+      }
+    </script>
+
+    <script type="module">
+      import * as THREE from "three";
+      import { PointerLockControls } from "three/addons/controls/PointerLockControls.js";
+      import * as CANNON from "cannon-es";
+
+      // --- Game State & Data ---
+      const GAME_STATE = {
+        WALKING: "walking",
+        CLAW_MOVING: "claw_moving",
+        CLAW_DROPPING: "claw_dropping",
+        CLAW_GRABBING: "claw_grabbing",
+        CLAW_RISING: "claw_rising",
+        CLAW_RETURNING: "claw_returning",
+        INVENTORY: "inventory",
+      };
+
+      let currentState = GAME_STATE.WALKING;
+      let userData = {
+        money: 5.0,
+        inventory: [], // Array of objects { id, name, value, color, type }
+        collectedIds: [], // Track unique IDs to avoid duplicates if needed
+      };
+
+      // --- Constants ---
+      const COST_TO_PLAY = 0.5;
+      const PRIZE_TYPES = [
+        { name: "Ruby Cube", value: 2.0, color: 0xff0000, shape: "box" },
+        { name: "Gold Sphere", value: 5.0, color: 0xffd700, shape: "sphere" },
+        { name: "Void Prism", value: 10.0, color: 0x8a2be2, shape: "tetra" },
+        { name: "Emerald", value: 3.5, color: 0x50c878, shape: "ico" },
+        { name: "Blue Berry", value: 1.0, color: 0x0000ff, shape: "sphere" },
+      ];
+
+      // --- Three.js Setup ---
+      const scene = new THREE.Scene();
+      scene.fog = new THREE.FogExp2(0x050505, 0.02);
+
+      const camera = new THREE.PerspectiveCamera(
+        75,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        100
+      );
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      document.body.appendChild(renderer.domElement);
+
+      // --- Cannon.js Setup ---
+      const world = new CANNON.World();
+      world.gravity.set(0, -9.82, 0);
+      // Default material
+      const defaultMaterial = new CANNON.Material("default");
+      const defaultContactMaterial = new CANNON.ContactMaterial(
+        defaultMaterial,
+        defaultMaterial,
+        {
+          friction: 0.4,
+          restitution: 0.1, // Low bounce
+        }
+      );
+      world.addContactMaterial(defaultContactMaterial);
+
+      // Grippy material for claw
+      const clawMaterial = new CANNON.Material("claw");
+      const prizeMaterial = new CANNON.Material("prize");
+      const clawContactMat = new CANNON.ContactMaterial(
+        clawMaterial,
+        prizeMaterial,
+        {
+          friction: 2.0, // High friction for grip
+          restitution: 0.0,
+          contactEquationStiffness: 1e8,
+          contactEquationRelaxation: 3,
+        }
+      );
+      world.addContactMaterial(clawContactMat);
+
+      // --- Global Variables ---
+      let controls;
+      let clawGroup,
+        clawBody,
+        clawConstraint,
+        clawFingers = [];
+      let clawGantry;
+      let prizes = []; // { mesh, body, info }
+      let roomObjects = []; // Interactables
+      let displayPrizes = [];
+
+      // Key States
+      const keys = {
+        w: false,
+        a: false,
+        s: false,
+        d: false,
+        space: false,
+        shift: false,
+      };
+
+      // --- Initialization ---
+      function init() {
+        loadData();
+        createRoom();
+        createClawMachine();
+        createATM();
+        spawnPrizesInMachine();
+        updateDisplayPrizes();
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0x404040);
+        scene.add(ambientLight);
+
+        const spotLight = new THREE.SpotLight(0xffffff, 50);
+        spotLight.position.set(0, 10, 0);
+        spotLight.angle = Math.PI / 4;
+        spotLight.penumbra = 0.5;
+        spotLight.castShadow = true;
+        scene.add(spotLight);
+
+        // Controls
+        controls = new PointerLockControls(camera, document.body);
+        camera.position.set(0, 1.7, 5); // Player height
+
+        // Event Listeners
+        document.addEventListener("keydown", onKeyDown);
+        document.addEventListener("keyup", onKeyUp);
+        document.addEventListener("click", () => {
+          if (
+            currentState === GAME_STATE.WALKING &&
+            !document.pointerLockElement
+          ) {
+            controls.lock();
+          }
+        });
+
+        controls.addEventListener("lock", () => {
+          document.getElementById("inventory-screen").style.display = "none";
+          if (currentState === GAME_STATE.INVENTORY)
+            currentState = GAME_STATE.WALKING;
+        });
+        controls.addEventListener("unlock", () => {
+          // Determine if we should pause or just show UI
+        });
+
+        // updateUI(); <-- Removed this line causing the error
+        document.getElementById("loader").style.display = "none";
+        animate();
+      }
+
+      // --- Level Generation ---
+
+      function createRoom() {
+        // Floor
+        const floorGeo = new THREE.PlaneGeometry(20, 20);
+        const floorMat = new THREE.MeshStandardMaterial({
+          color: 0x222222,
+          roughness: 0.8,
+        });
+        const floor = new THREE.Mesh(floorGeo, floorMat);
+        floor.rotation.x = -Math.PI / 2;
+        floor.receiveShadow = true;
+        scene.add(floor);
+
+        const floorBody = new CANNON.Body({
+          mass: 0,
+          shape: new CANNON.Plane(),
+          material: defaultMaterial,
+        });
+        floorBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
+        world.addBody(floorBody);
+
+        // Shelves for prizes
+        createShelf(-4, 0, -4);
+        createShelf(4, 0, -4);
+        createShelf(-4, 0, 4);
+      }
+
+      function createShelf(x, y, z) {
+        const geo = new THREE.BoxGeometry(3, 0.2, 1);
+        const mat = new THREE.MeshStandardMaterial({ color: 0x444444 });
+
+        // 3 levels
+        for (let i = 1; i <= 3; i++) {
+          const mesh = new THREE.Mesh(geo, mat);
+          mesh.position.set(x, y + i * 1.5, z);
+          mesh.castShadow = true;
+          mesh.receiveShadow = true;
+          scene.add(mesh);
+
+          // Physics body (static)
+          const shape = new CANNON.Box(new CANNON.Vec3(1.5, 0.1, 0.5));
+          const body = new CANNON.Body({ mass: 0 });
+          body.addShape(shape);
+          body.position.set(x, y + i * 1.5, z);
+          world.addBody(body);
+        }
+      }
+
+      function createATM() {
+        const geometry = new THREE.BoxGeometry(1, 2, 1);
+        const material = new THREE.MeshStandardMaterial({ color: 0x22c55e });
+        const atm = new THREE.Mesh(geometry, material);
+        atm.position.set(6, 1, 0);
+        atm.castShadow = true;
+        scene.add(atm);
+
+        const body = new CANNON.Body({ mass: 0 });
+        body.addShape(new CANNON.Box(new CANNON.Vec3(0.5, 1, 0.5)));
+        body.position.copy(atm.position);
+        world.addBody(body);
+
+        // Screen
+        const screenGeo = new THREE.PlaneGeometry(0.8, 0.4);
+        const screenMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+        const screen = new THREE.Mesh(screenGeo, screenMat);
+        screen.position.set(0, 0.5, 0.51);
+        atm.add(screen);
+
+        // Text logic
+        const canvas = document.createElement("canvas");
+        canvas.width = 256;
+        canvas.height = 128;
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#000";
+        ctx.fillRect(0, 0, 256, 128);
+        ctx.fillStyle = "#0f0";
+        ctx.font = "30px Arial";
+        ctx.fillText("ATM", 90, 70);
+        const tex = new THREE.CanvasTexture(canvas);
+        screenMat.map = tex;
+
+        roomObjects.push({
+          mesh: atm,
+          type: "ATM",
+          interact: shakeATM,
+        });
+      }
+
+      function createClawMachine() {
+        const machinePos = new THREE.Vector3(0, 0, -5);
+
+        // 1. Cabinet Base
+        const baseGeo = new THREE.BoxGeometry(3, 1.5, 3);
+        const baseMat = new THREE.MeshStandardMaterial({
+          color: 0xff00ff,
+          roughness: 0.2,
+          metalness: 0.5,
+        });
+        const baseMesh = new THREE.Mesh(baseGeo, baseMat);
+        baseMesh.position.set(machinePos.x, 0.75, machinePos.z);
+        baseMesh.receiveShadow = true;
+        scene.add(baseMesh);
+
+        // Physics Base
+        const baseBody = new CANNON.Body({ mass: 0 });
+        baseBody.addShape(new CANNON.Box(new CANNON.Vec3(1.5, 0.75, 1.5)));
+        baseBody.position.copy(baseMesh.position);
+        world.addBody(baseBody);
+
+        // 2. Glass Box (Visual)
+        const glassGeo = new THREE.BoxGeometry(3, 2.5, 3);
+        const glassMat = new THREE.MeshPhysicalMaterial({
+          color: 0xffffff,
+          transmission: 0.9,
+          opacity: 0.3,
+          transparent: true,
+          roughness: 0,
+        });
+        const glassMesh = new THREE.Mesh(glassGeo, glassMat);
+        glassMesh.position.set(machinePos.x, 2.75, machinePos.z);
+        scene.add(glassMesh);
+
+        // 3. Walls (Physics) - Invisible barriers to keep prizes in
+        const wallShape = new CANNON.Box(new CANNON.Vec3(1.5, 1.25, 0.1));
+        const wallShapeSide = new CANNON.Box(new CANNON.Vec3(0.1, 1.25, 1.5));
+
+        const backWall = new CANNON.Body({ mass: 0 });
+        backWall.addShape(wallShape);
+        backWall.position.set(machinePos.x, 2.75, machinePos.z - 1.4);
+        world.addBody(backWall);
+
+        const frontWall = new CANNON.Body({ mass: 0 });
+        frontWall.addShape(wallShape);
+        frontWall.position.set(machinePos.x, 2.75, machinePos.z + 1.4);
+        world.addBody(frontWall);
+
+        const leftWall = new CANNON.Body({ mass: 0 });
+        leftWall.addShape(wallShapeSide);
+        leftWall.position.set(machinePos.x - 1.4, 2.75, machinePos.z);
+        world.addBody(leftWall);
+
+        const rightWall = new CANNON.Body({ mass: 0 });
+        rightWall.addShape(wallShapeSide);
+        rightWall.position.set(machinePos.x + 1.4, 2.75, machinePos.z);
+        world.addBody(rightWall);
+
+        // 4. Chute (Win Zone)
+        const chuteGeo = new THREE.BoxGeometry(0.8, 0.1, 0.8);
+        const chuteMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+        const chuteMesh = new THREE.Mesh(chuteGeo, chuteMat);
+        chuteMesh.position.set(machinePos.x - 1, 1.55, machinePos.z + 1);
+        scene.add(chuteMesh);
+
+        // Chute Logic Body (Sensor)
+        const chuteShape = new CANNON.Box(new CANNON.Vec3(0.4, 0.5, 0.4));
+        const chuteBody = new CANNON.Body({ mass: 0, isTrigger: true });
+        chuteBody.addShape(chuteShape);
+        chuteBody.position.set(machinePos.x - 1, 2.0, machinePos.z + 1);
+        world.addBody(chuteBody);
+
+        chuteBody.addEventListener("collide", (e) => {
+          // Check if prize
+          const prize = prizes.find((p) => p.body === e.body);
+          if (prize && currentState !== GAME_STATE.WALKING) {
+            winPrize(prize);
+          }
+        });
+
+        // 5. The Claw Mechanism
+
+        // Gantry (Moves X/Z) - Kinematic
+        const gantryGeo = new THREE.BoxGeometry(0.4, 0.1, 0.4);
+        const gantryMesh = new THREE.Mesh(
+          gantryGeo,
+          new THREE.MeshStandardMaterial({ color: 0x333333 })
+        );
+        gantryMesh.castShadow = true;
+        scene.add(gantryMesh);
+
+        clawGantry = new CANNON.Body({ mass: 0, type: CANNON.Body.KINEMATIC });
+        clawGantry.addShape(new CANNON.Box(new CANNON.Vec3(0.2, 0.05, 0.2)));
+        clawGantry.position.set(machinePos.x, 3.8, machinePos.z);
+        world.addBody(clawGantry);
+
+        // Claw Hub (Dynamic, hanging)
+        const hubGeo = new THREE.CylinderGeometry(0.15, 0.15, 0.2, 8);
+        const hubMesh = new THREE.Mesh(
+          hubGeo,
+          new THREE.MeshStandardMaterial({ color: 0x888888 })
+        );
+        hubMesh.castShadow = true;
+        scene.add(hubMesh);
+
+        clawBody = new CANNON.Body({
+          mass: 1,
+          material: clawMaterial,
+          angularDamping: 0.9,
+          linearDamping: 0.9,
+        });
+        clawBody.addShape(new CANNON.Cylinder(0.15, 0.15, 0.2, 8));
+        clawBody.position.set(machinePos.x, 3.5, machinePos.z);
+        world.addBody(clawBody);
+
+        // Connect Gantry to Hub with a Spring/Prismatic constraint
+        // We use a spring to simulate the rope, but a stiff constraint for control
+        clawConstraint = new CANNON.Spring(clawGantry, clawBody, {
+          localAnchorA: new CANNON.Vec3(0, -0.05, 0),
+          localAnchorB: new CANNON.Vec3(0, 0.1, 0),
+          restLength: 0.1,
+          stiffness: 50,
+          damping: 2,
+        });
+        world.addEventListener("postStep", () => {
+          clawConstraint.applyForce();
+        });
+
+        // Visual Rope
+        const ropeGeo = new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(0, 0, 0),
+          new THREE.Vector3(0, -1, 0),
+        ]);
+        const ropeLine = new THREE.Line(
+          ropeGeo,
+          new THREE.LineBasicMaterial({ color: 0x000000 })
+        );
+        scene.add(ropeLine);
+
+        clawGroup = {
+          gantryMesh,
+          gantryBody: clawGantry,
+          hubMesh,
+          hubBody: clawBody,
+          rope: ropeLine,
+        };
+
+        // Fingers
+        createClawFinger(new CANNON.Vec3(0.1, -0.1, 0));
+        createClawFinger(new CANNON.Vec3(-0.1, -0.1, 0.05));
+        createClawFinger(new CANNON.Vec3(0, -0.1, -0.1));
+
+        // Interaction Object
+        roomObjects.push({
+          mesh: baseMesh,
+          type: "MACHINE",
+          interact: startClawGame,
+        });
+      }
+
+      function createClawFinger(offset) {
+        const size = new THREE.Vector3(0.05, 0.3, 0.05);
+        const geo = new THREE.BoxGeometry(size.x, size.y, size.z);
+        const mesh = new THREE.Mesh(
+          geo,
+          new THREE.MeshStandardMaterial({ color: 0x888888 })
+        );
+        mesh.castShadow = true;
+        scene.add(mesh);
+
+        const body = new CANNON.Body({ mass: 0.2, material: clawMaterial });
+        const shape = new CANNON.Box(
+          new CANNON.Vec3(size.x / 2, size.y / 2, size.z / 2)
+        );
+        body.addShape(shape);
+        body.position.vadd(clawBody.position, body.position);
+        body.position.vadd(offset, body.position);
+        body.position.y -= 0.2;
+        world.addBody(body);
+
+        // Hinge to hub
+        // Pivot point is top of finger
+        const pivotA = offset;
+        const pivotB = new CANNON.Vec3(0, size.y / 2, 0);
+
+        // Calculate axis based on offset to make them open outward
+        const axis = new CANNON.Vec3(offset.z, 0, -offset.x).unit();
+
+        const constraint = new CANNON.HingeConstraint(clawBody, body, {
+          pivotA: pivotA,
+          axisA: axis,
+          pivotB: pivotB,
+          axisB: axis,
+        });
+        constraint.enableMotor();
+        constraint.setMotorSpeed(0);
+        constraint.setMotorMaxForce(5);
+
+        world.addConstraint(constraint);
+
+        clawFingers.push({
+          mesh,
+          body,
+          constraint,
+          axis,
+          originalOffset: offset,
+        });
+      }
+
+      function spawnPrizesInMachine() {
+        const machinePos = new THREE.Vector3(0, 2.0, -5);
+
+        for (let i = 0; i < 15; i++) {
+          const type =
+            PRIZE_TYPES[Math.floor(Math.random() * PRIZE_TYPES.length)];
+          let geo, shape;
+
+          const size = 0.25;
+
+          if (type.shape === "box") {
+            geo = new THREE.BoxGeometry(size, size, size);
+            shape = new CANNON.Box(
+              new CANNON.Vec3(size / 2, size / 2, size / 2)
+            );
+          } else if (type.shape === "sphere") {
+            geo = new THREE.SphereGeometry(size / 2);
+            shape = new CANNON.Sphere(size / 2);
+          } else {
+            geo = new THREE.DodecahedronGeometry(size / 2);
+            shape = new CANNON.Sphere(size / 2); // Approximation
+          }
+
+          const mat = new THREE.MeshStandardMaterial({
+            color: type.color,
+            roughness: 0.3,
+          });
+          const mesh = new THREE.Mesh(geo, mat);
+          mesh.castShadow = true;
+          scene.add(mesh);
+
+          const body = new CANNON.Body({ mass: 0.5, material: prizeMaterial });
+          body.addShape(shape);
+          body.position.set(
+            machinePos.x + (Math.random() - 0.5) * 2,
+            machinePos.y + i * 0.3,
+            machinePos.z + (Math.random() - 0.5) * 2
+          );
+          body.quaternion.setFromEuler(
+            Math.random() * Math.PI,
+            Math.random() * Math.PI,
+            Math.random() * Math.PI
+          );
+          world.addBody(body);
+
+          prizes.push({ mesh, body, info: type });
+        }
+      }
+
+      // --- Game Logic ---
+
+      function updateDisplayPrizes() {
+        // Clear old
+        displayPrizes.forEach((p) => {
+          scene.remove(p);
+        });
+        displayPrizes = [];
+
+        // Spawn gathered items on shelves
+        const shelves = [
+          { x: -4, z: -4 },
+          { x: 4, z: -4 },
+          { x: -4, z: 4 },
+        ];
+
+        let shelfIdx = 0;
+        let level = 1;
+        let offset = 0;
+
+        userData.inventory.forEach((item, index) => {
+          const geo = new THREE.BoxGeometry(0.3, 0.3, 0.3);
+          const mat = new THREE.MeshStandardMaterial({ color: item.color });
+          const mesh = new THREE.Mesh(geo, mat);
+
+          // Position logic
+          const shelf = shelves[shelfIdx % shelves.length];
+          mesh.position.set(
+            shelf.x + (offset - 1) * 0.4,
+            level * 1.5 + 0.2,
+            shelf.z
+          );
+
+          scene.add(mesh);
+          displayPrizes.push(mesh);
+
+          offset++;
+          if (offset > 2) {
+            offset = 0;
+            shelfIdx++;
+            if (shelfIdx >= shelves.length) {
+              shelfIdx = 0;
+              level++;
+              if (level > 3) level = 1; // loop
+            }
+          }
+        });
+      }
+
+      function handleInput(dt) {
+        // Interaction Raycast
+        const raycaster = new THREE.Raycaster();
+        raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+        const intersects = raycaster.intersectObjects(scene.children);
+
+        let interactable = null;
+        if (intersects.length > 0) {
+          const hit = intersects[0].object;
+          // Find parent interactable
+          interactable = roomObjects.find(
+            (obj) => obj.mesh === hit || obj.mesh === hit.parent
+          );
+        }
+
+        const prompt = document.getElementById("interaction-prompt");
+        if (
+          interactable &&
+          intersects[0].distance < 3 &&
+          currentState === GAME_STATE.WALKING
+        ) {
+          prompt.style.display = "block";
+          prompt.innerText =
+            interactable.type === "ATM"
+              ? "PRESS E TO SHAKE ATM"
+              : "PRESS E TO PLAY ($0.50)";
+
+          if (keys.interact) {
+            keys.interact = false; // consume key
+            interactable.interact();
+          }
+        } else {
+          prompt.style.display = "none";
+        }
+
+        // --- Walking Logic ---
+        if (currentState === GAME_STATE.WALKING && controls.isLocked) {
+          const speed = 5 * dt;
+          const direction = new THREE.Vector3();
+          const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(
+            camera.quaternion
+          );
+          const right = new THREE.Vector3(1, 0, 0).applyQuaternion(
+            camera.quaternion
+          );
+
+          forward.y = 0;
+          forward.normalize();
+          right.y = 0;
+          right.normalize();
+
+          if (keys.w) direction.add(forward);
+          if (keys.s) direction.sub(forward);
+          if (keys.d) direction.add(right);
+          if (keys.a) direction.sub(right);
+
+          camera.position.add(direction.multiplyScalar(speed));
+
+          // Boundary check (Simple room clamp)
+          camera.position.x = Math.max(-9, Math.min(9, camera.position.x));
+          camera.position.z = Math.max(-9, Math.min(9, camera.position.z));
+        }
+
+        // --- Claw Logic ---
+        if (currentState.startsWith("claw_")) {
+          updateClawMachine(dt);
+        }
+      }
+
+      // Logic variables for claw
+      let clawTimer = 0;
+      const MACHINE_CENTER = { x: 0, z: -5 };
+
+      function startClawGame() {
+        if (userData.money < COST_TO_PLAY) {
+          showNotification("INSUFFICIENT FUNDS! USE ATM.", "red");
+          return;
+        }
+        updateMoney(-COST_TO_PLAY);
+
+        currentState = GAME_STATE.CLAW_MOVING;
+        controls.unlock(); // Release mouse
+
+        // Move camera to machine view
+        const targetPos = new THREE.Vector3(0, 3, -2);
+        const lookAt = new THREE.Vector3(0, 2, -5);
+
+        // For simplicity in one file, snap camera
+        camera.position.copy(targetPos);
+        camera.lookAt(lookAt);
+
+        // Reset claw
+        clawGantry.position.set(MACHINE_CENTER.x, 3.8, MACHINE_CENTER.z);
+        clawGantry.velocity.set(0, 0, 0);
+        clawBody.velocity.set(0, 0, 0);
+        clawBody.angularVelocity.set(0, 0, 0);
+
+        openClaw();
+      }
+
+      function updateClawMachine(dt) {
+        // Visual rope update
+        const gPos = clawGroup.gantryMesh.position;
+        const bPos = clawGroup.hubMesh.position;
+        const positions = clawGroup.rope.geometry.attributes.position.array;
+        positions[0] = gPos.x;
+        positions[1] = gPos.y - 0.05;
+        positions[2] = gPos.z;
+        positions[3] = bPos.x;
+        positions[4] = bPos.y + 0.1;
+        positions[5] = bPos.z;
+        clawGroup.rope.geometry.attributes.position.needsUpdate = true;
+
+        const speed = 2;
+
+        // State Machine
+        switch (currentState) {
+          case GAME_STATE.CLAW_MOVING:
+            clawGantry.velocity.set(0, 0, 0);
+            if (keys.w && clawGantry.position.z > MACHINE_CENTER.z - 1.2)
+              clawGantry.velocity.z = -speed;
+            if (keys.s && clawGantry.position.z < MACHINE_CENTER.z + 1.2)
+              clawGantry.velocity.z = speed;
+            if (keys.a && clawGantry.position.x > MACHINE_CENTER.x - 1.2)
+              clawGantry.velocity.x = -speed;
+            if (keys.d && clawGantry.position.x < MACHINE_CENTER.x + 1.2)
+              clawGantry.velocity.x = speed;
+
+            if (keys.space) {
+              keys.space = false;
+              currentState = GAME_STATE.CLAW_DROPPING;
+              // Extend rope
+              clawConstraint.restLength = 2.5;
+            }
+            break;
+
+          case GAME_STATE.CLAW_DROPPING:
+            // Stop gantry
+            clawGantry.velocity.set(0, 0, 0);
+
+            // Check if hit bottom or object
+            // We can check height
+            if (
+              clawBody.position.y < 2.0 ||
+              (clawBody.velocity.length() < 0.05 && clawBody.position.y < 3.0)
+            ) {
+              currentState = GAME_STATE.CLAW_GRABBING;
+              clawTimer = 0;
+            }
+            break;
+
+          case GAME_STATE.CLAW_GRABBING:
+            clawTimer += dt;
+            closeClaw();
+            if (clawTimer > 1.0) {
+              currentState = GAME_STATE.CLAW_RISING;
+              clawConstraint.restLength = 0.1; // Pull up
+            }
+            break;
+
+          case GAME_STATE.CLAW_RISING:
+            if (clawBody.position.y > 3.4) {
+              currentState = GAME_STATE.CLAW_RETURNING;
+            }
+            break;
+
+          case GAME_STATE.CLAW_RETURNING:
+            // Move gantry to chute
+            const targetX = MACHINE_CENTER.x - 1;
+            const targetZ = MACHINE_CENTER.z + 1;
+
+            const dx = targetX - clawGantry.position.x;
+            const dz = targetZ - clawGantry.position.z;
+
+            clawGantry.velocity.set(dx * 2, 0, dz * 2);
+
+            if (Math.abs(dx) < 0.1 && Math.abs(dz) < 0.1) {
+              clawGantry.velocity.set(0, 0, 0);
+              openClaw();
+              clawTimer = 0;
+              // Wait a sec then reset game
+              setTimeout(endGame, 2000);
+              currentState = "claw_finishing";
+            }
+            break;
+        }
+      }
+
+      function openClaw() {
+        clawFingers.forEach((f) => {
+          f.constraint.setMotorSpeed(2); // Open
+        });
+      }
+
+      function closeClaw() {
+        clawFingers.forEach((f) => {
+          f.constraint.setMotorSpeed(-3); // Close tightly
+        });
+      }
+
+      function endGame() {
+        currentState = GAME_STATE.WALKING;
+        controls.lock();
+        camera.position.set(0, 1.7, 5); // Back to start point roughly
+      }
+
+      function winPrize(prize) {
+        // Remove from physics world and scene
+        world.removeBody(prize.body);
+        scene.remove(prize.mesh);
+        prizes = prizes.filter((p) => p !== prize);
+
+        // Add to data
+        const item = { ...prize.info, id: Date.now() };
+        userData.inventory.push(item);
+        saveData();
+
+        showNotification(`WON: ${item.name}!`, "#a855f7");
+        updateDisplayPrizes();
+      }
+
+      function shakeATM() {
+        showNotification("Shaking ATM...", "#fbbf24");
+        // Animation wiggle
+        const atmObj = roomObjects.find((o) => o.type === "ATM");
+        let shakes = 0;
+        const interval = setInterval(() => {
+          atmObj.mesh.rotation.z = (Math.random() - 0.5) * 0.1;
+          shakes++;
+          if (shakes > 5) {
+            clearInterval(interval);
+            atmObj.mesh.rotation.z = 0;
+            if (Math.random() < 0.3) {
+              const amount = (Math.random() * 2).toFixed(2);
+              updateMoney(parseFloat(amount));
+              showNotification(`FOUND $${amount}!`, "#4ade80");
+            } else {
+              showNotification("Nothing fell out.", "white");
+            }
+          }
+        }, 100);
+      }
+
+      // --- Data & UI ---
+
+      function updateMoney(amount) {
+        userData.money += amount;
+        document.getElementById("money-display").innerText =
+          userData.money.toFixed(2);
+        saveData();
+      }
+
+      function showNotification(text, color) {
+        const container = document.getElementById("notification-area");
+        const el = document.createElement("div");
+        el.className = "toast";
+        el.innerText = text;
+        el.style.borderLeftColor = color;
+        container.appendChild(el);
+        setTimeout(() => el.remove(), 3500);
+      }
+
+      function toggleInventory() {
+        const screen = document.getElementById("inventory-screen");
+        if (screen.style.display === "flex") {
+          screen.style.display = "none";
+          controls.lock();
+          currentState = GAME_STATE.WALKING;
+        } else {
+          renderInventory();
+          screen.style.display = "flex";
+          controls.unlock();
+          currentState = GAME_STATE.INVENTORY;
+        }
+      }
+
+      // Expose to window for HTML button
+      window.toggleInventory = toggleInventory;
+
+      function renderInventory() {
+        const container = document.getElementById("inv-container");
+        container.innerHTML = "";
+        if (userData.inventory.length === 0) {
+          container.innerHTML =
+            '<p style="text-align:center; width:100%; color:#666;">Inventory Empty</p>';
+          return;
+        }
+
+        userData.inventory.forEach((item, idx) => {
+          const div = document.createElement("div");
+          div.className = "inv-item";
+          div.innerHTML = `
+                    <div style="width:30px; height:30px; background-color:#${item.color.toString(
+                      16
+                    )}; margin-bottom:5px; border-radius:50%;"></div>
+                    <span style="font-size:10px;">${item.name}</span>
+                    <span style="font-size:10px; color:#4ade80;">$${item.value.toFixed(
+                      2
+                    )}</span>
+                `;
+
+          const btn = document.createElement("button");
+          btn.innerText = "SELL";
+          btn.onclick = () => sellItem(idx);
+
+          div.appendChild(btn);
+          container.appendChild(div);
+        });
+      }
+
+      function sellItem(index) {
+        const item = userData.inventory[index];
+        updateMoney(item.value);
+        userData.inventory.splice(index, 1);
+        saveData();
+        renderInventory();
+        updateDisplayPrizes();
+      }
+
+      function saveData() {
+        localStorage.setItem("claw_game_data", JSON.stringify(userData));
+      }
+
+      function loadData() {
+        const d = localStorage.getItem("claw_game_data");
+        if (d) {
+          userData = JSON.parse(d);
+        }
+        document.getElementById("money-display").innerText =
+          userData.money.toFixed(2);
+      }
+
+      // --- Input Handling ---
+      function onKeyDown(event) {
+        switch (event.code) {
+          case "KeyW":
+            keys.w = true;
+            break;
+          case "KeyA":
+            keys.a = true;
+            break;
+          case "KeyS":
+            keys.s = true;
+            break;
+          case "KeyD":
+            keys.d = true;
+            break;
+          case "Space":
+            keys.space = true;
+            break;
+          case "KeyE":
+            keys.interact = true;
+            break;
+          case "KeyI":
+            toggleInventory();
+            break;
+        }
+      }
+
+      function onKeyUp(event) {
+        switch (event.code) {
+          case "KeyW":
+            keys.w = false;
+            break;
+          case "KeyA":
+            keys.a = false;
+            break;
+          case "KeyS":
+            keys.s = false;
+            break;
+          case "KeyD":
+            keys.d = false;
+            break;
+          case "Space":
+            keys.space = false;
+            break;
+        }
+      }
+
+      // --- Loop ---
+      const clock = new THREE.Clock();
+      const timeStep = 1 / 60;
+
+      function animate() {
+        requestAnimationFrame(animate);
+
+        const dt = clock.getDelta();
+
+        // Sync physics
+        world.step(timeStep, dt, 3);
+
+        // Sync Visuals with Physics
+        // Claw
+        clawGroup.gantryMesh.position.copy(clawGantry.position);
+        clawGroup.hubMesh.position.copy(clawBody.position);
+        clawGroup.hubMesh.quaternion.copy(clawBody.quaternion);
+
+        clawFingers.forEach((f) => {
+          f.mesh.position.copy(f.body.position);
+          f.mesh.quaternion.copy(f.body.quaternion);
+        });
+
+        // Prizes
+        prizes.forEach((p) => {
+          p.mesh.position.copy(p.body.position);
+          p.mesh.quaternion.copy(p.body.quaternion);
+
+          // Reset falling prizes
+          if (p.body.position.y < -5) {
+            p.body.position.set(0, 5, -5);
+            p.body.velocity.set(0, 0, 0);
+          }
+        });
+
+        handleInput(dt);
+        renderer.render(scene, camera);
+      }
+
+      // Start
+      init();
+    </script>
+  </body>
+</html>
