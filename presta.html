@@ -134,7 +134,6 @@
         display: none;
       }
 
-      /* NEW: Current Stats Box */
       #current-stats {
         background: #111;
         padding: 8px;
@@ -213,7 +212,6 @@
         margin-top: 10px;
       }
 
-      /* New Priority Button Style */
       .priority-btn {
         width: 100%;
         background: #333;
@@ -234,7 +232,6 @@
         margin-bottom: 5px;
       }
 
-      /* Roguelite Modal & Tower Info Modal */
       .modal-overlay {
         position: absolute;
         top: 0;
@@ -245,7 +242,7 @@
         display: none;
         justify-content: center;
         align-items: center;
-        z-index: 2000; /* FIX: Increased Z-Index to guarantee it shows over everything */
+        z-index: 2000;
         flex-direction: column;
       }
 
@@ -288,7 +285,6 @@
         flex: 1;
       }
 
-      /* Tower Detail Specifics */
       #tower-detail-content {
         background: var(--ui-bg);
         border: 2px solid var(--gold);
@@ -316,13 +312,14 @@
         left: 0;
         width: 100%;
         height: 100%;
-        background: rgba(50, 0, 0, 0.9);
+        background: rgba(50, 0, 0, 0.95); /* Darker background */
         display: none;
         flex-direction: column;
         justify-content: center;
         align-items: center;
         color: var(--gold);
-        z-index: 200;
+        z-index: 4000;
+        pointer-events: auto; /* Ensure clicks work */
       }
 
       #tooltip {
@@ -339,7 +336,6 @@
         box-shadow: 0 0 10px #000;
       }
 
-      /* NEW INTEL TOOLTIP STYLES */
       .intel-icon {
         cursor: help;
         color: cyan;
@@ -350,23 +346,27 @@
 
       #intel-popup {
         position: absolute;
-        left: 320px; /* To the right of sidebar */
-        top: 100px;
+        left: 320px;
+        top: 50px;
         background: var(--ui-bg);
         border: 2px solid var(--gold);
         padding: 15px;
-        width: 250px;
+        width: 280px;
         display: none;
         z-index: 500;
         box-shadow: 0 0 20px #000;
+        max-height: 600px;
+        overflow-y: auto;
       }
 
       .intel-row {
         display: flex;
-        align-items: center;
-        margin-bottom: 8px;
+        align-items: flex-start;
+        margin-bottom: 10px;
         font-size: 11px;
         color: #ccc;
+        border-bottom: 1px solid #333;
+        padding-bottom: 5px;
       }
 
       .intel-shape {
@@ -376,6 +376,7 @@
         margin-right: 10px;
         border: 1px solid #000;
         flex-shrink: 0;
+        margin-top: 2px;
       }
 
       .tooltip-title {
@@ -420,45 +421,91 @@
           </div>
         </div>
 
-        <!-- NEW INTEL POPUP -->
         <div id="intel-popup">
-          <h3 style="margin-top: 0; font-size: 14px">Xenos Identification</h3>
+          <h3 style="margin-top: 0; font-size: 14px">Xenos Bestiary</h3>
 
           <div class="intel-row">
             <div
               class="intel-shape"
               style="background: #d35400; width: 16px; height: 16px"
             ></div>
-            <div><strong>Cultist (Orange):</strong><br />Fast, Low Health.</div>
+            <div>
+              <strong style="color: #d35400">Cultist (W1+):</strong><br />Fast,
+              Low Health. Cannon fodder.
+            </div>
           </div>
           <div class="intel-row">
             <div class="intel-shape" style="background: #8a0e0e"></div>
-            <div><strong>Traitor (Red):</strong><br />Standard Infantry.</div>
+            <div>
+              <strong style="color: #8a0e0e">Traitor (W1+):</strong
+              ><br />Standard Infantry.
+            </div>
           </div>
           <div class="intel-row">
             <div
               class="intel-shape"
               style="background: #1e591e; width: 26px; height: 26px"
             ></div>
-            <div><strong>Marine (Green):</strong><br />Slow, High HP Tank.</div>
-          </div>
-          <hr style="border: 0; border-top: 1px solid #444; margin: 5px 0" />
-          <div class="intel-row">
-            <div
-              class="intel-shape"
-              style="background: #333; border: 3px solid #bdc3c7"
-            ></div>
             <div>
-              <strong>Silver Border:</strong><br />Represents Armor Rating.<br />Thicker
-              = Higher Armor.
+              <strong style="color: #1e591e">Marine (W10+):</strong
+              ><br />Armored, High HP.
+              <span style="color: lime">Regenerates HP</span> unless burning.
             </div>
           </div>
           <div class="intel-row">
             <div
               class="intel-shape"
-              style="background: #8a0e0e; border: 2px solid red"
+              style="background: #badc58; width: 24px; height: 24px"
             ></div>
-            <div><strong>Red Outline:</strong><br />Armor Shredded (Vuln).</div>
+            <div>
+              <strong style="color: #badc58">Plaguebearer (W25+):</strong
+              ><br />On Death:
+              <span style="color: lime">Heals Nearby Allies</span>. Kill
+              isolated.
+            </div>
+          </div>
+          <div class="intel-row">
+            <div
+              class="intel-shape"
+              style="
+                background: #c0392b;
+                width: 22px;
+                height: 22px;
+                border: 2px solid orange;
+              "
+            ></div>
+            <div>
+              <strong style="color: #c0392b">Berzerker (W40+):</strong
+              ><br /><span style="color: red">Enrage:</span> Gains speed as HP
+              drops. Do not let them linger.
+            </div>
+          </div>
+          <div class="intel-row">
+            <div
+              class="intel-shape"
+              style="background: #ff7979; width: 20px; height: 20px"
+            ></div>
+            <div>
+              <strong style="color: #ff7979">Pink Horror (W60+):</strong
+              ><br /><span style="color: cyan">Split:</span> Spawns 2 Blue
+              Horrors on death.
+            </div>
+          </div>
+          <div class="intel-row">
+            <div
+              class="intel-shape"
+              style="
+                background: #95a5a6;
+                width: 28px;
+                height: 28px;
+                border: 3px solid white;
+              "
+            ></div>
+            <div>
+              <strong style="color: #95a5a6">Terminator (W80+):</strong
+              ><br /><span style="color: white">Unstoppable:</span> Immune to
+              Stun/Slow. Massive Armor.
+            </div>
           </div>
         </div>
 
@@ -486,7 +533,6 @@
             style="margin-bottom: 5px; text-align: center; font-weight: bold"
           ></div>
 
-          <!-- NEW LIVE DIAGNOSTICS PANEL -->
           <div id="current-stats">
             <div style="text-align: center; color: #777; margin-bottom: 3px">
               -- LIVE DIAGNOSTICS --
@@ -507,7 +553,6 @@
               <span id="cs-crit" style="color: magenta">0%</span>
             </div>
 
-            <!-- NEW COMBAT RECORD -->
             <div
               style="
                 border-top: 1px dashed #444;
@@ -528,15 +573,16 @@
             <div id="cs-specials" class="specials-list"></div>
           </div>
 
-          <button class="info-btn" onclick="game.showTowerDetails()">
+          <button
+            class="info-btn"
+            onclick="if(window.game) window.game.showTowerDetails()"
+          >
             Unit Data Log
           </button>
-
-          <!-- NEW PRIORITY BUTTON -->
           <button
             class="priority-btn"
             id="btn-priority"
-            onclick="game.togglePriority()"
+            onclick="if(window.game) window.game.togglePriority()"
           >
             Target: First
           </button>
@@ -551,7 +597,7 @@
             <button
               class="upgrade-btn"
               id="btn-up-0"
-              onclick="game.upgradeTower(0)"
+              onclick="if(window.game) window.game.upgradeTower(0)"
             >
               + <span id="cost-up-0">10</span>
             </button>
@@ -567,7 +613,7 @@
             <button
               class="upgrade-btn"
               id="btn-up-1"
-              onclick="game.upgradeTower(1)"
+              onclick="if(window.game) window.game.upgradeTower(1)"
             >
               + <span id="cost-up-1">10</span>
             </button>
@@ -583,7 +629,7 @@
             <button
               class="upgrade-btn"
               id="btn-up-2"
-              onclick="game.upgradeTower(2)"
+              onclick="if(window.game) window.game.upgradeTower(2)"
             >
               + <span id="cost-up-2">10</span>
             </button>
@@ -597,10 +643,16 @@
               text-align: center;
             "
           >
-            Limit: 2 Paths. Max Specialization: 1 Path > Lvl 2.
+            Limit: 2 Paths. 1 Path > Lvl 2.<br />
+            <span style="color: #e74c3c"
+              >Level 5 Upgrades are Unique per Tower Type.</span
+            >
           </div>
 
-          <button class="sell-btn" onclick="game.sellTower()">
+          <button
+            class="sell-btn"
+            onclick="if(window.game) window.game.sellTower()"
+          >
             Sacrifice Unit (+<span id="sell-val">0</span>)
           </button>
         </div>
@@ -658,10 +710,7 @@
       <h1 style="font-size: 40px; margin-bottom: 40px">
         STC Fragment Discovered
       </h1>
-      <div class="card-container" id="rogue-cards">
-        <!-- Cards go here -->
-      </div>
-      <!-- ADDED: Fail-safe close button -->
+      <div class="card-container" id="rogue-cards"></div>
       <button
         onclick="if(window.game) { window.game.lastRogueliteWave = window.game.wave - 1; document.getElementById('rogue-modal').style.display='none'; }"
         style="
@@ -691,16 +740,13 @@
         ></p>
 
         <div class="detail-row">
-          <strong style="color: cyan">Path 1:</strong>
-          <span id="td-p1"></span>
+          <strong style="color: cyan">Path 1:</strong><span id="td-p1"></span>
         </div>
         <div class="detail-row">
-          <strong style="color: orange">Path 2:</strong>
-          <span id="td-p2"></span>
+          <strong style="color: orange">Path 2:</strong><span id="td-p2"></span>
         </div>
         <div class="detail-row">
-          <strong style="color: lime">Path 3:</strong>
-          <span id="td-p3"></span>
+          <strong style="color: lime">Path 3:</strong><span id="td-p3"></span>
         </div>
 
         <button
@@ -716,8 +762,16 @@
       <h1 style="font-size: 60px; color: red">SECTOR LOST</h1>
       <h2 id="final-wave">Wave Reached: 0</h2>
       <button
-        onclick="location.reload()"
-        style="font-size: 20px; padding: 20px; margin-top: 20px"
+        onclick="if(window.game) window.game.restartGame()"
+        style="
+          font-size: 20px;
+          padding: 20px;
+          margin-top: 20px;
+          cursor: pointer;
+          background: #000;
+          color: var(--gold);
+          border: 1px solid var(--gold);
+        "
       >
         Restart Simulation
       </button>
@@ -726,15 +780,9 @@
     <div id="tooltip"></div>
 
     <script>
-      /**
-       * 40k TOWER DEFENSE - Single File
-       */
-
       // --- CONFIGURATION ---
-
       const TOWER_TYPES = [
         {
-          // BUFF: Dmg 6 -> 7
           id: 0,
           name: "Guardsman",
           cost: 25,
@@ -765,10 +813,10 @@
                 {
                   lvl: 5,
                   type: "shred",
-                  val: 0.3,
+                  val: 0.4,
                   name: "Hellgun",
-                  desc: "Shreds Armor (+30%)",
-                }, // Buffed Shred
+                  desc: "Shreds Armor (+40%)",
+                },
               ],
             },
             {
@@ -830,7 +878,7 @@
         {
           id: 1,
           name: "Sniper",
-          cost: 55,
+          cost: 75,
           color: "#333",
           range: 250,
           damage: 30,
@@ -851,10 +899,10 @@
                 {
                   lvl: 3,
                   type: "execute",
-                  val: 0.2,
+                  val: 0.15,
                   name: "Deadshot",
-                  desc: "Execute < 20% HP",
-                }, // Buffed Execute
+                  desc: "Execute < 15% HP",
+                },
                 {
                   lvl: 5,
                   type: "global",
@@ -921,7 +969,6 @@
           ],
         },
         {
-          // BUFF: Dmg 3 -> 4. Burn Upgrades boosted (Burn ignores armor)
           id: 2,
           name: "Flamer",
           cost: 70,
@@ -1109,7 +1156,6 @@
           ],
         },
         {
-          // BUFF: Chain count increased early game
           id: 4,
           name: "Psyker",
           cost: 150,
@@ -1204,10 +1250,9 @@
           ],
         },
         {
-          // BUFF: Dmg 70->80. Cost 250->275.
           id: 5,
           name: "Plasma Cannon",
-          cost: 275,
+          cost: 325,
           color: "#3498db",
           range: 160,
           damage: 80,
@@ -1392,7 +1437,6 @@
           ],
         },
         {
-          // NERF: Cost 500->550. Speed 15->18.
           id: 7,
           name: "Autocannon",
           cost: 550,
@@ -1419,13 +1463,13 @@
                   val: 0.5,
                   name: "Pinning",
                   desc: "50% Slow",
-                }, // Buffed Slow
+                },
                 {
                   lvl: 5,
                   type: "stun",
-                  val: 0.3,
+                  val: 0.5,
                   name: "Lockdown",
-                  desc: "0.3s Stun",
+                  desc: "0.5s Stun",
                 },
               ],
             },
@@ -1488,7 +1532,7 @@
         {
           id: 8,
           name: "Missile Silo",
-          cost: 800,
+          cost: 950,
           color: "#c0392b",
           range: 400,
           damage: 120,
@@ -1580,13 +1624,12 @@
           ],
         },
         {
-          // BUFF: Range 220 -> 250
           id: 9,
           name: "Titan",
-          cost: 3500,
+          cost: 7500,
           color: "#ecf0f1",
           range: 250,
-          damage: 800,
+          damage: 1000,
           speed: 40,
           splash: 80,
           desc: "The God-Machine. Devastation.",
@@ -1679,8 +1722,8 @@
       const ROGUE_POWERUPS = [
         {
           name: "Bolter Drills",
-          desc: "All towers deal 20% more damage.",
-          apply: (s) => (s.globalDmg *= 1.2),
+          desc: "All towers deal 10% more damage.",
+          apply: (s) => (s.globalDmg *= 1.1),
         },
         {
           name: "Servo Skulls",
@@ -1694,8 +1737,8 @@
         },
         {
           name: "Tithe",
-          desc: "Enemies drop 25% more Requisition.",
-          apply: (s) => (s.moneyMult *= 1.25),
+          desc: "Enemies drop 10% more Requisition.",
+          apply: (s) => (s.moneyMult *= 1.1),
         },
         {
           name: "Fortification",
@@ -1706,7 +1749,7 @@
           name: "Warp Storm",
           desc: "Enemies spawn with 10% less HP.",
           apply: (s) => (s.enemyHpMult *= 0.9),
-        }, // NERFED: 20% -> 10%
+        },
         {
           name: "Salvage Rights",
           desc: "Sell refund increased to 90%.",
@@ -1714,7 +1757,6 @@
         },
         {
           name: "Explosive Rounds",
-          // Dynamic description based on current state
           getDesc: (s) =>
             s.globalSplash
               ? "Increases Blast Radius by 15."
@@ -1738,7 +1780,78 @@
         },
       ];
 
-      // --- ENGINE ---
+      // ENEMY TYPE CONSTANTS
+      const ENEMY_TYPES = {
+        CULTIST: {
+          name: "Cultist",
+          color: "#d35400",
+          size: 8,
+          hpMult: 0.6,
+          spdMult: 1.4,
+          armor: 0,
+        },
+        TRAITOR: {
+          name: "Traitor",
+          color: "#8a0e0e",
+          size: 10,
+          hpMult: 1.0,
+          spdMult: 1.0,
+          armor: 1,
+        },
+        MARINE: {
+          name: "Marine",
+          color: "#1e591e",
+          size: 13,
+          hpMult: 2.5,
+          spdMult: 0.6,
+          regen: 0.12,
+          armor: 5,
+        },
+        PLAGUE: {
+          name: "Plaguebearer",
+          color: "#badc58",
+          size: 12,
+          hpMult: 1.8,
+          spdMult: 0.8,
+          healOnDeath: true,
+          armor: 2,
+        },
+        BERZERK: {
+          name: "Berzerker",
+          color: "#c0392b",
+          size: 11,
+          hpMult: 1.5,
+          spdMult: 1.1,
+          enrage: true,
+          armor: 3,
+        },
+        HORROR: {
+          name: "Pink Horror",
+          color: "#ff7979",
+          size: 11,
+          hpMult: 1.2,
+          spdMult: 0.9,
+          split: true,
+          armor: 0,
+        },
+        BLUE: {
+          name: "Blue Horror",
+          color: "#74b9ff",
+          size: 7,
+          hpMult: 0.5,
+          spdMult: 1.3,
+          armor: 0,
+        }, // Split spawn
+        TERM: {
+          name: "Terminator",
+          color: "#95a5a6",
+          size: 16,
+          hpMult: 6.0,
+          spdMult: 0.4,
+          unstoppable: true,
+          armor: 15,
+        },
+      };
 
       class Game {
         constructor() {
@@ -1747,16 +1860,14 @@
           this.width = this.canvas.width;
           this.height = this.canvas.height;
 
-          // Randomize Theme & Map
           this.generateTheme();
           this.path = this.generatePath();
           this.generateMapDetails();
 
+          this.isGameOver = false;
           this.reset();
           this.initInput();
           this.initUI();
-
-          // FIX: Force UI update immediately to gray out unaffordable towers
           this.updateUI();
 
           this.lastTime = 0;
@@ -1766,69 +1877,56 @@
         generateTheme() {
           const themes = [
             {
-              bg: "#111111",
-              grid: "#333333",
-              detail: "#0a0a0a",
+              bg: "#1a0f2e",
+              grid: "#3d2366",
+              detail: "#150824",
               name: "Void Station",
-            },
+            }, // Deep Purple/Blue
             {
-              bg: "#221515",
-              grid: "#442222",
-              detail: "#150a0a",
+              bg: "#2e120f",
+              grid: "#662923",
+              detail: "#240a08",
               name: "Mars Wastes",
-            },
+            }, // Rich Red/Orange
             {
-              bg: "#111811",
-              grid: "#1a331a",
-              detail: "#0a110a",
+              bg: "#0f2e1a",
+              grid: "#23663d",
+              detail: "#082415",
               name: "Death World",
-            },
+            }, // Deep Green/Toxic
             {
-              bg: "#111118",
-              grid: "#1a1a33",
-              detail: "#0a0a15",
+              bg: "#121a2e",
+              grid: "#293d66",
+              detail: "#0a1524",
               name: "Ice World",
-            },
+            }, // Deep Blue/Frozen
           ];
           this.theme = themes[Math.floor(Math.random() * themes.length)];
-          console.log("Sector Theme:", this.theme.name);
         }
 
         generatePath() {
           const points = [];
-          // Start on left side, random height (15% to 85% height)
           let currentY = 0.15 + Math.random() * 0.7;
           let currentX = 0;
-
           points.push({ x: currentX, y: currentY });
-
-          // Orthogonal Path Generation
           while (currentX < 1) {
-            // 1. Move Horizontally (Right)
-            const moveX = 0.1 + Math.random() * 0.2; // Advance 10-30% width
+            const moveX = 0.1 + Math.random() * 0.2;
             currentX += moveX;
-
-            // Cap at end
             if (currentX >= 0.95) {
               currentX = 1.0;
               points.push({ x: currentX, y: currentY });
               break;
             }
             points.push({ x: currentX, y: currentY });
-
-            // 2. Move Vertically (Change Rows)
-            // Pick a new Y at least 20% away from current Y to avoid tiny jogs
             let nextY = 0.15 + Math.random() * 0.7;
             let attempts = 0;
             while (Math.abs(nextY - currentY) < 0.2 && attempts < 10) {
               nextY = 0.15 + Math.random() * 0.7;
               attempts++;
             }
-
             points.push({ x: currentX, y: nextY });
             currentY = nextY;
           }
-
           return points.map((p) => ({
             x: p.x * this.width,
             y: p.y * this.height,
@@ -1837,9 +1935,6 @@
 
         generateMapDetails() {
           this.bgDetails = [];
-
-          // Generate random terrain details (Craters/Ruins)
-          // These are visual only
           const count = 15 + Math.random() * 10;
           for (let i = 0; i < count; i++) {
             this.bgDetails.push({
@@ -1854,24 +1949,21 @@
 
         reset() {
           this.wave = 1;
-          this.money = 350; // REDUCED STARTING CASH (Was 450)
+          this.money = 300;
           this.lives = 20;
           this.enemies = [];
           this.towers = [];
           this.projectiles = [];
           this.particles = [];
-
           this.waveActive = false;
           this.waveTimer = 0;
           this.enemiesToSpawn = [];
           this.spawnTimer = 0;
-
           this.selectedTower = null;
           this.speed = 1;
           this.placingTowerId = null;
           this.lastRogueliteWave = 0;
-
-          // Roguelite Stats
+          this.isGameOver = false;
           this.stats = {
             globalDmg: 1,
             globalRange: 1,
@@ -1879,14 +1971,13 @@
             moneyMult: 1,
             costDiscount: 1,
             enemyHpMult: 1,
-            sellRefund: 0.7,
+            sellRefund: 0.3,
             globalSplash: false,
             globalSplashRadius: 0,
             critChance: 0,
           };
         }
 
-        // Math helper
         distToSegment(p, v, w) {
           const l2 = (v.x - w.x) ** 2 + (v.y - w.y) ** 2;
           if (l2 == 0) return Math.hypot(p.x - v.x, p.y - v.y);
@@ -1904,21 +1995,16 @@
           TOWER_TYPES.forEach((t) => {
             const btn = document.createElement("button");
             btn.className = "tower-btn";
-            btn.innerHTML = `<div style="width:10px; height:10px; background:${t.color}; border-radius:50%"></div>
-                             <span>${t.name}</span>
-                             <span style="color:gold">${t.cost}</span>`;
+            btn.innerHTML = `<div style="width:10px; height:10px; background:${t.color}; border-radius:50%"></div><span>${t.name}</span><span style="color:gold">${t.cost}</span>`;
             btn.onclick = () => {
               this.placingTowerId = t.id;
               this.selectedTower = null;
               this.updateSelectionPanel();
-              this.showPreviewPanel(t); // Show preview
+              this.showPreviewPanel(t);
             };
-
-            // Tooltip
             btn.onmouseenter = (e) =>
               this.showTooltip(e, `${t.name}: ${t.desc}`);
             btn.onmouseleave = () => this.hideTooltip();
-
             menu.appendChild(btn);
           });
         }
@@ -1926,17 +2012,12 @@
         showPreviewPanel(t) {
           const panel = document.getElementById("preview-panel");
           panel.style.display = "block";
-
           document.getElementById("prev-name").innerText = t.name;
           document.getElementById("prev-desc").innerText = t.desc;
           document.getElementById("prev-dmg").innerText = t.damage;
           document.getElementById("prev-rng").innerText = t.range;
-
-          // Convert frame delay to Shots Per Second for readability
-          // 60 frames / speed = shots per sec
           const rate = (60 / t.speed).toFixed(1);
           document.getElementById("prev-spd").innerText = `${rate}/sec`;
-
           const pathNames = t.upgrades.map((u) => u.name).join(", ");
           document.getElementById("prev-paths").innerText = pathNames;
         }
@@ -1964,19 +2045,37 @@
             const y = e.clientY - rect.top;
             this.handleClick(x, y);
           });
-
-          // Right click to cancel build
           this.canvas.addEventListener("contextmenu", (e) => {
             e.preventDefault();
             this.placingTowerId = null;
             this.hidePreviewPanel();
           });
-
-          // Mouse move for placement preview
           this.canvas.addEventListener("mousemove", (e) => {
             const rect = this.canvas.getBoundingClientRect();
             this.mouseX = e.clientX - rect.left;
             this.mouseY = e.clientY - rect.top;
+          });
+          window.addEventListener("keydown", (e) => {
+            if (document.getElementById("rogue-modal").style.display === "flex")
+              return;
+            if (e.key >= "0" && e.key <= "9") {
+              let index = parseInt(e.key);
+              index = index === 0 ? 9 : index - 1;
+              if (index >= 0 && index < TOWER_TYPES.length) {
+                const t = TOWER_TYPES[index];
+                const cost = this.getModifiedCost(t.cost);
+                if (this.money >= cost) {
+                  this.placingTowerId = t.id;
+                  this.selectedTower = null;
+                  this.updateSelectionPanel();
+                  this.showPreviewPanel(t);
+                }
+              }
+            }
+            if (e.key === "Escape") {
+              this.placingTowerId = null;
+              this.hidePreviewPanel();
+            }
           });
         }
 
@@ -1984,14 +2083,13 @@
           if (this.placingTowerId !== null) {
             this.tryBuildTower(x, y);
           } else {
-            // Select logic
             const clicked = this.towers.find(
               (t) => Math.hypot(t.x - x, t.y - y) < 20
             );
             if (clicked) {
               this.selectedTower = clicked;
               this.updateSelectionPanel();
-              this.hidePreviewPanel(); // Ensure preview is hidden when selecting existing
+              this.hidePreviewPanel();
             } else {
               this.selectedTower = null;
               document.getElementById("selection-panel").style.display = "none";
@@ -2004,27 +2102,21 @@
         }
 
         tryBuildTower(x, y) {
-          // Check path collision (simple point distance to line segments)
           let onPath = false;
-          const p = 25; // path radius buffer
-
+          const p = 25;
           for (let i = 0; i < this.path.length - 1; i++) {
             const A = this.path[i];
             const B = this.path[i + 1];
             const dist = this.distToSegment({ x, y }, A, B);
             if (dist < p + 15) {
-              // 15 is tower radius
               onPath = true;
               break;
             }
           }
-
-          // Check overlap
           const overlap = this.towers.some(
             (t) => Math.hypot(t.x - x, t.y - y) < 35
           );
-
-          if (onPath || overlap) return; // Invalid placement
+          if (onPath || overlap) return;
 
           const type = TOWER_TYPES[this.placingTowerId];
           const cost = this.getModifiedCost(type.cost);
@@ -2032,18 +2124,15 @@
           if (this.money >= cost) {
             this.money -= cost;
             this.towers.push(new Tower(x, y, type, cost));
-            this.placingTowerId = null; // Stop placing
+            this.placingTowerId = null;
             this.updateUI();
-            this.hidePreviewPanel(); // Hide preview on success
-
-            // Particle effect
+            this.hidePreviewPanel();
             for (let i = 0; i < 5; i++) this.spawnParticle(x, y, type.color);
           }
         }
 
         startWave() {
           if (this.waveActive) return;
-
           const prevWave = this.wave - 1;
           if (
             prevWave > 0 &&
@@ -2053,134 +2142,98 @@
             this.triggerRoguelite();
             return;
           }
-
           this.waveActive = true;
 
-          // --- DIFFICULTY & ECONOMY SCALING ---
-
-          const baseScale = Math.pow(1.12, this.wave);
+          const baseScale = Math.pow(1.085, this.wave);
           const edictTier = Math.floor((this.wave - 1) / 5);
-          const difficultySpike = 1 + edictTier * 0.25;
-
+          const difficultySpike = 1 + edictTier * 0.15;
           let baseHp =
-            25 * baseScale * difficultySpike * this.stats.enemyHpMult;
-          const moneyScale = Math.pow(1.045, this.wave);
+            22 * baseScale * difficultySpike * this.stats.enemyHpMult;
+
+          let moneyScale = 1;
+          for (let w = 1; w <= this.wave; w++) {
+            if (w <= 50) moneyScale *= 1.025;
+            else if (w <= 100) moneyScale *= 1.01;
+            else moneyScale *= 1.001;
+          }
+
           let rewardVal = 3 * moneyScale * this.stats.moneyMult;
           let baseReward = Math.max(1, Math.floor(rewardVal));
 
-          const count = Math.floor(5 + this.wave * 1.5);
-          let baseSpeed = 1 + this.wave * 0.015;
-          let armor = Math.floor(this.wave / 4);
+          const count = Math.floor(8 + this.wave * 2.0);
+          let baseSpeed = Math.min(4, 1 + this.wave * 0.01);
+          let armor = Math.floor(this.wave / 2.0);
 
           this.enemiesToSpawn = [];
 
-          // Enemy Variants
-          const variants = [
-            {
-              name: "Standard",
-              hpMult: 1,
-              spdMult: 1,
-              size: 10,
-              color: "#8a0e0e",
-              chance: 0.6,
-            },
-            {
-              name: "Fast",
-              hpMult: 0.6,
-              spdMult: 1.4,
-              size: 8,
-              color: "#d35400",
-              chance: 0.25,
-            },
-            {
-              name: "Heavy",
-              hpMult: 2.5,
-              spdMult: 0.6,
-              size: 13,
-              color: "#1e591e",
-              chance: 0.15,
-            },
-          ];
-
+          // Weighted Random Logic for Breeds
           for (let i = 0; i < count; i++) {
-            const r = Math.random();
-            let type = variants[0];
-            if (r > 0.85) type = variants[2]; // 15% Heavy
-            else if (r > 0.6) type = variants[1]; // 25% Fast
+            let type = ENEMY_TYPES.CULTIST; // Fallback
+
+            // Roll for type based on wave progression
+            const roll = Math.random();
+
+            if (this.wave >= 80 && roll > 0.9) type = ENEMY_TYPES.TERM;
+            else if (this.wave >= 60 && roll > 0.85) type = ENEMY_TYPES.HORROR;
+            else if (this.wave >= 40 && roll > 0.8) type = ENEMY_TYPES.BERZERK;
+            else if (this.wave >= 25 && roll > 0.75) type = ENEMY_TYPES.PLAGUE;
+            else if (this.wave >= 10 && roll > 0.7) type = ENEMY_TYPES.MARINE;
+            else if (roll > 0.6) type = ENEMY_TYPES.TRAITOR;
 
             this.enemiesToSpawn.push({
               hp: baseHp * type.hpMult,
               maxHp: baseHp * type.hpMult,
               speed: baseSpeed * type.spdMult,
-              armor: armor,
+              armor: armor + (type.armor || 0), // Add innate armor
               reward: Math.floor(baseReward * type.hpMult),
               color: type.color,
               radius: type.size,
+              regen: type.regen || 0,
+              healOnDeath: type.healOnDeath,
+              enrage: type.enrage,
+              split: type.split,
+              unstoppable: type.unstoppable,
             });
           }
 
-          // SORTING LOGIC: Sort by Speed Descending [Fast, ..., Slow]
-          // pop() takes from the end, so Slowest (at end) spawn FIRST.
-          // Fastest (at start) spawn LAST.
-          // This allows fast units to catch up to slow units, forming a deathball.
           this.enemiesToSpawn.sort((a, b) => b.speed - a.speed);
-
           this.spawnTimer = 0;
         }
 
         triggerRoguelite() {
           const modal = document.getElementById("rogue-modal");
           const container = document.getElementById("rogue-cards");
-
-          // Safety check
           if (!modal || !container) return;
-
           container.innerHTML = "";
-
-          // Force display style directly
           modal.style.display = "flex";
-          modal.style.zIndex = "2000"; // Ensure top level
-
-          // Pick 3 random unique cards
+          modal.style.zIndex = "2000";
           let pool =
             typeof ROGUE_POWERUPS !== "undefined" ? [...ROGUE_POWERUPS] : [];
-
-          // FAILSAFE: If pool is empty or missing, skip the reward logic to unblock the game
           if (pool.length === 0) {
-            console.error("No powerups found");
             this.lastRogueliteWave = this.wave - 1;
             modal.style.display = "none";
             return;
           }
-
           const choices = [];
-          // Safety limit: don't loop more than pool size
           const count = Math.min(3, pool.length);
-
           for (let i = 0; i < count; i++) {
             const idx = Math.floor(Math.random() * pool.length);
             choices.push(pool[idx]);
             pool.splice(idx, 1);
           }
-
           choices.forEach((card) => {
             try {
               const el = document.createElement("div");
               el.className = "rogue-card";
-
-              // Safe description handling
               let descText = card.desc;
               if (card.getDesc && typeof card.getDesc === "function") {
                 try {
                   descText = card.getDesc(this.stats);
                 } catch (err) {
-                  descText = card.desc; // Fallback description
+                  descText = card.desc;
                 }
               }
-
-              el.innerHTML = `<div class="card-title">${card.name}</div>
-                                <div class="card-desc">${descText}</div>
-                                <div style="font-size:10px; color:#666;">IMPERIAL EDICT</div>`;
+              el.innerHTML = `<div class="card-title">${card.name}</div><div class="card-desc">${descText}</div><div style="font-size:10px; color:#666;">IMPERIAL EDICT</div>`;
               el.onclick = () => {
                 if (card.apply) {
                   try {
@@ -2191,7 +2244,6 @@
                 }
                 this.lastRogueliteWave = this.wave - 1;
                 modal.style.display = "none";
-                // Force UI update to reflect price changes immediately
                 try {
                   this.updateUI();
                 } catch (e) {}
@@ -2210,7 +2262,6 @@
           document.getElementById("speed-display").innerText = this.speed + "x";
         }
 
-        // NEW: Toggle Priority
         togglePriority() {
           if (!this.selectedTower) return;
           const t = this.selectedTower;
@@ -2220,12 +2271,49 @@
           this.updateSelectionPanel();
         }
 
+        updateUI() {
+          document.getElementById("wave-display").innerText = this.wave;
+          document.getElementById("lives-display").innerText = this.lives;
+          document.getElementById("money-display").innerText = Math.floor(
+            this.money
+          );
+          document.getElementById("enemy-display").innerText =
+            this.enemies.length + this.enemiesToSpawn.length;
+          const btns = document.getElementById("build-menu").children;
+          for (let i = 0; i < btns.length; i++) {
+            const cost = this.getModifiedCost(TOWER_TYPES[i].cost);
+            btns[i].querySelector("span:last-child").innerText = cost;
+            btns[i].disabled = this.money < cost;
+            btns[i].style.opacity = this.money < cost ? "0.5" : "1";
+          }
+          if (this.selectedTower) {
+            this.updateSelectionPanel();
+          }
+        }
+
+        // FIX: Sub-stepping Update Loop to prevent Tunneling
         update(dt) {
-          if (this.lives <= 0) return;
+          if (this.isGameOver) return;
 
-          dt *= this.speed;
+          // Calculate total time to simulate this frame
+          let timeRemaining = dt * this.speed;
 
-          // Spawning
+          // Define a maximum step size (1.0 = 1 frame at 60fps)
+          // This ensures that even at 10x speed, we check collisions
+          // exactly as often as we do at 1x speed.
+          const MAX_STEP = 1.0;
+
+          while (timeRemaining > 0) {
+            const step = Math.min(timeRemaining, MAX_STEP);
+            this.physicsUpdate(step);
+            timeRemaining -= step;
+          }
+        }
+
+        // Renamed original update logic to physicsUpdate
+        physicsUpdate(dt) {
+          // dt is now guaranteed to be small (<= 1.0)
+
           if (this.waveActive && this.enemiesToSpawn.length > 0) {
             this.spawnTimer -= dt;
             if (this.spawnTimer <= 0) {
@@ -2240,28 +2328,21 @@
           ) {
             this.waveActive = false;
             this.wave++;
-
-            // FIX: Protect critical game loop from UI errors
             try {
               this.updateUI();
             } catch (e) {
               console.error("UI Update Error:", e);
             }
-
-            // Auto-trigger Roguelite menu on wave completion (every 5 waves)
-            // Now runs even if updateUI failed
             if ((this.wave - 1) % 5 === 0) {
-              console.log("Triggering STC Event for Wave " + (this.wave - 1));
               try {
                 this.triggerRoguelite();
               } catch (e) {
                 console.error("Failed to trigger roguelite:", e);
-                this.lastRogueliteWave = this.wave - 1; // Skip if error
+                this.lastRogueliteWave = this.wave - 1;
               }
             }
           }
 
-          // Entities
           this.enemies.forEach((e) => e.update(dt));
           this.towers.forEach((t) =>
             t.update(dt, this.enemies, this.projectiles, this.stats)
@@ -2269,48 +2350,36 @@
           this.projectiles.forEach((p) => p.update(dt));
           this.particles.forEach((p) => p.update(dt));
 
-          // Collisions & Cleanup
           for (let i = this.projectiles.length - 1; i >= 0; i--) {
             const p = this.projectiles[i];
             if (p.dead) {
               this.projectiles.splice(i, 1);
               continue;
             }
-
-            // Simple circle collision
             let hit = false;
-
             if (p.target && !p.target.dead && p.homing) {
-              // Homing logic handled in update, check dist here
               const dist = Math.hypot(p.x - p.target.x, p.y - p.target.y);
               if (dist < p.target.radius + 5) hit = true;
             } else {
-              // Splash or skill shot
               for (let e of this.enemies) {
-                // Avoid hitting the same enemy twice with one pierce projectile
                 if (p.hitList.includes(e)) continue;
-
                 if (Math.hypot(p.x - e.x, p.y - e.y) < e.radius + 5) {
                   hit = true;
-                  p.target = e; // For damage calc
+                  p.target = e;
                   break;
                 }
               }
             }
-
             if (hit || p.reachedDest) {
               this.dealDamage(p);
               if (p.pierce > 0 && hit) {
                 p.pierce--;
                 p.hitList.push(p.target);
-                p.homing = false; // Stop homing if we pierced, continue trajectory?
-                // For simplicity in 2D, pierce continues straight or towards next?
-                // Let's just let it continue its vector.
+                p.homing = false;
                 if (p.pierce < 0) p.dead = true;
               } else if (p.chain > 0 && hit) {
                 p.chain--;
                 p.hitList.push(p.target);
-                // Find new target nearby
                 const nextTarget = this.enemies.find(
                   (e) =>
                     !e.dead &&
@@ -2322,98 +2391,117 @@
                   p.homing = true;
                   p.tx = nextTarget.x;
                   p.ty = nextTarget.y;
-                  p.reachedDest = false; // Keep going
+                  p.reachedDest = false;
                 } else {
                   p.dead = true;
                 }
               } else {
-                p.dead = true; // Dies on impact
+                p.dead = true;
               }
-
-              if (p.reachedDest && !hit) p.dead = true; // Missed skillshot
+              if (p.reachedDest && !hit) p.dead = true;
             }
           }
 
-          // 2. Remove dead enemies
           for (let i = this.enemies.length - 1; i >= 0; i--) {
-            if (this.enemies[i].dead) {
-              // Reached end?
-              if (this.enemies[i].reachedEnd) {
+            const e = this.enemies[i];
+            if (e.dead) {
+              if (e.reachedEnd) {
                 this.lives--;
-                if (this.lives <= 0) this.gameOver();
+                if (this.lives <= 0) {
+                  this.gameOver();
+                  // Force clear to stop processing immediately
+                  this.enemies = [];
+                  return;
+                }
               } else {
-                this.money += this.enemies[i].reward;
+                this.money += e.reward;
 
-                // Explode on death upgrade logic?
-                // Requires storing source of kill, complex.
-                // Simplification: Enemies killed by FLAMER explosion check?
-                // For now skipping advanced "on kill" triggers to save complexity
+                // DEATH EFFECTS
+                if (e.healOnDeath) {
+                  this.spawnParticle(e.x, e.y, "#badc58", 40);
+                  this.enemies.forEach((ally) => {
+                    if (
+                      ally !== e &&
+                      Math.hypot(ally.x - e.x, ally.y - e.y) < 80
+                    ) {
+                      ally.hp = Math.min(
+                        ally.maxHp,
+                        ally.hp + ally.maxHp * 0.2
+                      );
+                      this.spawnParticle(ally.x, ally.y, "lime", 3);
+                    }
+                  });
+                }
+
+                if (e.split) {
+                  for (let k = 0; k < 2; k++) {
+                    const blueStats = ENEMY_TYPES.BLUE;
+                    const newData = {
+                      hp: e.maxHp * 0.3,
+                      maxHp: e.maxHp * 0.3,
+                      speed: e.speed * 1.2,
+                      reward: Math.floor(e.reward / 2),
+                      armor: 0,
+                      color: blueStats.color,
+                      radius: blueStats.size,
+                    };
+                    const newE = new Enemy(this.path, newData);
+                    newE.x = e.x + (Math.random() * 10 - 5);
+                    newE.y = e.y + (Math.random() * 10 - 5);
+                    newE.pathIndex = e.pathIndex;
+                    this.enemies.push(newE);
+                  }
+                }
               }
               this.enemies.splice(i, 1);
-              this.updateUI();
+              try {
+                this.updateUI();
+              } catch (e) {}
             }
           }
-
-          // 3. Remove particles
           this.particles = this.particles.filter((p) => p.life > 0);
         }
 
         dealDamage(proj) {
           const dmg = proj.damage;
-          const sourceTower = proj.source; // Get the tower that fired this
-
-          // Helper to hurt one enemy
-          const hit = (enemy) => {
-            // Crit
+          const sourceTower = proj.source;
+          const hit = (enemy, isSecondary = false) => {
             let finalDmg = dmg;
             let critChance = this.stats.critChance + (proj.critBonus || 0);
-
             if (Math.random() < critChance) {
               finalDmg *= 3;
               this.spawnParticle(enemy.x, enemy.y, "red", 3);
             }
-
-            // Execute Logic
             if (proj.executeThreshold > 0) {
               if (enemy.hp < enemy.maxHp * proj.executeThreshold) {
-                finalDmg = enemy.hp + 10; // Instant kill
+                finalDmg = enemy.hp + 10;
                 this.spawnParticle(enemy.x, enemy.y, "cyan", 5);
               }
             }
-
-            // Shred Logic (Damage Amplification)
-            if (enemy.shredded > 0) {
-              finalDmg *= 1 + enemy.shredded;
-            }
-
-            // ARMOR LOGIC
+            if (enemy.shredded > 0) finalDmg *= 1 + enemy.shredded;
             if (enemy.armor > 0) {
               finalDmg = Math.max(1, finalDmg - enemy.armor);
-              if (dmg > 1 && finalDmg <= dmg * 0.5) {
+              if (dmg > 1 && finalDmg <= dmg * 0.5)
                 this.spawnParticle(enemy.x, enemy.y, "#bdc3c7", 1);
-              }
             }
 
-            // TRACKING: Calculate effective damage (don't count overkill)
+            if (enemy.enrage) {
+              enemy.speed = Math.min(enemy.speed * 1.5, 150);
+              this.spawnParticle(enemy.x, enemy.y, "red", 2);
+            }
+
             const damageDealt = Math.min(enemy.hp, finalDmg);
-
             enemy.takeDamage(finalDmg);
-
-            // Update Source Tower Stats
             if (sourceTower) {
               sourceTower.damageDealt += damageDealt;
               if (enemy.dead) sourceTower.kills++;
             }
-
-            // Apply Status Effects
-            if (proj.slow) enemy.applySlow(proj.slow, 100);
-            if (proj.stun > 0) enemy.applyStun(proj.stun);
-            if (proj.burn > 0) {
-              enemy.applyBurn(proj.burn, sourceTower); // Pass source to burn for DOT credit
-            }
+            if (proj.slow && !enemy.unstoppable)
+              enemy.applySlow(proj.slow, 100);
+            if (proj.stun > 0 && !enemy.unstoppable) enemy.applyStun(proj.stun);
+            if (proj.burn > 0) enemy.applyBurn(proj.burn, sourceTower);
             if (proj.shred > 0) enemy.applyShred(proj.shred);
             if (proj.explode > 0 && enemy.hp <= 0) {
-              // Manual explosion trigger if killed by this hit
               this.spawnExplosion(
                 enemy.x,
                 enemy.y,
@@ -2426,34 +2514,33 @@
               );
             }
 
-            // Visuals
+            // Only recurse splash on PRIMARY hits to prevent loops
+            if (!isSecondary) {
+              let effectiveSplash = 0;
+              if (proj.splash) effectiveSplash = proj.splash;
+              if (this.stats.globalSplash)
+                effectiveSplash += this.stats.globalSplashRadius || 0;
+              if (effectiveSplash > 0) {
+                const limit = proj.stun > 0 ? 4 : 8;
+                this.spawnExplosion(
+                  proj.x,
+                  proj.y,
+                  effectiveSplash,
+                  dmg,
+                  "orange",
+                  (e) => hit(e, true),
+                  limit,
+                  sourceTower
+                );
+              }
+            }
+
             for (let k = 0; k < 3; k++)
               this.spawnParticle(enemy.x, enemy.y, "#fff");
           };
 
-          // Logic: Use Projectile splash if exists, plus global splash bonus
-          let effectiveSplash = 0;
-          if (proj.splash) effectiveSplash = proj.splash;
-
-          if (this.stats.globalSplash) {
-            effectiveSplash += this.stats.globalSplashRadius || 0;
-          }
-
-          if (effectiveSplash > 0) {
-            // Pass sourceTower to explosion
-            const limit = proj.stun > 0 ? 4 : 8;
-            this.spawnExplosion(
-              proj.x,
-              proj.y,
-              effectiveSplash,
-              dmg,
-              "orange",
-              hit,
-              limit,
-              sourceTower
-            );
-          } else if (proj.target) {
-            hit(proj.target);
+          if (proj.target) {
+            hit(proj.target, false);
           }
         }
 
@@ -2467,24 +2554,17 @@
           maxTargets = 8,
           sourceTower = null
         ) {
-          // 1. Find all candidates
           const targets = this.enemies.filter(
             (e) => Math.hypot(e.x - x, e.y - y) < radius
           );
-
-          // 2. Sort by distance
           targets.sort((a, b) => {
             const distA = Math.hypot(a.x - x, a.y - y);
             const distB = Math.hypot(b.x - x, b.y - y);
             return distA - distB;
           });
-
-          // 3. Limit hits
           targets.slice(0, maxTargets).forEach((e) => {
-            if (hitCallback) {
-              hitCallback(e);
-            } else {
-              // Default explosion logic if no callback provided
+            if (hitCallback) hitCallback(e);
+            else {
               const effectiveDmg = Math.min(e.hp, dmg);
               e.takeDamage(dmg);
               if (sourceTower) {
@@ -2493,7 +2573,6 @@
               }
             }
           });
-
           this.spawnParticle(x, y, color, radius / 3);
         }
 
@@ -2502,11 +2581,8 @@
         }
 
         draw() {
-          // Clear & Background Theme
           this.ctx.fillStyle = this.theme.bg;
           this.ctx.fillRect(0, 0, this.width, this.height);
-
-          // Draw Map Details (Terrain)
           this.ctx.fillStyle = this.theme.detail;
           this.bgDetails.forEach((d) => {
             this.ctx.beginPath();
@@ -2517,8 +2593,6 @@
               this.ctx.fill();
             }
           });
-
-          // Draw Grid
           this.ctx.strokeStyle = this.theme.grid;
           this.ctx.lineWidth = 1;
           this.ctx.beginPath();
@@ -2531,8 +2605,6 @@
             this.ctx.lineTo(this.width, y);
           }
           this.ctx.stroke();
-
-          // Draw Path
           this.ctx.strokeStyle = "#333";
           this.ctx.lineWidth = 40;
           this.ctx.lineCap = "round";
@@ -2541,43 +2613,25 @@
           this.ctx.moveTo(this.path[0].x, this.path[0].y);
           this.path.forEach((p) => this.ctx.lineTo(p.x, p.y));
           this.ctx.stroke();
-
-          // Draw Path Line (Guide)
           this.ctx.strokeStyle = "#555";
           this.ctx.lineWidth = 2;
           this.ctx.stroke();
-
-          // LAYER 1: Physical Entities (Bodies)
-          // We draw bodies first so they don't cover each other's health bars
           this.towers.forEach((t) =>
             t.draw(this.ctx, t === this.selectedTower, this.stats)
           );
           this.enemies.forEach((e) => e.drawBody(this.ctx));
           this.projectiles.forEach((p) => p.draw(this.ctx));
           this.particles.forEach((p) => p.draw(this.ctx));
-
-          // LAYER 2: Interface Overlays (Health Bars & Text)
-          // Drawn last to ensure they float on top of everything
-          // SORTING FIX: Sort by Path Progress so "Front" enemies draw their UI on top of "Back" enemies
           const sortedUI = [...this.enemies].sort((a, b) => {
-            // 1. Compare Segment Index (Higher index = Further ahead)
             if (a.pathIndex !== b.pathIndex) return a.pathIndex - b.pathIndex;
-
-            // 2. Compare Distance to Next Node (Smaller distance = Further ahead)
-            // We want the unit with smaller distance (Front) to be sorted LAST (Draws on top).
-            // So we sort by Distance Descending (Large -> Small).
             const nextA = a.path[a.pathIndex + 1];
             const nextB = b.path[b.pathIndex + 1];
             if (!nextA || !nextB) return 0;
-
             const distA = Math.hypot(nextA.x - a.x, nextA.y - a.y);
             const distB = Math.hypot(nextB.x - b.x, nextB.y - b.y);
             return distB - distA;
           });
-
           sortedUI.forEach((e) => e.drawUI(this.ctx, this.mouseX, this.mouseY));
-
-          // Placement Preview
           if (this.placingTowerId !== null) {
             const t = TOWER_TYPES[this.placingTowerId];
             this.ctx.beginPath();
@@ -2592,7 +2646,6 @@
             this.ctx.fill();
             this.ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
             this.ctx.stroke();
-
             this.ctx.beginPath();
             this.ctx.arc(this.mouseX, this.mouseY, 15, 0, Math.PI * 2);
             this.ctx.fillStyle = t.color;
@@ -2603,17 +2656,26 @@
         loop(timestamp) {
           const dt = timestamp - this.lastTime;
           this.lastTime = timestamp;
-
           const safeDt = Math.min(dt, 100);
           this.update(safeDt / 16.66);
           this.draw();
-
-          if (this.lives > 0) {
-            requestAnimationFrame((t) => this.loop(t));
-          }
+          if (!this.isGameOver) requestAnimationFrame((t) => this.loop(t));
         }
 
-        // --- UPGRADE SYSTEM ---
+        restartGame() {
+          document.getElementById("game-over").style.display = "none";
+          this.generateTheme();
+          this.path = this.generatePath();
+          this.generateMapDetails();
+          this.reset();
+          document.getElementById("selection-panel").style.display = "none";
+          document.getElementById("preview-panel").style.display = "none";
+          this.selectedTower = null;
+          this.placingTowerId = null;
+          this.updateUI();
+          this.lastTime = performance.now();
+          requestAnimationFrame((t) => this.loop(t));
+        }
 
         upgradeTower(pathIndex) {
           if (!this.selectedTower) return;
@@ -2622,22 +2684,33 @@
 
           if (currentLvl >= 5) return;
 
+          // 1. Check Global Unique Limit for Level 5
+          if (currentLvl === 4) {
+            // Check if any other tower of the same type already has this path at level 5
+            const typeId = t.def.id;
+            const hasUnique = this.towers.some(
+              (other) =>
+                other !== t && // Don't check self (though self is lvl 4 so it wouldn't trigger, safety check)
+                other.def.id === typeId &&
+                other.upgrades[pathIndex] === 5
+            );
+
+            if (hasUnique) return; // Block upgrade
+          }
+
           const activePaths = t.upgrades.reduce(
             (acc, lvl, idx) => (lvl > 0 ? acc + 1 : acc),
             0
           );
           const isStarted = currentLvl > 0;
           if (activePaths >= 2 && !isStarted) return;
-
           if (currentLvl >= 2) {
             const hasMajorPath = t.upgrades.some(
               (lvl, idx) => idx !== pathIndex && lvl > 2
             );
             if (hasMajorPath) return;
           }
-
           const cost = Math.floor(t.baseCost * (0.4 * (currentLvl + 1)));
-
           if (this.money >= cost) {
             this.money -= cost;
             t.totalInvested += cost;
@@ -2652,39 +2725,16 @@
           if (!this.selectedTower) return;
           const t = this.selectedTower;
           const val = Math.floor(t.totalInvested * this.stats.sellRefund);
-
           this.money += val;
           this.towers = this.towers.filter((x) => x !== t);
           this.selectedTower = null;
           document.getElementById("selection-panel").style.display = "none";
           this.updateUI();
-
           for (let i = 0; i < 10; i++) this.spawnParticle(t.x, t.y, "gold", 3);
         }
 
-        updateUI() {
-          document.getElementById("wave-display").innerText = this.wave;
-          document.getElementById("lives-display").innerText = this.lives;
-          document.getElementById("money-display").innerText = Math.floor(
-            this.money
-          );
-          document.getElementById("enemy-display").innerText =
-            this.enemies.length + this.enemiesToSpawn.length;
-
-          const btns = document.getElementById("build-menu").children;
-          for (let i = 0; i < btns.length; i++) {
-            const cost = this.getModifiedCost(TOWER_TYPES[i].cost);
-            btns[i].querySelector("span:last-child").innerText = cost;
-            btns[i].disabled = this.money < cost;
-            btns[i].style.opacity = this.money < cost ? "0.5" : "1";
-          }
-
-          if (this.selectedTower) {
-            this.updateSelectionPanel();
-          }
-        }
-
         getUpgradeDesc(u) {
+          if (!u) return "N/A";
           const pct = Math.round(u.val * 100);
           switch (u.type) {
             case "damage":
@@ -2726,10 +2776,8 @@
           if (!this.selectedTower) return;
           const t = this.selectedTower.def;
           const modal = document.getElementById("tower-modal");
-
           document.getElementById("td-title").innerText = t.name;
           document.getElementById("td-desc").innerText = t.desc;
-
           const renderPath = (path) => {
             let html = `<div>Base: ${this.getUpgradeDesc(
               path.base
@@ -2741,7 +2789,6 @@
             });
             return html;
           };
-
           document.getElementById("td-p1").innerHTML = renderPath(
             t.upgrades[0]
           );
@@ -2751,7 +2798,6 @@
           document.getElementById("td-p3").innerHTML = renderPath(
             t.upgrades[2]
           );
-
           modal.style.display = "flex";
         }
 
@@ -2761,7 +2807,6 @@
             panel.style.display = "none";
             return;
           }
-
           panel.style.display = "block";
           const t = this.selectedTower;
           document.getElementById(
@@ -2771,31 +2816,21 @@
             t.totalInvested * this.stats.sellRefund
           );
 
-          // --- NEW STATS CALCULATION ---
+          // Calculate Stats
           const stats = t.getStats(this.stats);
-
-          // 1. Base Stats
           document.getElementById("cs-dmg").innerText = Math.floor(
             stats.damage
           );
-
-          // Rate
           const rate = (60 / stats.cooldownMax).toFixed(2);
           document.getElementById("cs-rate").innerText = `${rate}/s`;
-
-          // Range
           document.getElementById("cs-rng").innerText =
             stats.range > 5000 ? "GLOBAL" : Math.floor(stats.range);
-
-          // Crit
           const totalCrit = (this.stats.critChance + stats.critBonus) * 100;
           document.getElementById("cs-crit").innerText = `${Math.round(
             totalCrit
           )}%`;
-
-          // NEW: Combat Stats
           document.getElementById("cs-kills").innerText = t.kills;
-          // Format damage with K/M if large
+
           let dmgDisplay = t.damageDealt;
           if (dmgDisplay > 1000000)
             dmgDisplay = (dmgDisplay / 1000000).toFixed(1) + "M";
@@ -2803,17 +2838,15 @@
             dmgDisplay = (dmgDisplay / 1000).toFixed(1) + "k";
           document.getElementById("cs-total-dmg").innerText = dmgDisplay;
 
-          // 2. Specials List
+          // Specials
           const specialsContainer = document.getElementById("cs-specials");
           specialsContainer.innerHTML = "";
-
           const addTag = (text) => {
             const s = document.createElement("div");
             s.className = "special-tag";
             s.innerText = text;
             specialsContainer.appendChild(s);
           };
-
           if (stats.multishot > 0) addTag(`Multishot: +${stats.multishot}`);
           if (stats.pierce > 0) addTag(`Pierce: ${stats.pierce}`);
           if (stats.chain > 0) addTag(`Chain: ${stats.chain}`);
@@ -2827,17 +2860,17 @@
             addTag(`Execute: <${Math.round(stats.execute * 100)}% HP`);
           if (stats.explode > 0) addTag(`Death Boom: ${stats.explode} dmg`);
 
-          // Update Priority Button Text
+          // Priority Button
           const pBtn = document.getElementById("btn-priority");
           const pText =
             t.priority.charAt(0).toUpperCase() + t.priority.slice(1);
           pBtn.innerText = `Target: ${pText}`;
 
+          // Logic Checks
           const activePathIndices = [];
           t.upgrades.forEach((lvl, idx) => {
             if (lvl > 0) activePathIndices.push(idx);
           });
-
           const majorPathIndex = t.upgrades.findIndex((lvl) => lvl > 2);
 
           for (let i = 0; i < 3; i++) {
@@ -2851,21 +2884,40 @@
 
             nameTxt.innerText = def.name;
             lvlTxt.innerText = `Lvl: ${lvl}`;
-
             row.className = "upgrade-row";
             btn.style.display = "block";
+            btn.disabled = false;
+            btn.style.opacity = "1"; // Reset opacity
 
-            let desc = `<div class="tooltip-title">${def.name}</div>`;
-            desc += `<div>${this.getUpgradeDesc(def.base)} (Per Level)</div>`;
+            // Unique Check
+            let uniqueLocked = false;
+            if (lvl === 4) {
+              const typeId = t.def.id;
+              const hasUnique = this.towers.some(
+                (other) =>
+                  other !== t &&
+                  other.def.id === typeId &&
+                  other.upgrades[i] === 5
+              );
+              if (hasUnique) uniqueLocked = true;
+            }
 
+            let desc = `<div class="tooltip-title">${
+              def.name
+            }</div><div>${this.getUpgradeDesc(def.base)} (Per Level)</div>`;
             const nextMilestone = def.milestones.find((m) => m.lvl > lvl);
             if (nextMilestone) {
-              desc += `<div style="margin-top:5px; color:cyan">Next (Lvl ${nextMilestone.lvl}): ${nextMilestone.name}</div>`;
-              desc += `<div style="font-size:10px">${this.getUpgradeDesc(
+              desc += `<div style="margin-top:5px; color:cyan">Next (Lvl ${
+                nextMilestone.lvl
+              }): ${
+                nextMilestone.name
+              }</div><div style="font-size:10px">${this.getUpgradeDesc(
                 nextMilestone
               )}</div>`;
             } else if (lvl >= 5) {
               desc += `<div style="margin-top:5px; color:lime">PATH MAXED</div>`;
+            } else if (uniqueLocked) {
+              desc += `<div style="margin-top:5px; color:red">UNIQUE LIMIT REACHED</div><div style="font-size:10px">Another unit holds this Level 5 upgrade.</div>`;
             }
 
             row.onmouseenter = (e) => this.showTooltip(e, desc);
@@ -2877,6 +2929,7 @@
             ) {
               row.classList.add("locked");
               lvlTxt.innerText = "LOCKED";
+              btn.style.display = "none";
               continue;
             }
 
@@ -2890,24 +2943,30 @@
 
             if (isMaxed) lvlTxt.innerText = "MAX (Major)";
 
-            if (isMaxed || isCapped) {
+            // Unique Limit UI Override
+            if (uniqueLocked) {
+              lvlTxt.innerText = "Lvl: 4 (Limit)";
+              costTxt.innerText = "---";
+              btn.disabled = true;
+              btn.style.opacity = "0.3";
+            } else if (isMaxed || isCapped) {
               btn.style.display = "none";
             } else {
               const cost = Math.floor(t.baseCost * (0.4 * (lvl + 1)));
               costTxt.innerText = cost;
               btn.disabled = this.money < cost;
+              if (this.money < cost) btn.style.opacity = "0.5";
             }
           }
         }
 
         gameOver() {
+          this.isGameOver = true;
           document.getElementById("game-over").style.display = "flex";
           document.getElementById("final-wave").innerText =
             "Waves Survived: " + (this.wave - 1);
         }
       }
-
-      // --- ENTITIES ---
 
       class Tower {
         constructor(x, y, def, cost) {
@@ -2916,17 +2975,13 @@
           this.def = def;
           this.baseCost = cost;
           this.totalInvested = cost;
-
           this.upgrades = [0, 0, 0];
           this.cooldown = 0;
           this.angle = 0;
           this.priority = "first";
-
-          // NEW: Stats
           this.kills = 0;
           this.damageDealt = 0;
         }
-
         getStats(globalStats) {
           let damage = this.def.damage;
           let range = this.def.range;
@@ -2934,8 +2989,6 @@
           let splash = this.def.splash || 0;
           let slow = this.def.slow || 0;
           let critBonus = 0;
-
-          // New Stats
           let burn = 0;
           let stun = 0;
           let multishot = 0;
@@ -2945,36 +2998,25 @@
           let shred = 0;
           let explode = 0;
           let infiniteRange = false;
-
           this.def.upgrades.forEach((path, idx) => {
             const lvl = this.upgrades[idx];
             if (lvl === 0) return;
-
-            // 1. Apply Base Scaling (Linear)
             const u = path.base;
             const multiplier = 1 + lvl * u.val;
-
             if (u.type === "damage") damage *= multiplier;
             if (u.type === "range") range *= multiplier;
             if (u.type === "speed") speed /= multiplier;
-
-            // Additive Bases
             if (u.type === "splash") splash += lvl * u.val;
             if (u.type === "slow") slow += lvl * u.val;
             if (u.type === "crit") critBonus += lvl * u.val;
-
-            // 2. Apply Milestones (Unlocked at specific levels)
             path.milestones.forEach((m) => {
               if (lvl >= m.lvl) {
-                // Milestones stack
                 if (m.type === "damage") damage *= 1 + m.val;
                 if (m.type === "range") range *= 1 + m.val;
                 if (m.type === "speed") speed /= 1 + m.val;
-
                 if (m.type === "splash") splash += m.val;
                 if (m.type === "slow") slow += m.val;
                 if (m.type === "crit") critBonus += m.val;
-
                 if (m.type === "burn") burn += m.val;
                 if (m.type === "stun") stun += m.val;
                 if (m.type === "multishot") multishot += m.val;
@@ -2987,7 +3029,6 @@
               }
             });
           });
-
           return {
             damage: damage * globalStats.globalDmg,
             range: infiniteRange ? 9999 : range * globalStats.globalRange,
@@ -3005,26 +3046,18 @@
             explode: explode,
           };
         }
-
         update(dt, enemies, projectiles, globalStats) {
           if (this.cooldown > 0) this.cooldown -= dt;
-
           const stats = this.getStats(globalStats);
-
           const inRange = enemies.filter(
             (e) => Math.hypot(e.x - this.x, e.y - this.y) <= stats.range
           );
-
           if (inRange.length > 0) {
             let target = null;
-
-            // TARGETING LOGIC
             if (this.priority === "first") {
-              // Sort by Path Progress (Highest Index -> Lowest Dist to next node)
               target = inRange.sort((a, b) => {
                 if (a.pathIndex !== b.pathIndex)
-                  return b.pathIndex - a.pathIndex; // Higher path index = further
-                // Same index, check distance to next node (smaller dist = further)
+                  return b.pathIndex - a.pathIndex;
                 const distA = Math.hypot(
                   a.path[a.pathIndex + 1].x - a.x,
                   a.path[a.pathIndex + 1].y - a.y
@@ -3036,7 +3069,6 @@
                 return distA - distB;
               })[0];
             } else if (this.priority === "last") {
-              // Opposite of First
               target = inRange.sort((a, b) => {
                 if (a.pathIndex !== b.pathIndex)
                   return a.pathIndex - b.pathIndex;
@@ -3051,22 +3083,16 @@
                 return distB - distA;
               })[0];
             } else if (this.priority === "strongest") {
-              // Sort by HP Descending
               target = inRange.sort((a, b) => b.hp - a.hp)[0];
             }
-
-            // Fallback just in case
             if (!target) target = inRange[0];
-
             this.angle = Math.atan2(target.y - this.y, target.x - this.x);
-
             if (this.cooldown <= 0) {
               this.shoot(target, stats, projectiles);
               this.cooldown = stats.cooldownMax;
             }
           }
         }
-
         shoot(target, stats, projectiles) {
           const createProj = (offsetAngle = 0) => {
             projectiles.push(
@@ -3078,45 +3104,30 @@
                 stats.damage,
                 this.def.color,
                 stats,
-                this, // Pass 'this' as source
+                this,
                 offsetAngle
               )
             );
           };
-
-          // NEW LOGIC: Exact Count Distribution
           const totalShots = 1 + Math.floor(stats.multishot);
-
           if (totalShots === 1) {
-            // Single shot (accurate/homing)
             createProj(0);
           } else {
-            // Multiple shots (spread pattern)
-            // Calculate spread to center the cone on the target
-            const spread = 0.15; // Radians between shots
+            const spread = 0.15;
             const startOffset = -((totalShots - 1) * spread) / 2;
-
             for (let i = 0; i < totalShots; i++) {
               createProj(startOffset + i * spread);
             }
           }
         }
-
         draw(ctx, isSelected, globalStats) {
           ctx.save();
           ctx.translate(this.x, this.y);
-
-          // Range indicator
           if (isSelected) {
-            // FIX: Use getStats() to calculate actual current range including upgrades/buffs
-            // If globalStats isn't passed (e.g. edge cases), fallback to a dummy object
             const activeStats = this.getStats(
               globalStats || { globalRange: 1, globalDmg: 1, globalSpeed: 1 }
             );
-
-            // Cap visual range for infinite/global towers so we don't break canvas rendering
             const r = activeStats.range > 3000 ? 3000 : activeStats.range;
-
             ctx.beginPath();
             ctx.arc(0, 0, r, 0, Math.PI * 2);
             ctx.strokeStyle = "rgba(212, 175, 55, 0.5)";
@@ -3125,20 +3136,14 @@
             ctx.fillStyle = "rgba(212, 175, 55, 0.1)";
             ctx.fill();
           }
-
-          // Base
           ctx.fillStyle = "#222";
           ctx.fillRect(-12, -12, 24, 24);
-
-          // Turret Rotated
           ctx.rotate(this.angle);
           ctx.fillStyle = this.def.color;
           ctx.fillRect(-8, -8, 16, 16);
           ctx.fillStyle = "#000";
           ctx.fillRect(0, -2, 14, 4);
-
           ctx.rotate(-this.angle);
-
           const totalLvl =
             this.upgrades[0] + this.upgrades[1] + this.upgrades[2];
           if (totalLvl > 0) {
@@ -3148,7 +3153,6 @@
             ctx.fillText("★".repeat(Math.min(3, totalLvl)), 0, 4);
             if (totalLvl > 3) ctx.fillStyle = "cyan";
           }
-
           ctx.restore();
         }
       }
@@ -3159,57 +3163,57 @@
           this.pathIndex = 0;
           this.x = path[0].x;
           this.y = path[0].y;
-
           this.maxHp = data.maxHp;
           this.hp = data.hp;
           this.speed = data.speed;
           this.reward = data.reward;
           this.armor = data.armor || 0;
           this.color = data.color || "#8a0e0e";
-
+          this.regenRate = data.regen || 0;
           this.radius = data.radius || 10;
           this.dead = false;
           this.reachedEnd = false;
-
-          // Status Effects
+          this.healOnDeath = data.healOnDeath || false;
+          this.enrage = data.enrage || false;
+          this.split = data.split || false;
+          this.unstoppable = data.unstoppable || false;
           this.slowTimer = 0;
           this.slowFactor = 1;
-
           this.burnTimer = 0;
           this.burnDmg = 0;
-          this.burnSource = null; // Track source of burn
+          this.burnSource = null;
           this.stunTimer = 0;
           this.shredded = 0;
         }
-
         applySlow(amount, time) {
           this.slowFactor = 1 - amount;
           this.slowTimer = time;
         }
-
         applyBurn(dmg, source) {
           this.burnDmg = dmg;
           this.burnTimer = 100;
-          this.burnSource = source; // Store source
+          this.burnSource = source;
         }
-
         applyStun(duration) {
           this.stunTimer = duration * 60;
         }
-
         applyShred(amount) {
           this.shredded = Math.max(this.shredded, amount);
         }
-
         takeDamage(amt) {
           this.hp -= amt;
           if (this.hp <= 0) this.dead = true;
         }
-
         update(dt) {
           if (this.dead) return;
-
-          // Status Updates
+          if (
+            this.regenRate > 0 &&
+            this.burnTimer <= 0 &&
+            this.hp < this.maxHp
+          ) {
+            const healAmount = this.maxHp * this.regenRate * (dt / 60);
+            this.hp = Math.min(this.maxHp, this.hp + healAmount);
+          }
           if (this.slowTimer > 0) {
             this.slowTimer -= dt;
             if (this.slowTimer <= 0) this.slowFactor = 1;
@@ -3219,34 +3223,26 @@
           }
           if (this.burnTimer > 0) {
             this.burnTimer -= dt;
-            // Apply burn damage periodically (every 10 frames ~ 6 times per sec)
             if (Math.floor(this.burnTimer) % 10 === 0) {
               const tickDmg = Math.min(this.hp, this.burnDmg);
               this.takeDamage(this.burnDmg);
-
-              // Credit burn damage/kills to source
               if (this.burnSource) {
                 this.burnSource.damageDealt += tickDmg;
                 if (this.dead) this.burnSource.kills++;
               }
             }
           }
-
-          // Movement (Stop if stunned)
           if (this.stunTimer <= 0) {
             const moveDist = this.speed * this.slowFactor * (dt / 2);
             const target = this.path[this.pathIndex + 1];
-
             if (!target) {
               this.dead = true;
               this.reachedEnd = true;
               return;
             }
-
             const dx = target.x - this.x;
             const dy = target.y - this.y;
             const dist = Math.hypot(dx, dy);
-
             if (dist <= moveDist) {
               this.x = target.x;
               this.y = target.y;
@@ -3257,59 +3253,38 @@
             }
           }
         }
-
-        // CHANGED: Split draw into drawBody and drawUI
         drawBody(ctx) {
           ctx.beginPath();
           ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
           ctx.fillStyle = this.color;
-
-          // Visual Status Overlays
           if (this.stunTimer > 0) ctx.fillStyle = "cyan";
           else if (this.slowFactor < 1) ctx.fillStyle = "#8e44ad";
           else if (this.burnTimer > 0) ctx.fillStyle = "orange";
-
           ctx.fill();
-
-          // ARMOR VISUAL (Grey Border)
           const armorWidth = 1 + Math.min(5, this.armor / 3);
           ctx.lineWidth = armorWidth;
-          ctx.strokeStyle = "#bdc3c7"; // Silver
-
-          // Shredded Override (Red Outline)
+          ctx.strokeStyle = "#bdc3c7";
           if (this.shredded > 0) {
             ctx.lineWidth = 2;
             ctx.strokeStyle = "red";
           }
-
           ctx.stroke();
         }
-
         drawUI(ctx, mx, my) {
-          // HP Bar Background
           ctx.fillStyle = "black";
           ctx.fillRect(this.x - 12, this.y - 18, 24, 6);
-
-          // HP Bar Foreground
           const hpPct = Math.max(0, this.hp / this.maxHp);
           ctx.fillStyle =
             hpPct > 0.5 ? "#2ecc71" : hpPct > 0.25 ? "#f1c40f" : "#e74c3c";
           ctx.fillRect(this.x - 11, this.y - 17, 22 * hpPct, 4);
-
-          // SMART TEXT: Only show HP number if mouse is close (< 150px)
-          // This prevents the "jumble" of numbers when many units stack
           const dist = Math.hypot(mx - this.x, my - this.y);
-
           if (dist < 150) {
             ctx.fillStyle = "#ffffff";
             ctx.font = "bold 10px Arial";
             ctx.textAlign = "center";
             ctx.strokeStyle = "black";
             ctx.lineWidth = 3;
-
-            // Stroke first for outline effect
             ctx.strokeText(Math.ceil(this.hp), this.x, this.y - 22);
-            // Fill second
             ctx.fillText(Math.ceil(this.hp), this.x, this.y - 22);
           }
         }
@@ -3333,9 +3308,7 @@
           this.type = type;
           this.damage = damage;
           this.color = color;
-          this.source = source; // Store reference to tower
-
-          // Copy specific stats
+          this.source = source;
           this.splash = stats.splash;
           this.slow = stats.slow;
           this.critBonus = stats.critBonus;
@@ -3346,49 +3319,38 @@
           this.executeThreshold = stats.execute;
           this.shred = stats.shred;
           this.explode = stats.explode;
-
           this.speed = 10;
           this.dead = false;
           this.reachedDest = false;
           this.homing = true;
-          this.hitList = []; // For Pierce/Chain memory
-
-          // Initial target
+          this.hitList = [];
           this.tx = target.x;
           this.ty = target.y;
-
-          // Handle Angle Offset (Multishot)
           if (offsetAngle !== 0) {
             const angle =
               Math.atan2(this.ty - this.y, this.tx - this.x) + offsetAngle;
-            // Project out a distance since we don't have a specific target for the spread
             this.tx = this.x + Math.cos(angle) * 1000;
             this.ty = this.y + Math.sin(angle) * 1000;
-            this.homing = false; // Spread shots aren't homing initially
+            this.homing = false;
           }
         }
-
         update(dt) {
           if (this.type === "aoe") {
             this.reachedDest = true;
             return;
           }
-
           let tx = this.tx;
           let ty = this.ty;
-
           if (this.homing && this.target && !this.target.dead) {
             tx = this.target.x;
             ty = this.target.y;
             this.tx = tx;
             this.ty = ty;
           }
-
           const dx = tx - this.x;
           const dy = ty - this.y;
           const dist = Math.hypot(dx, dy);
           const move = this.speed * dt;
-
           if (dist <= move) {
             this.x = tx;
             this.y = ty;
@@ -3398,7 +3360,6 @@
             this.y += (dy / dist) * move;
           }
         }
-
         draw(ctx) {
           if (this.type === "aoe") {
             ctx.beginPath();
@@ -3409,7 +3370,6 @@
             ctx.stroke();
             return;
           }
-
           ctx.beginPath();
           ctx.arc(this.x, this.y, 3, 0, Math.PI * 2);
           ctx.fillStyle = this.color;
