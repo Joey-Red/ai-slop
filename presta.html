@@ -783,9 +783,10 @@
       // --- CONFIGURATION ---
       const TOWER_TYPES = [
         {
+          // COST: 25 -> 30
           id: 0,
           name: "Guardsman",
-          cost: 25,
+          cost: 30,
           color: "#5a6e49",
           range: 100,
           damage: 7,
@@ -818,7 +819,7 @@
                   desc: "Shreds Armor (+60%)",
                 },
               ],
-            }, // Buffed 40% -> 60%
+            },
             {
               name: "Orders",
               base: { type: "speed", val: 0.1 },
@@ -845,7 +846,7 @@
                   desc: "+4 Projectiles",
                 },
               ],
-            }, // Buffed +2 -> +4
+            },
             {
               name: "Equipment",
               base: { type: "range", val: 0.15 },
@@ -872,13 +873,14 @@
                   desc: "Enemies Explode (100dmg)",
                 },
               ],
-            }, // Buffed 30 -> 100
+            },
           ],
         },
         {
+          // COST: 75 -> 90
           id: 1,
           name: "Sniper",
-          cost: 75,
+          cost: 90,
           color: "#333",
           range: 250,
           damage: 30,
@@ -911,7 +913,7 @@
                   desc: "Infinite Range & +50% Crit",
                 },
               ],
-            }, // Added Crit to Lvl 5
+            },
             {
               name: "Ratling",
               base: { type: "speed", val: 0.15 },
@@ -938,7 +940,7 @@
                   desc: "+50% Shred",
                 },
               ],
-            }, // Buffed 30% -> 50%
+            },
             {
               name: "Stealth",
               base: { type: "range", val: 0.1 },
@@ -965,13 +967,14 @@
                   desc: "+250% Damage",
                 },
               ],
-            }, // Buffed 100% -> 250%
+            },
           ],
         },
         {
+          // COST: 70 -> 100 (Premium Anti-Regen)
           id: 2,
           name: "Flamer",
-          cost: 70,
+          cost: 100,
           color: "#d35400",
           range: 70,
           damage: 4,
@@ -1005,7 +1008,7 @@
                   desc: "+50% Shred",
                 },
               ],
-            }, // Buffed 25% -> 50%
+            },
             {
               name: "Projection",
               base: { type: "range", val: 0.2 },
@@ -1032,7 +1035,7 @@
                   desc: "Stuns (0.2s)",
                 },
               ],
-            }, // Buffed 0.1s -> 0.2s
+            },
             {
               name: "Cataclysm",
               base: { type: "damage", val: 0.1 },
@@ -1059,13 +1062,14 @@
                   desc: "Explode (200dmg)",
                 },
               ],
-            }, // Buffed 100 -> 200
+            },
           ],
         },
         {
+          // COST: 110 -> 160
           id: 3,
           name: "Bolter Turret",
-          cost: 110,
+          cost: 160,
           color: "#2980b9",
           range: 120,
           damage: 18,
@@ -1098,7 +1102,7 @@
                   desc: "Execute < 20%",
                 },
               ],
-            }, // Buffed 10% -> 20%
+            },
             {
               name: "Hurricane",
               base: { type: "speed", val: 0.15 },
@@ -1125,7 +1129,7 @@
                   desc: "+4 Shots",
                 },
               ],
-            }, // Buffed +2 -> +4
+            },
             {
               name: "Special Issue",
               base: { type: "range", val: 0.1 },
@@ -1152,13 +1156,14 @@
                   desc: "80px Splash",
                 },
               ],
-            }, // Buffed 40 -> 80
+            },
           ],
         },
         {
+          // COST: 150 -> 250 (Premium CC)
           id: 4,
           name: "Psyker",
-          cost: 150,
+          cost: 250,
           color: "#8e44ad",
           range: 140,
           damage: 8,
@@ -1192,7 +1197,7 @@
                   desc: "3.0s Stun",
                 },
               ],
-            }, // Buffed 1.5s -> 3.0s
+            },
             {
               name: "Biomancy",
               base: { type: "damage", val: 0.2 },
@@ -1219,7 +1224,7 @@
                   desc: "Chain +10",
                 },
               ],
-            }, // Buffed +6 -> +10
+            },
             {
               name: "Divination",
               base: { type: "range", val: 0.15 },
@@ -1246,13 +1251,14 @@
                   desc: "Execute < 35%",
                 },
               ],
-            }, // Buffed 20% -> 35%
+            },
           ],
         },
         {
+          // COST: 325 -> 400
           id: 5,
           name: "Plasma Cannon",
-          cost: 325,
+          cost: 400,
           color: "#3498db",
           range: 160,
           damage: 80,
@@ -1286,7 +1292,7 @@
                   desc: "+200% Damage",
                 },
               ],
-            }, // Buffed 100% -> 200%
+            },
             {
               name: "Overcharge",
               base: { type: "range", val: 0.1 },
@@ -1313,7 +1319,7 @@
                   desc: "+80% Crit",
                 },
               ],
-            }, // Buffed 50% -> 80%
+            },
             {
               name: "Rapid Fire",
               base: { type: "speed", val: 0.15 },
@@ -1340,13 +1346,14 @@
                   desc: "+4 Shots",
                 },
               ],
-            }, // Buffed +2 -> +4
+            },
           ],
         },
         {
+          // COST: 350 -> 450
           id: 6,
           name: "Melta Gun",
-          cost: 350,
+          cost: 450,
           color: "#f1c40f",
           range: 90,
           damage: 160,
@@ -1379,7 +1386,7 @@
                   desc: "Execute < 40%",
                 },
               ],
-            }, // Buffed 25% -> 40%
+            },
             {
               name: "Beams",
               base: { type: "range", val: 0.1 },
@@ -1406,7 +1413,7 @@
                   desc: "+50 Pierce",
                 },
               ],
-            }, // Buffed +10 -> +50
+            },
             {
               name: "Thermal",
               base: { type: "speed", val: 0.1 },
@@ -1433,13 +1440,14 @@
                   desc: "120px Splash",
                 },
               ],
-            }, // Buffed 50 -> 120
+            },
           ],
         },
         {
+          // COST: 550 -> 700
           id: 7,
           name: "Autocannon",
-          cost: 550,
+          cost: 700,
           color: "#7f8c8d",
           range: 200,
           damage: 45,
@@ -1472,7 +1480,7 @@
                   desc: "1.0s Stun",
                 },
               ],
-            }, // Buffed 0.5 -> 1.0
+            },
             {
               name: "Havoc",
               base: { type: "damage", val: 0.15 },
@@ -1499,7 +1507,7 @@
                   desc: "+4 Shots",
                 },
               ],
-            }, // Buffed +2 -> +4
+            },
             {
               name: "Reaper",
               base: { type: "range", val: 0.2 },
@@ -1526,13 +1534,14 @@
                   desc: "Execute < 25%",
                 },
               ],
-            }, // Buffed 15% -> 25%
+            },
           ],
         },
         {
+          // COST: 950 -> 1100
           id: 8,
           name: "Missile Silo",
-          cost: 950,
+          cost: 1100,
           color: "#c0392b",
           range: 400,
           damage: 120,
@@ -1566,7 +1575,7 @@
                   desc: "+8 Shots",
                 },
               ],
-            }, // Buffed +4 -> +8
+            },
             {
               name: "Manticore",
               base: { type: "damage", val: 0.2 },
@@ -1593,7 +1602,7 @@
                   desc: "+200px Splash",
                 },
               ],
-            }, // Buffed 100 -> 200
+            },
             {
               name: "Hunter",
               base: { type: "range", val: 0.5 },
@@ -1620,13 +1629,14 @@
                   desc: "Execute < 35%",
                 },
               ],
-            }, // Buffed 20% -> 35%
+            },
           ],
         },
         {
+          // COST: 7500 -> 5000 (Reduced to be viable)
           id: 9,
           name: "Titan",
-          cost: 8500,
+          cost: 5000,
           color: "#ecf0f1",
           range: 250,
           damage: 650,
@@ -1655,12 +1665,12 @@
                 {
                   lvl: 5,
                   type: "execute",
-                  val: 0.4,
+                  val: 0.25,
                   name: "God-Slayer",
-                  desc: "Execute < 40%",
+                  desc: "Execute < 25%",
                 },
               ],
-            }, // Restored to 40%
+            },
             {
               name: "Void Shield",
               base: { type: "range", val: 0.15 },
@@ -1682,12 +1692,12 @@
                 {
                   lvl: 5,
                   type: "stun",
-                  val: 3.0,
+                  val: 1.5,
                   name: "Time Stop",
-                  desc: "3.0s Stun",
+                  desc: "1.5s Stun",
                 },
               ],
-            }, // Buffed 1.5s -> 3.0s
+            },
             {
               name: "Apocalypse",
               base: { type: "speed", val: 0.05 },
@@ -1709,12 +1719,12 @@
                 {
                   lvl: 5,
                   type: "multishot",
-                  val: 8,
+                  val: 4,
                   name: "Full Battery",
-                  desc: "+8 Shots",
+                  desc: "+4 Shots",
                 },
               ],
-            }, // Buffed +4 -> +8
+            },
           ],
         },
       ];
@@ -1949,21 +1959,24 @@
 
         reset() {
           this.wave = 1;
-          this.money = 300;
+          this.money = 450; // Increased Start to 450 for higher tower prices
           this.lives = 20;
           this.enemies = [];
           this.towers = [];
           this.projectiles = [];
           this.particles = [];
+
           this.waveActive = false;
           this.waveTimer = 0;
           this.enemiesToSpawn = [];
           this.spawnTimer = 0;
+
           this.selectedTower = null;
           this.speed = 1;
           this.placingTowerId = null;
           this.lastRogueliteWave = 0;
-          this.isGameOver = false;
+
+          // Roguelite Stats
           this.stats = {
             globalDmg: 1,
             globalRange: 1,
@@ -1976,6 +1989,17 @@
             globalSplashRadius: 0,
             critChance: 0,
           };
+        }
+
+        // NEW: Helper for consistent cost scaling (Balanced Curve)
+        getUpgradeCost(t, lvl) {
+          // [Lvl 1, Lvl 2, Lvl 3, Lvl 4, Lvl 5]
+          // 0.6x (Cheap), 1.6x (Fair), 4.0x (Wall), 9.0x (Investment), 18.0x (Hero)
+          const multipliers = [0.6, 1.6, 4.0, 9.0, 18.0];
+          if (lvl >= 0 && lvl < 5) {
+            return Math.floor(t.baseCost * multipliers[lvl]);
+          }
+          return 9999999;
         }
 
         distToSegment(p, v, w) {
@@ -2675,6 +2699,21 @@
           requestAnimationFrame((t) => this.loop(t));
         }
 
+        // NEW: Helper for consistent cost scaling
+        getUpgradeCost(t, lvl) {
+          // EXPONENTIAL SCALING: [Lvl 1, Lvl 2, Lvl 3, Lvl 4, Lvl 5]
+          // 0->1: 0.5x (Cheap start)
+          // 1->2: 1.5x
+          // 2->3: 4.0x (Mid-game wall)
+          // 3->4: 10.0x (Late-game investment)
+          // 4->5: 25.0x (End-game luxury)
+          const multipliers = [0.5, 1.5, 4.0, 10.0, 25.0];
+          if (lvl >= 0 && lvl < 5) {
+            return Math.floor(t.baseCost * multipliers[lvl]);
+          }
+          return 9999999;
+        }
+
         upgradeTower(pathIndex) {
           if (!this.selectedTower) return;
           const t = this.selectedTower;
@@ -2708,16 +2747,8 @@
             if (hasMajorPath) return;
           }
 
-          // CALCULATE COST
-          let cost = 0;
-          if (currentLvl === 4) {
-            // LEVEL 5 COST: Massive spike for the Unique Tier
-            // 10x Base cost multiplier (was 2x/4x)
-            cost = Math.floor(t.baseCost * 8.0);
-          } else {
-            // STANDARD COST
-            cost = Math.floor(t.baseCost * (0.4 * (currentLvl + 1)));
-          }
+          // USE NEW COST HELPER
+          const cost = this.getUpgradeCost(t, currentLvl);
 
           if (this.money >= cost) {
             this.money -= cost;
@@ -2743,7 +2774,9 @@
 
         getUpgradeDesc(u) {
           if (!u) return "N/A";
-          const pct = Math.round(u.val * 100);
+          // BUFFED STATS DISPLAY: Show the 1.5x boosted value
+          const pct = Math.round(u.val * 1.5 * 100);
+
           switch (u.type) {
             case "damage":
               return `+${pct}% Damage`;
@@ -2753,20 +2786,23 @@
               return `+${pct}% Range`;
             case "crit":
               return `+${pct}% Crit Chance`;
+            // Flat values usually don't get the % multiplier logic in display unless we change logic below
+            // For simplicity, we apply the 1.5x to flat values in getStats, so we should show it here too
             case "splash":
-              return `+${u.val}px Splash Area`;
+              return `+${Math.round(u.val * 1.5)}px Splash Area`;
             case "slow":
               return `+${pct}% Slow Power`;
             case "burn":
-              return `Apply Burn (${u.val} DPS)`;
+              return `Apply Burn (${Math.round(u.val * 1.5)} DPS)`;
             case "stun":
-              return `Apply Stun (${u.val}s)`;
+              return `Apply Stun (${(u.val * 1.5).toFixed(1)}s)`;
             case "multishot":
-              return `Fires +${u.val} Projectiles`;
+              return `Fires +${Math.round(u.val * 1.5)} Projectiles`;
             case "pierce":
-              return `Pierces +${u.val} Enemies`;
+              return `Pierces +${Math.round(u.val * 1.5)} Enemies`;
             case "chain":
-              return `Chains to +${u.val} Targets`;
+              return `Chains to +${Math.round(u.val * 1.5)} Targets`;
+            // Percentage based specials
             case "execute":
               return `Kill if HP < ${pct}%`;
             case "shred":
@@ -2823,8 +2859,6 @@
           document.getElementById("sell-val").innerText = Math.floor(
             t.totalInvested * this.stats.sellRefund
           );
-
-          // Calculate Stats
           const stats = t.getStats(this.stats);
           document.getElementById("cs-dmg").innerText = Math.floor(
             stats.damage
@@ -2838,15 +2872,12 @@
             totalCrit
           )}%`;
           document.getElementById("cs-kills").innerText = t.kills;
-
           let dmgDisplay = t.damageDealt;
           if (dmgDisplay > 1000000)
             dmgDisplay = (dmgDisplay / 1000000).toFixed(1) + "M";
           else if (dmgDisplay > 1000)
             dmgDisplay = (dmgDisplay / 1000).toFixed(1) + "k";
           document.getElementById("cs-total-dmg").innerText = dmgDisplay;
-
-          // Specials
           const specialsContainer = document.getElementById("cs-specials");
           specialsContainer.innerHTML = "";
           const addTag = (text) => {
@@ -2867,20 +2898,15 @@
           if (stats.execute > 0)
             addTag(`Execute: <${Math.round(stats.execute * 100)}% HP`);
           if (stats.explode > 0) addTag(`Death Boom: ${stats.explode} dmg`);
-
-          // Priority Button
           const pBtn = document.getElementById("btn-priority");
           const pText =
             t.priority.charAt(0).toUpperCase() + t.priority.slice(1);
           pBtn.innerText = `Target: ${pText}`;
-
-          // Logic Checks
           const activePathIndices = [];
           t.upgrades.forEach((lvl, idx) => {
             if (lvl > 0) activePathIndices.push(idx);
           });
           const majorPathIndex = t.upgrades.findIndex((lvl) => lvl > 2);
-
           for (let i = 0; i < 3; i++) {
             const lvl = t.upgrades[i];
             const row = document.getElementById(`row-up-${i}`);
@@ -2889,27 +2915,11 @@
             const lvlTxt = document.getElementById(`lvl-up-${i}`);
             const costTxt = document.getElementById(`cost-up-${i}`);
             const def = t.def.upgrades[i];
-
             nameTxt.innerText = def.name;
             lvlTxt.innerText = `Lvl: ${lvl}`;
             row.className = "upgrade-row";
             btn.style.display = "block";
             btn.disabled = false;
-            btn.style.opacity = "1"; // Reset opacity
-
-            // Unique Check
-            let uniqueLocked = false;
-            if (lvl === 4) {
-              const typeId = t.def.id;
-              const hasUnique = this.towers.some(
-                (other) =>
-                  other !== t &&
-                  other.def.id === typeId &&
-                  other.upgrades[i] === 5
-              );
-              if (hasUnique) uniqueLocked = true;
-            }
-
             let desc = `<div class="tooltip-title">${
               def.name
             }</div><div>${this.getUpgradeDesc(def.base)} (Per Level)</div>`;
@@ -2924,13 +2934,9 @@
               )}</div>`;
             } else if (lvl >= 5) {
               desc += `<div style="margin-top:5px; color:lime">PATH MAXED</div>`;
-            } else if (uniqueLocked) {
-              desc += `<div style="margin-top:5px; color:red">UNIQUE LIMIT REACHED</div><div style="font-size:10px">Another unit holds this Level 5 upgrade.</div>`;
             }
-
             row.onmouseenter = (e) => this.showTooltip(e, desc);
             row.onmouseleave = () => this.hideTooltip();
-
             if (
               activePathIndices.length >= 2 &&
               !activePathIndices.includes(i)
@@ -2940,37 +2946,20 @@
               btn.style.display = "none";
               continue;
             }
-
             let isMaxed = lvl >= 5;
             let isCapped = false;
-
             if (majorPathIndex !== -1 && majorPathIndex !== i && lvl >= 2) {
               isCapped = true;
               lvlTxt.innerText = "MAX (Minor)";
             }
-
             if (isMaxed) lvlTxt.innerText = "MAX (Major)";
-
-            // Unique Limit UI Override
-            if (uniqueLocked) {
-              lvlTxt.innerText = "Lvl: 4 (Limit)";
-              costTxt.innerText = "---";
-              btn.disabled = true;
-              btn.style.opacity = "0.3";
-            } else if (isMaxed || isCapped) {
+            if (isMaxed || isCapped) {
               btn.style.display = "none";
             } else {
-              // CALCULATE DISPLAY COST
-              let cost = 0;
-              if (lvl === 4) {
-                cost = Math.floor(t.baseCost * 8.0); // Display correct Lvl 5 cost
-              } else {
-                cost = Math.floor(t.baseCost * (0.4 * (lvl + 1)));
-              }
-
+              // USE NEW COST HELPER
+              const cost = this.getUpgradeCost(t, lvl);
               costTxt.innerText = cost;
               btn.disabled = this.money < cost;
-              if (this.money < cost) btn.style.opacity = "0.5";
             }
           }
         }
@@ -3013,33 +3002,43 @@
           let shred = 0;
           let explode = 0;
           let infiniteRange = false;
+
+          // BOOST FACTOR: Upgrades are 50% stronger
+          const BOOST = 1.5;
+
           this.def.upgrades.forEach((path, idx) => {
             const lvl = this.upgrades[idx];
             if (lvl === 0) return;
             const u = path.base;
-            const multiplier = 1 + lvl * u.val;
+            // Apply Boost to base scaling
+            const multiplier = 1 + lvl * u.val * BOOST;
+
             if (u.type === "damage") damage *= multiplier;
             if (u.type === "range") range *= multiplier;
             if (u.type === "speed") speed /= multiplier;
-            if (u.type === "splash") splash += lvl * u.val;
-            if (u.type === "slow") slow += lvl * u.val;
-            if (u.type === "crit") critBonus += lvl * u.val;
+            if (u.type === "splash") splash += lvl * u.val * BOOST;
+            if (u.type === "slow") slow += lvl * u.val * BOOST;
+            if (u.type === "crit") critBonus += lvl * u.val * BOOST;
+
             path.milestones.forEach((m) => {
               if (lvl >= m.lvl) {
-                if (m.type === "damage") damage *= 1 + m.val;
-                if (m.type === "range") range *= 1 + m.val;
-                if (m.type === "speed") speed /= 1 + m.val;
-                if (m.type === "splash") splash += m.val;
-                if (m.type === "slow") slow += m.val;
-                if (m.type === "crit") critBonus += m.val;
-                if (m.type === "burn") burn += m.val;
-                if (m.type === "stun") stun += m.val;
-                if (m.type === "multishot") multishot += m.val;
-                if (m.type === "pierce") pierce += m.val;
-                if (m.type === "chain") chain += m.val;
-                if (m.type === "execute") execute += m.val;
-                if (m.type === "shred") shred += m.val;
-                if (m.type === "explode") explode += m.val;
+                // Apply Boost to Milestones too
+                if (m.type === "damage") damage *= 1 + m.val * BOOST;
+                if (m.type === "range") range *= 1 + m.val * BOOST;
+                if (m.type === "speed") speed /= 1 + m.val * BOOST;
+
+                if (m.type === "splash") splash += m.val * BOOST;
+                if (m.type === "slow") slow += m.val * BOOST;
+                if (m.type === "crit") critBonus += m.val * BOOST;
+
+                if (m.type === "burn") burn += m.val * BOOST;
+                if (m.type === "stun") stun += m.val * BOOST;
+                if (m.type === "multishot") multishot += m.val * BOOST;
+                if (m.type === "pierce") pierce += m.val * BOOST;
+                if (m.type === "chain") chain += m.val * BOOST;
+                if (m.type === "execute") execute += m.val * BOOST;
+                if (m.type === "shred") shred += m.val * BOOST;
+                if (m.type === "explode") explode += m.val * BOOST;
                 if (m.type === "global") infiniteRange = true;
               }
             });

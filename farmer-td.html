@@ -1,0 +1,1422 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Scythe & Soil: Farm Defender</title>
+    <style>
+      :root {
+        --bg-color: #1a1a1a;
+        --ui-bg: rgba(0, 0, 0, 0.85);
+        --accent: #4ade80;
+        --text: #ffffff;
+        --danger: #ef4444;
+      }
+
+      body {
+        margin: 0;
+        padding: 0;
+        background-color: var(--bg-color);
+        color: var(--text);
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        overflow: hidden;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        user-select: none;
+      }
+
+      #game-container {
+        position: relative;
+        box-shadow: 0 0 50px rgba(0, 0, 0, 0.5);
+      }
+
+      canvas {
+        display: block;
+        border-radius: 4px;
+        cursor: crosshair;
+        background: #2d4c1e; /* Fallback grass */
+      }
+
+      /* HUD Overlay */
+      #ui-layer {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none; /* Let clicks pass through to canvas */
+        padding: 20px;
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+      }
+
+      .hud-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+      }
+
+      .stats-panel {
+        background: var(--ui-bg);
+        padding: 15px;
+        border-radius: 8px;
+        border: 1px solid #444;
+        pointer-events: auto;
+        min-width: 200px;
+      }
+
+      .stat-row {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 5px;
+        font-weight: bold;
+      }
+
+      .controls-panel {
+        background: var(--ui-bg);
+        padding: 10px;
+        border-radius: 8px;
+        pointer-events: auto;
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .speed-btn {
+        background: #333;
+        border: 1px solid #555;
+        color: white;
+        padding: 5px 10px;
+        cursor: pointer;
+        border-radius: 4px;
+        font-weight: bold;
+        transition: all 0.1s;
+      }
+
+      .speed-btn.active {
+        background: var(--accent);
+        color: black;
+        box-shadow: 0 0 10px var(--accent);
+      }
+
+      .hud-bottom {
+        display: flex;
+        justify-content: center;
+        align-items: flex-end;
+        gap: 20px;
+        pointer-events: auto;
+      }
+
+      .tower-card {
+        background: var(--ui-bg);
+        border: 2px solid #555;
+        padding: 10px;
+        border-radius: 8px;
+        width: 80px;
+        height: 100px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        position: relative;
+        transition: transform 0.1s;
+      }
+
+      .tower-card:hover {
+        transform: translateY(-5px);
+        border-color: #888;
+      }
+
+      .tower-card.selected {
+        border-color: var(--accent);
+        box-shadow: 0 0 15px rgba(74, 222, 128, 0.4);
+      }
+
+      .key-hint {
+        position: absolute;
+        top: 5px;
+        left: 5px;
+        font-size: 10px;
+        color: #aaa;
+      }
+
+      .price-tag {
+        margin-top: 5px;
+        color: #ffd700;
+        font-size: 12px;
+      }
+
+      .farmer-upgrade {
+        background: linear-gradient(45deg, #2c3e50, #4ca1af);
+        width: 120px;
+      }
+
+      #start-wave-btn {
+        background: var(--danger);
+        color: white;
+        font-size: 18px;
+        padding: 15px 30px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: bold;
+        animation: pulse 2s infinite;
+      }
+
+      @keyframes pulse {
+        0% {
+          transform: scale(1);
+          box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+        }
+        70% {
+          transform: scale(1.05);
+          box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+        }
+        100% {
+          transform: scale(1);
+          box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+        }
+      }
+
+      .notification {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 48px;
+        font-weight: 900;
+        text-shadow: 0 0 20px black;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.5s;
+        text-align: center;
+        z-index: 100;
+      }
+
+      .tooltip {
+        position: absolute;
+        background: rgba(0, 0, 0, 0.9);
+        border: 1px solid #666;
+        padding: 10px;
+        border-radius: 4px;
+        pointer-events: none;
+        display: none;
+        z-index: 200;
+        max-width: 200px;
+        font-size: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="game-container">
+      <canvas id="gameCanvas" width="1024" height="768"></canvas>
+
+      <div id="ui-layer">
+        <div class="hud-top">
+          <div class="stats-panel">
+            <div class="stat-row" style="color: #ef4444">
+              ❤️ Health: <span id="lives-display">20</span>
+            </div>
+            <div class="stat-row" style="color: #ffd700">
+              💰 Money: <span id="money-display">150</span>
+            </div>
+            <div class="stat-row" style="color: #60a5fa">
+              🌊 Wave: <span id="wave-display">1</span>
+            </div>
+            <div style="margin-top: 10px; font-size: 12px; color: #aaa">
+              [WASD] Move Farmer<br />
+              [SPACE] Start Wave<br />
+              [1-3] Select Tower<br />
+              [Right Click] Cancel/Sell
+            </div>
+          </div>
+
+          <div class="controls-panel">
+            <button class="speed-btn active" onclick="setSpeed(1)">1x</button>
+            <button class="speed-btn" onclick="setSpeed(4)">4x</button>
+            <button class="speed-btn" onclick="setSpeed(10)">10x</button>
+            <button class="speed-btn" onclick="setSpeed(100)">100x</button>
+            <div
+              style="width: 1px; height: 20px; background: #555; margin: 0 5px"
+            ></div>
+            <button
+              class="speed-btn"
+              style="background: #442222"
+              onclick="resetGameData()"
+            >
+              Reset Save
+            </button>
+          </div>
+        </div>
+
+        <div class="notification" id="notification">WAVE 1</div>
+        <div class="tooltip" id="tooltip"></div>
+
+        <div class="hud-bottom">
+          <div
+            class="tower-card farmer-upgrade"
+            onclick="upgradeFarmer()"
+            onmouseover="showTooltip(this, 'upgrade')"
+            onmouseout="hideTooltip()"
+          >
+            <span class="key-hint">F</span>
+            <div style="font-size: 24px">⚔️</div>
+            <b>Scythe</b>
+            <div class="price-tag" id="scythe-cost">100</div>
+            <div style="font-size: 10px; color: #aaa" id="scythe-lvl">
+              Lvl 1
+            </div>
+          </div>
+
+          <div
+            class="tower-card"
+            id="tower-1"
+            onclick="selectTower(0)"
+            onmouseover="showTooltip(this, 0)"
+            onmouseout="hideTooltip()"
+          >
+            <span class="key-hint">1</span>
+            <div style="font-size: 24px">👵</div>
+            <b>Grandma</b>
+            <div class="price-tag">50</div>
+          </div>
+
+          <div
+            class="tower-card"
+            id="tower-2"
+            onclick="selectTower(1)"
+            onmouseover="showTooltip(this, 1)"
+            onmouseout="hideTooltip()"
+          >
+            <span class="key-hint">2</span>
+            <div style="font-size: 24px">🐔</div>
+            <b>Chicken</b>
+            <div class="price-tag">120</div>
+          </div>
+
+          <div
+            class="tower-card"
+            id="tower-3"
+            onclick="selectTower(2)"
+            onmouseover="showTooltip(this, 2)"
+            onmouseout="hideTooltip()"
+          >
+            <span class="key-hint">3</span>
+            <div style="font-size: 24px">🚿</div>
+            <b>Sprinkler</b>
+            <div class="price-tag">300</div>
+          </div>
+
+          <button id="start-wave-btn" onclick="startNextWave()">
+            START WAVE
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      /**
+       * SCYTHE & SOIL
+       * A Tower Defense RPG
+       */
+
+      const canvas = document.getElementById("gameCanvas");
+      const ctx = canvas.getContext("2d", { alpha: false }); // Optimize for no alpha on bg
+      const tooltip = document.getElementById("tooltip");
+
+      // --- Game Constants & Config ---
+      const TILE_SIZE = 64;
+      const COLS = 16;
+      const ROWS = 12;
+
+      const PATH_POINTS = [
+        { x: 0, y: 2 },
+        { x: 4, y: 2 },
+        { x: 4, y: 8 },
+        { x: 8, y: 8 },
+        { x: 8, y: 3 },
+        { x: 12, y: 3 },
+        { x: 12, y: 9 },
+        { x: 15, y: 9 },
+      ];
+
+      // Generate path coordinates for enemies
+      const PATH_COORDS = [];
+      if (PATH_POINTS.length > 0) {
+        let curr = PATH_POINTS[0];
+        PATH_COORDS.push({
+          x: curr.x * TILE_SIZE + TILE_SIZE / 2,
+          y: curr.y * TILE_SIZE + TILE_SIZE / 2,
+        });
+
+        for (let i = 1; i < PATH_POINTS.length; i++) {
+          let next = PATH_POINTS[i];
+          let dx = Math.sign(next.x - curr.x);
+          let dy = Math.sign(next.y - curr.y);
+          let dist = Math.abs(next.x - curr.x) + Math.abs(next.y - curr.y);
+
+          for (let j = 0; j < dist; j++) {
+            curr = { x: curr.x + dx, y: curr.y + dy };
+            PATH_COORDS.push({
+              x: curr.x * TILE_SIZE + TILE_SIZE / 2,
+              y: curr.y * TILE_SIZE + TILE_SIZE / 2,
+            });
+          }
+        }
+      }
+
+      // Tower Definitions
+      const TOWERS = [
+        {
+          name: "Grandma",
+          icon: "👵",
+          cost: 50,
+          range: 200,
+          damage: 15,
+          rate: 60, // Frames between shots
+          color: "#eab308",
+          desc: "Throws heavy slippers. High damage, slow speed.",
+          type: "projectile",
+        },
+        {
+          name: "Chicken Coop",
+          icon: "🐔",
+          cost: 120,
+          range: 150,
+          damage: 4,
+          rate: 10,
+          color: "#f8fafc",
+          desc: "Rapid fire egg shooter.",
+          type: "projectile",
+        },
+        {
+          name: "Sprinkler",
+          icon: "🚿",
+          cost: 300,
+          range: 120,
+          damage: 1,
+          rate: 5,
+          color: "#3b82f6",
+          desc: "AoE water spray. Slows enemies.",
+          type: "aoe",
+        },
+      ];
+
+      // --- Game State ---
+      let gameState = {
+        money: 150,
+        lives: 20,
+        wave: 1,
+        towers: [],
+        enemies: [],
+        projectiles: [],
+        particles: [],
+        farmer: {
+          x: 400,
+          y: 300,
+          level: 1,
+          range: 80,
+          damage: 25,
+          cooldown: 0,
+          maxCooldown: 30,
+          speed: 4,
+          upgradeCost: 100,
+        },
+        waveActive: false,
+        gameSpeed: 1,
+        gameOver: false,
+        enemiesToSpawn: [],
+      };
+
+      // Input State
+      const keys = {};
+      const mouse = { x: 0, y: 0 };
+      let selectedTowerIndex = -1;
+
+      // --- Assets / Graphics Helpers ---
+
+      function drawGlowCircle(x, y, r, color, blur = 20) {
+        ctx.shadowBlur = blur;
+        ctx.shadowColor = color;
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+
+      // --- Classes ---
+
+      class Enemy {
+        constructor(type, hpMod = 1) {
+          this.pathIndex = 0;
+          this.x = PATH_COORDS[0].x;
+          this.y = PATH_COORDS[0].y;
+          this.dead = false;
+          this.frozen = 0; // Slow effect timer
+          this.flash = 0; // Hit flash
+
+          // Types: 0: Weed (Basic), 1: Dandelion (Fast), 2: Hogweed (Tank), 3: Boss
+          this.type = type;
+
+          if (type === 0) {
+            // Weed
+            this.hp = 20 * hpMod;
+            this.maxHp = this.hp;
+            this.speed = 2;
+            this.color = "#4ade80";
+            this.size = 12;
+            this.bounty = 3;
+          } else if (type === 1) {
+            // Dandelion
+            this.hp = 10 * hpMod;
+            this.maxHp = this.hp;
+            this.speed = 3.5;
+            this.color = "#facc15";
+            this.size = 8;
+            this.bounty = 4;
+          } else if (type === 2) {
+            // Hogweed
+            this.hp = 80 * hpMod;
+            this.maxHp = this.hp;
+            this.speed = 1;
+            this.color = "#7f1d1d";
+            this.size = 18;
+            this.bounty = 15;
+          } else if (type === 3) {
+            // Boss
+            this.hp = 500 * hpMod;
+            this.maxHp = this.hp;
+            this.speed = 0.8;
+            this.color = "#a855f7";
+            this.size = 30;
+            this.bounty = 100;
+          }
+        }
+
+        update() {
+          if (this.frozen > 0) {
+            this.frozen--;
+          }
+
+          let currentSpeed = this.frozen > 0 ? this.speed * 0.5 : this.speed;
+
+          // Move along path
+          let target = PATH_COORDS[this.pathIndex + 1];
+          if (!target) {
+            this.reachEnd();
+            return;
+          }
+
+          let dx = target.x - this.x;
+          let dy = target.y - this.y;
+          let dist = Math.hypot(dx, dy);
+
+          if (dist < currentSpeed) {
+            this.x = target.x;
+            this.y = target.y;
+            this.pathIndex++;
+          } else {
+            this.x += (dx / dist) * currentSpeed;
+            this.y += (dy / dist) * currentSpeed;
+          }
+        }
+
+        draw() {
+          ctx.save();
+          ctx.translate(this.x, this.y);
+
+          // Health bar
+          if (this.hp < this.maxHp) {
+            ctx.fillStyle = "red";
+            ctx.fillRect(-10, -this.size - 10, 20, 4);
+            ctx.fillStyle = "#0f0";
+            ctx.fillRect(-10, -this.size - 10, 20 * (this.hp / this.maxHp), 4);
+          }
+
+          // Draw Shape
+          if (this.flash > 0) {
+            ctx.fillStyle = "white";
+            this.flash--;
+          } else {
+            ctx.fillStyle = this.color;
+          }
+
+          if (this.type === 0) {
+            // Spiky weed
+            ctx.beginPath();
+            for (let i = 0; i < 5; i++) {
+              ctx.rotate((Math.PI * 2) / 5);
+              ctx.lineTo(0, -this.size);
+              ctx.lineTo(this.size / 2, -this.size / 3);
+            }
+            ctx.fill();
+          } else if (this.type === 1) {
+            // Puffball
+            drawGlowCircle(0, 0, this.size, this.color, 5);
+          } else {
+            ctx.beginPath();
+            ctx.arc(0, 0, this.size, 0, Math.PI * 2);
+            ctx.fill();
+            // Angry eyes
+            ctx.fillStyle = "black";
+            ctx.fillRect(-5, -5, 3, 3);
+            ctx.fillRect(2, -5, 3, 3);
+          }
+
+          ctx.restore();
+        }
+
+        takeDamage(amt) {
+          this.hp -= amt;
+          this.flash = 2;
+          if (this.hp <= 0) {
+            this.dead = true;
+            gameState.money += this.bounty;
+            createParticles(this.x, this.y, this.color, 5);
+          }
+        }
+
+        reachEnd() {
+          this.dead = true;
+          gameState.lives--;
+          createParticles(this.x, this.y, "#ef4444", 10);
+          checkGameOver();
+        }
+      }
+
+      class Tower {
+        constructor(x, y, typeIdx) {
+          this.gridX = x;
+          this.gridY = y;
+          this.x = x * TILE_SIZE + TILE_SIZE / 2;
+          this.y = y * TILE_SIZE + TILE_SIZE / 2;
+          this.typeIdx = typeIdx;
+          this.cooldown = 0;
+          this.angle = 0;
+
+          const data = TOWERS[typeIdx];
+          this.range = data.range;
+          this.damage = data.damage;
+          this.maxCooldown = data.rate;
+          this.color = data.color;
+          this.level = 1;
+        }
+
+        update() {
+          if (this.cooldown > 0) this.cooldown--;
+
+          // Find Target
+          let target = null;
+          let minDist = Infinity;
+
+          // Simple targeting: closest
+          for (let e of gameState.enemies) {
+            let d = Math.hypot(e.x - this.x, e.y - this.y);
+            if (d <= this.range && d < minDist) {
+              minDist = d;
+              target = e;
+            }
+          }
+
+          if (target) {
+            this.angle = Math.atan2(target.y - this.y, target.x - this.x);
+            if (this.cooldown <= 0) {
+              this.shoot(target);
+              this.cooldown = this.maxCooldown;
+            }
+          }
+        }
+
+        shoot(target) {
+          const type = TOWERS[this.typeIdx].type;
+
+          if (type === "projectile") {
+            gameState.projectiles.push(
+              new Projectile(this.x, this.y, target, this.damage, this.typeIdx)
+            );
+          } else if (type === "aoe") {
+            // Sprinkler logic
+            createParticles(this.x, this.y, "#60a5fa", 8, 3); // Water spray visual
+            gameState.enemies.forEach((e) => {
+              if (Math.hypot(e.x - this.x, e.y - this.y) < this.range) {
+                e.takeDamage(this.damage);
+                e.frozen = 30; // Slow for 30 frames
+              }
+            });
+          }
+        }
+
+        draw() {
+          // Base
+          ctx.fillStyle = "#444";
+          ctx.fillRect(this.x - 20, this.y - 20, 40, 40);
+
+          // Turret
+          ctx.save();
+          ctx.translate(this.x, this.y);
+
+          // Range indicator on hover (not in draw loop usually, but okay for this)
+          if (isMouseOverTile(this.gridX, this.gridY)) {
+            ctx.beginPath();
+            ctx.arc(0, 0, this.range, 0, Math.PI * 2);
+            ctx.strokeStyle = "rgba(255,255,255,0.3)";
+            ctx.lineWidth = 1;
+            ctx.stroke();
+          }
+
+          // Icon/Turret Rotation
+          if (TOWERS[this.typeIdx].type === "projectile") {
+            ctx.rotate(this.angle);
+          } else {
+            ctx.rotate(Date.now() / 500); // Spin sprinkler
+          }
+
+          ctx.font = "24px Arial";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(TOWERS[this.typeIdx].icon, 0, 0);
+
+          ctx.restore();
+
+          // Level dots
+          ctx.fillStyle = "#ffd700";
+          for (let i = 0; i < this.level; i++) {
+            ctx.fillRect(this.x - 10 + i * 5, this.y - 28, 4, 4);
+          }
+        }
+      }
+
+      class Projectile {
+        constructor(x, y, target, damage, typeIdx) {
+          this.x = x;
+          this.y = y;
+          this.target = target; // Homing
+          this.damage = damage;
+          this.speed = 10;
+          this.dead = false;
+          this.typeIdx = typeIdx; // 0: Slipper, 1: Egg
+        }
+
+        update() {
+          if (this.target && !this.target.dead) {
+            let dx = this.target.x - this.x;
+            let dy = this.target.y - this.y;
+            let dist = Math.hypot(dx, dy);
+
+            if (dist < this.speed) {
+              this.hit(this.target);
+            } else {
+              this.x += (dx / dist) * this.speed;
+              this.y += (dy / dist) * this.speed;
+            }
+          } else {
+            // Target dead, just fly straight or die
+            this.dead = true;
+          }
+        }
+
+        hit(enemy) {
+          enemy.takeDamage(this.damage);
+          this.dead = true;
+        }
+
+        draw() {
+          ctx.fillStyle = this.typeIdx === 0 ? "#fbbf24" : "#fff";
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, 4, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      class Particle {
+        constructor(x, y, color, speed) {
+          this.x = x;
+          this.y = y;
+          this.color = color;
+          const angle = Math.random() * Math.PI * 2;
+          this.vx = Math.cos(angle) * speed * Math.random();
+          this.vy = Math.sin(angle) * speed * Math.random();
+          this.life = 1.0;
+          this.decay = 0.05 + Math.random() * 0.05;
+        }
+
+        update() {
+          this.x += this.vx;
+          this.y += this.vy;
+          this.life -= this.decay;
+        }
+
+        draw() {
+          ctx.globalAlpha = this.life;
+          ctx.fillStyle = this.color;
+          ctx.fillRect(this.x, this.y, 4, 4);
+          ctx.globalAlpha = 1;
+        }
+      }
+
+      function createParticles(x, y, color, count, speed = 3) {
+        for (let i = 0; i < count; i++) {
+          gameState.particles.push(new Particle(x, y, color, speed));
+        }
+      }
+
+      // --- Core Game Logic ---
+
+      function init() {
+        loadGame();
+        // Setup inputs
+        window.addEventListener("keydown", (e) => (keys[e.key] = true));
+        window.addEventListener("keyup", (e) => {
+          keys[e.key] = false;
+
+          // Tower Selection Hotkeys
+          if (e.key === "1") selectTower(0);
+          if (e.key === "2") selectTower(1);
+          if (e.key === "3") selectTower(2);
+          if (e.key === " " || e.key === "Spacebar") startNextWave();
+          if (e.key.toLowerCase() === "f") upgradeFarmer();
+        });
+
+        canvas.addEventListener("mousemove", (e) => {
+          const rect = canvas.getBoundingClientRect();
+          mouse.x = e.clientX - rect.left;
+          mouse.y = e.clientY - rect.top;
+        });
+
+        canvas.addEventListener("mousedown", (e) => {
+          if (e.button === 2) {
+            // Right click cancel
+            selectedTowerIndex = -1;
+            document
+              .querySelectorAll(".tower-card")
+              .forEach((c) => c.classList.remove("selected"));
+            return;
+          }
+
+          if (selectedTowerIndex !== -1) {
+            placeTower();
+          } else {
+            // Farmer Attack click (optional, auto attack exists)
+            // attack(mouse.x, mouse.y);
+          }
+        });
+
+        canvas.addEventListener("contextmenu", (e) => e.preventDefault());
+
+        updateUI();
+        requestAnimationFrame(gameLoop);
+      }
+
+      function selectTower(idx) {
+        if (selectedTowerIndex === idx) {
+          selectedTowerIndex = -1; // Deselect
+        } else {
+          selectedTowerIndex = idx;
+        }
+
+        // UI Update
+        document.querySelectorAll(".tower-card").forEach((c, i) => {
+          if (i - 1 === idx)
+            c.classList.add("selected"); // i-1 because 0 is farmer
+          else c.classList.remove("selected");
+        });
+      }
+
+      function isMouseOverTile(tx, ty) {
+        const mx = Math.floor(mouse.x / TILE_SIZE);
+        const my = Math.floor(mouse.y / TILE_SIZE);
+        return mx === tx && my === ty;
+      }
+
+      function placeTower() {
+        const tx = Math.floor(mouse.x / TILE_SIZE);
+        const ty = Math.floor(mouse.y / TILE_SIZE);
+
+        // Check bounds
+        if (tx < 0 || tx >= COLS || ty < 0 || ty >= ROWS) return;
+
+        // Check Path collision
+        for (let p of PATH_POINTS) {
+          // This is a simplified check. We need to check if point is ON the path lines.
+          // Actually, let's just check if it's on the drawn path buffer
+          // Or simpler: Check distance to all PATH_COORDS
+        }
+
+        // Check if tile is occupied by tower
+        if (gameState.towers.some((t) => t.gridX === tx && t.gridY === ty))
+          return;
+
+        // Check if tile is on path (simple robust way: distance to path center lines)
+        // Actually, we generated PATH_COORDS for movement. Let's check collision with those points
+        // converting tile to center
+        const cx = tx * TILE_SIZE + TILE_SIZE / 2;
+        const cy = ty * TILE_SIZE + TILE_SIZE / 2;
+
+        let onPath = false;
+        for (let p of PATH_COORDS) {
+          if (
+            Math.abs(p.x - cx) < TILE_SIZE / 2 &&
+            Math.abs(p.y - cy) < TILE_SIZE / 2
+          ) {
+            onPath = true;
+            break;
+          }
+        }
+        if (onPath) {
+          showNotification("Can't build on path!", 1000);
+          return;
+        }
+
+        const towerData = TOWERS[selectedTowerIndex];
+        if (gameState.money >= towerData.cost) {
+          gameState.money -= towerData.cost;
+          gameState.towers.push(new Tower(tx, ty, selectedTowerIndex));
+          createParticles(cx, cy, "#fff", 10);
+          selectedTowerIndex = -1;
+          document
+            .querySelectorAll(".tower-card")
+            .forEach((c) => c.classList.remove("selected"));
+          updateUI();
+          saveGame();
+        } else {
+          showNotification("Not enough money!");
+        }
+      }
+
+      // --- Farmer Logic ---
+
+      function updateFarmer() {
+        const f = gameState.farmer;
+        let dx = 0;
+        let dy = 0;
+
+        if (keys["w"] || keys["ArrowUp"]) dy = -1;
+        if (keys["s"] || keys["ArrowDown"]) dy = 1;
+        if (keys["a"] || keys["ArrowLeft"]) dx = -1;
+        if (keys["d"] || keys["ArrowRight"]) dx = 1;
+
+        // Normalize diagonal
+        if (dx !== 0 || dy !== 0) {
+          const len = Math.hypot(dx, dy);
+          dx /= len;
+          dy /= len;
+          f.x = Math.max(20, Math.min(canvas.width - 20, f.x + dx * f.speed));
+          f.y = Math.max(20, Math.min(canvas.height - 20, f.y + dy * f.speed));
+        }
+
+        // Auto Attack
+        if (f.cooldown > 0) f.cooldown--;
+        else {
+          // Find closest enemy
+          let target = null;
+          let minDist = f.range;
+          for (let e of gameState.enemies) {
+            let d = Math.hypot(e.x - f.x, e.y - f.y);
+            if (d < minDist) {
+              minDist = d;
+              target = e;
+            }
+          }
+
+          if (target) {
+            // SWING!
+            f.cooldown = f.maxCooldown;
+            // Visual swing arc logic would go in draw
+            f.swingAngle = Math.atan2(target.y - f.y, target.x - f.x);
+            f.swingTimer = 10; // Visual frames
+
+            // Damage in cone
+            gameState.enemies.forEach((e) => {
+              let d = Math.hypot(e.x - f.x, e.y - f.y);
+              if (d < f.range + 20) {
+                // Check angle difference for cone? Or just circle AoE for fun/ease
+                // Let's do circle AoE around farmer for "Spin" attack at high levels, directional at low
+                if (f.level >= 3) {
+                  e.takeDamage(f.damage);
+                } else {
+                  // Directional check could go here, but circle is more satisfying
+                  e.takeDamage(f.damage);
+                }
+              }
+            });
+            // Sound effect visual
+            createParticles(
+              f.x + Math.cos(f.swingAngle) * 40,
+              f.y + Math.sin(f.swingAngle) * 40,
+              "#fff",
+              5
+            );
+          }
+        }
+      }
+
+      function drawFarmer() {
+        const f = gameState.farmer;
+
+        // Aura for high levels
+        if (f.level >= 4) {
+          drawGlowCircle(f.x, f.y, 25, "rgba(0, 255, 255, 0.4)", 30);
+        }
+
+        ctx.save();
+        ctx.translate(f.x, f.y);
+
+        // Walking bounce
+        let bounce = 0;
+        if (
+          keys["w"] ||
+          keys["s"] ||
+          keys["a"] ||
+          keys["d"] ||
+          keys["ArrowUp"] ||
+          keys["ArrowDown"] ||
+          keys["ArrowLeft"] ||
+          keys["ArrowRight"]
+        ) {
+          bounce = Math.sin(Date.now() / 100) * 2;
+        }
+        ctx.translate(0, bounce);
+
+        // Body (Overalls)
+        ctx.fillStyle = "#1e40af"; // Blue denim
+        ctx.beginPath();
+        ctx.ellipse(0, 5, 14, 18, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Shirt
+        ctx.fillStyle = "#fca5a5"; // Red plaid
+        ctx.fillRect(-10, -10, 20, 15);
+
+        // Head
+        ctx.fillStyle = "#fde047"; // Skin tone
+        ctx.beginPath();
+        ctx.arc(0, -10, 12, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Face
+        ctx.fillStyle = "#333";
+        ctx.fillRect(-4, -12, 2, 2); // Eyes
+        ctx.fillRect(2, -12, 2, 2);
+        ctx.beginPath(); // Smile
+        ctx.arc(0, -8, 4, 0.2, Math.PI - 0.2);
+        ctx.stroke();
+
+        // Straw Hat
+        ctx.fillStyle = "#f59e0b";
+        ctx.beginPath();
+        ctx.ellipse(0, -14, 18, 8, 0, 0, Math.PI * 2); // Brim
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(0, -16, 8, 0, Math.PI, true); // Crown
+        ctx.fill();
+        ctx.strokeStyle = "#78350f";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(-8, -16);
+        ctx.lineTo(8, -16);
+        ctx.stroke();
+
+        // Scythe Visual
+        let scytheColor = "#94a3b8"; // Iron
+        if (f.level === 2) scytheColor = "#60a5fa"; // Steel
+        if (f.level === 3) scytheColor = "#fbbf24"; // Gold
+        if (f.level >= 4) scytheColor = "#a855f7"; // Void/Aura
+
+        if (f.swingTimer > 0) {
+          // Swing animation
+          let progress = 1 - f.swingTimer / 10;
+          let startAngle = f.swingAngle - 1;
+          let currentAngle = startAngle + progress * 2;
+
+          ctx.rotate(currentAngle);
+          f.swingTimer--;
+        } else {
+          // Idle sway
+          ctx.rotate(Math.sin(Date.now() / 500) * 0.2);
+        }
+
+        // Draw Scythe Handle
+        ctx.fillStyle = "#5c4033"; // Wood handle
+        ctx.fillRect(10, -5, 40, 4);
+
+        // Scythe Blade
+        ctx.shadowBlur = f.level >= 3 ? 15 : 0;
+        ctx.shadowColor = scytheColor;
+        ctx.fillStyle = scytheColor;
+        ctx.beginPath();
+        ctx.moveTo(50, -3);
+        ctx.bezierCurveTo(65, -5, 70, 10, 40, 25);
+        ctx.bezierCurveTo(60, 10, 55, 0, 48, -3);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        ctx.restore();
+      }
+
+      function upgradeFarmer() {
+        const f = gameState.farmer;
+        if (gameState.money >= f.upgradeCost) {
+          gameState.money -= f.upgradeCost;
+          f.level++;
+          f.damage *= 1.5;
+          f.maxCooldown = Math.max(5, f.maxCooldown * 0.85); // Faster attacks
+          f.range += 10;
+          f.upgradeCost = Math.floor(f.upgradeCost * 1.8);
+
+          createParticles(f.x, f.y, "#ffd700", 30);
+          showNotification("FARMER UPGRADED!", 1000);
+          updateUI();
+          saveGame();
+        } else {
+          showNotification("Need " + f.upgradeCost + " gold!");
+        }
+      }
+
+      // --- Wave Logic ---
+
+      function startNextWave() {
+        if (gameState.waveActive) return;
+
+        gameState.waveActive = true;
+        gameState.enemiesToSpawn = generateWave(gameState.wave);
+
+        document.getElementById("start-wave-btn").style.display = "none";
+        showNotification(`WAVE ${gameState.wave}`);
+      }
+
+      function generateWave(n) {
+        let list = [];
+        const difficulty = n * 10;
+
+        // Logic to mix enemies based on wave number
+        let count = 5 + Math.floor(n * 1.5);
+
+        for (let i = 0; i < count; i++) {
+          let type = 0;
+          if (n > 2 && i % 3 === 0) type = 1; // Dandelions
+          if (n > 5 && i % 5 === 0) type = 2; // Hogweed
+          if (n % 5 === 0 && i === count - 1) type = 3; // Boss every 5 waves
+
+          // Push enemy with spawn delay logic (handled in update)
+          list.push({ type: type, hpMod: 1 + n * 0.1 });
+        }
+        return list;
+      }
+
+      let spawnTimer = 0;
+      function updateWave() {
+        if (gameState.enemiesToSpawn.length > 0) {
+          spawnTimer--;
+          if (spawnTimer <= 0) {
+            let next = gameState.enemiesToSpawn.shift();
+            gameState.enemies.push(new Enemy(next.type, next.hpMod));
+            spawnTimer = 40; // Frames between spawns
+          }
+        } else if (gameState.enemies.length === 0 && gameState.lives > 0) {
+          // Wave Clear
+          gameState.waveActive = false;
+          gameState.wave++;
+          gameState.money += 50 + gameState.wave * 10; // Wave Clear Bonus
+          document.getElementById("start-wave-btn").style.display = "block";
+          showNotification("WAVE CLEAR!");
+          saveGame();
+          updateUI();
+        }
+      }
+
+      // --- Main Loop ---
+
+      function gameLoop() {
+        if (gameState.gameOver) {
+          render(); // Just draw last state
+          ctx.fillStyle = "rgba(0,0,0,0.7)";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.fillStyle = "white";
+          ctx.font = "60px Arial";
+          ctx.textAlign = "center";
+          ctx.fillText("GAME OVER", canvas.width / 2, canvas.height / 2);
+          ctx.font = "30px Arial";
+          ctx.fillText(
+            "Reload to restart",
+            canvas.width / 2,
+            canvas.height / 2 + 50
+          );
+          return;
+        }
+
+        // Run Logic N times for speed up
+        const steps = gameState.gameSpeed;
+        for (let i = 0; i < steps; i++) {
+          update();
+        }
+
+        render();
+        requestAnimationFrame(gameLoop);
+      }
+
+      function update() {
+        if (gameState.lives <= 0) {
+          gameState.gameOver = true;
+          localStorage.removeItem("farmDefenderSave");
+          return;
+        }
+
+        if (gameState.waveActive) {
+          updateWave();
+        }
+
+        updateFarmer();
+
+        // Update Towers
+        gameState.towers.forEach((t) => t.update());
+
+        // Update Projectiles
+        gameState.projectiles.forEach((p) => p.update());
+        gameState.projectiles = gameState.projectiles.filter((p) => !p.dead);
+
+        // Update Enemies
+        gameState.enemies.forEach((e) => e.update());
+        gameState.enemies = gameState.enemies.filter((e) => !e.dead);
+
+        // Update Particles
+        gameState.particles.forEach((p) => p.update());
+        gameState.particles = gameState.particles.filter((p) => p.life > 0);
+
+        // UI Updates periodically to save DOM calls? Actually just do it on change
+        // But for smooth health bars, we draw those in canvas
+      }
+
+      function drawBackground() {
+        for (let x = 0; x < COLS; x++) {
+          for (let y = 0; y < ROWS; y++) {
+            const tx = x * TILE_SIZE;
+            const ty = y * TILE_SIZE;
+
+            // Base dirt
+            ctx.fillStyle = (x + y) % 2 === 0 ? "#5d4037" : "#4e342e";
+            ctx.fillRect(tx, ty, TILE_SIZE, TILE_SIZE);
+
+            // Crop rows
+            ctx.fillStyle = "#33691e";
+            ctx.fillRect(tx + 10, ty, 10, TILE_SIZE);
+            ctx.fillRect(tx + 30, ty, 10, TILE_SIZE);
+            ctx.fillRect(tx + 50, ty, 10, TILE_SIZE);
+
+            // Add some random plants/details
+            const seed = (x * 13 + y * 7) % 10;
+            if (seed > 7) {
+              ctx.fillStyle = "#86cf34";
+              ctx.beginPath();
+              ctx.arc(tx + 15, ty + 20, 4, 0, Math.PI * 2);
+              ctx.fill();
+              ctx.arc(tx + 35, ty + 50, 3, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          }
+        }
+      }
+
+      function render() {
+        // Draw Background
+        drawBackground();
+
+        // Draw Path
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.lineWidth = 40;
+        ctx.strokeStyle = "#795548"; // Lighter dirt path
+        ctx.beginPath();
+        if (PATH_POINTS.length > 0) {
+          let start = PATH_POINTS[0];
+          ctx.moveTo(
+            start.x * TILE_SIZE + TILE_SIZE / 2,
+            start.y * TILE_SIZE + TILE_SIZE / 2
+          );
+          for (let i = 1; i < PATH_POINTS.length; i++) {
+            let p = PATH_POINTS[i];
+            ctx.lineTo(
+              p.x * TILE_SIZE + TILE_SIZE / 2,
+              p.y * TILE_SIZE + TILE_SIZE / 2
+            );
+          }
+        }
+        ctx.stroke();
+
+        // Path border
+        ctx.lineWidth = 44;
+        ctx.strokeStyle = "#3e2723";
+        ctx.globalCompositeOperation = "destination-over";
+        ctx.stroke();
+        ctx.globalCompositeOperation = "source-over";
+
+        // Draw Towers
+        gameState.towers.forEach((t) => t.draw());
+
+        // Draw Enemies
+        gameState.enemies.forEach((e) => e.draw());
+
+        // Draw Farmer
+        drawFarmer();
+
+        // Draw Projectiles
+        gameState.projectiles.forEach((p) => p.draw());
+
+        // Draw Particles
+        gameState.particles.forEach((p) => p.draw());
+
+        // Draw Placement Preview
+        if (selectedTowerIndex !== -1) {
+          const mx =
+            Math.floor(mouse.x / TILE_SIZE) * TILE_SIZE + TILE_SIZE / 2;
+          const my =
+            Math.floor(mouse.y / TILE_SIZE) * TILE_SIZE + TILE_SIZE / 2;
+
+          ctx.beginPath();
+          ctx.arc(mx, my, TOWERS[selectedTowerIndex].range, 0, Math.PI * 2);
+          ctx.fillStyle = "rgba(255, 255, 255, 0.2)";
+          ctx.fill();
+          ctx.strokeStyle = "white";
+          ctx.stroke();
+
+          ctx.font = "24px Arial";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(TOWERS[selectedTowerIndex].icon, mx, my);
+        }
+      }
+
+      // --- Utils & Save System ---
+
+      function setSpeed(s) {
+        gameState.gameSpeed = s;
+        document.querySelectorAll(".speed-btn").forEach((b) => {
+          b.classList.remove("active");
+          if (b.innerText.includes(s + "x")) b.classList.add("active");
+        });
+      }
+
+      function updateUI() {
+        document.getElementById("money-display").innerText = Math.floor(
+          gameState.money
+        );
+        document.getElementById("lives-display").innerText = gameState.lives;
+        document.getElementById("wave-display").innerText = gameState.wave;
+
+        document.getElementById("scythe-cost").innerText =
+          gameState.farmer.upgradeCost;
+        document.getElementById("scythe-lvl").innerText =
+          "Lvl " + gameState.farmer.level;
+
+        // Dim unaffordable towers
+        document.querySelectorAll(".tower-card").forEach((el, idx) => {
+          if (idx === 0) return; // Skip farmer
+          let cost = TOWERS[idx - 1].cost;
+          if (gameState.money < cost) el.style.opacity = 0.5;
+          else el.style.opacity = 1;
+        });
+      }
+
+      function showNotification(text, duration = 2000) {
+        const el = document.getElementById("notification");
+        el.innerText = text;
+        el.style.opacity = 1;
+        el.style.transform = "translate(-50%, -50%) scale(1.2)";
+        setTimeout(() => {
+          el.style.opacity = 0;
+          el.style.transform = "translate(-50%, -50%) scale(1)";
+        }, duration);
+      }
+
+      function showTooltip(el, type) {
+        const rect = el.getBoundingClientRect();
+        tooltip.style.display = "block";
+        tooltip.style.left = rect.left + "px";
+        tooltip.style.top = rect.bottom + 10 + "px";
+
+        if (type === "upgrade") {
+          const f = gameState.farmer;
+          tooltip.innerHTML = `<b>Scythe Upgrade</b><br>Dmg: ${f.damage} ➜ ${
+            f.damage * 1.5
+          }<br>Range: ${f.range} ➜ ${f.range + 10}`;
+        } else {
+          const t = TOWERS[type];
+          tooltip.innerHTML = `<b>${t.name}</b><br>Cost: ${t.cost}<br>Dmg: ${t.damage}<br>Rate: ${t.rate}<br><i>${t.desc}</i>`;
+        }
+      }
+
+      function hideTooltip() {
+        tooltip.style.display = "none";
+      }
+
+      function checkGameOver() {
+        if (gameState.lives <= 0) {
+          gameState.gameOver = true;
+        }
+        updateUI();
+      }
+
+      function saveGame() {
+        if (gameState.lives <= 0) return;
+        const saveObj = {
+          money: gameState.money,
+          lives: gameState.lives,
+          wave: gameState.wave,
+          farmerLevel: gameState.farmer.level,
+          farmerDmg: gameState.farmer.damage,
+          farmerCost: gameState.farmer.upgradeCost,
+          farmerRange: gameState.farmer.range,
+          farmerMaxCd: gameState.farmer.maxCooldown,
+          towers: gameState.towers.map((t) => ({
+            gridX: t.gridX,
+            gridY: t.gridY,
+            typeIdx: t.typeIdx,
+            level: t.level,
+          })),
+        };
+        localStorage.setItem("farmDefenderSave", JSON.stringify(saveObj));
+      }
+
+      function loadGame() {
+        const saved = localStorage.getItem("farmDefenderSave");
+        if (saved) {
+          try {
+            const data = JSON.parse(saved);
+            gameState.money = data.money;
+            gameState.lives = data.lives;
+            gameState.wave = data.wave;
+            gameState.farmer.level = data.farmerLevel;
+            gameState.farmer.damage = data.farmerDmg;
+            gameState.farmer.upgradeCost = data.farmerCost;
+            gameState.farmer.range = data.farmerRange || 80;
+            gameState.farmer.maxCooldown = data.farmerMaxCd || 30;
+
+            data.towers.forEach((t) => {
+              let newTower = new Tower(t.gridX, t.gridY, t.typeIdx);
+              newTower.level = t.level;
+              gameState.towers.push(newTower);
+            });
+            showNotification("GAME LOADED");
+          } catch (e) {
+            console.error("Save file corrupt", e);
+          }
+        }
+      }
+
+      function resetGameData() {
+        if (confirm("Reset all progress?")) {
+          localStorage.removeItem("farmDefenderSave");
+          location.reload();
+        }
+      }
+
+      // Boot
+      init();
+    </script>
+  </body>
+</html>
