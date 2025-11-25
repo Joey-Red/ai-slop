@@ -1,0 +1,1043 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cannonball Siege 3D</title>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        font-family: "Cinzel", "Times New Roman", serif;
+        background-color: #87ceeb; /* Sky blue match */
+        user-select: none;
+      }
+      #ui-layer {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+      }
+      #score-board {
+        padding: 20px;
+        color: #fff;
+        text-shadow: 2px 2px 4px #000;
+        font-size: 24px;
+        pointer-events: auto;
+      }
+      button {
+        background: #8b0000;
+        color: #fff;
+        border: 2px solid #fff;
+        padding: 15px 40px;
+        font-size: 24px;
+        font-family: inherit;
+        cursor: pointer;
+        text-transform: uppercase;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.5);
+        transition: all 0.2s;
+        border-radius: 4px;
+      }
+      button:hover {
+        background: #a50000;
+        transform: scale(1.05);
+      }
+      button:disabled {
+        background: #555;
+        cursor: not-allowed;
+        transform: none;
+      }
+      #fuse-display {
+        width: 0%;
+        height: 10px;
+        background: #ff4500;
+        position: absolute;
+        bottom: 100px;
+        left: 50%;
+        transform: translateX(-50%);
+        border-radius: 5px;
+        transition: width 0.1s linear;
+        box-shadow: 0 0 10px #ff4500;
+      }
+      #end-screen {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.8);
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        pointer-events: auto;
+        z-index: 10;
+      }
+      h1 {
+        margin: 0 0 20px 0;
+        font-size: 60px;
+        color: #ffd700;
+      }
+      .stat {
+        font-size: 24px;
+        margin-bottom: 30px;
+      }
+
+      /* Crosshair */
+      #crosshair {
+        position: absolute;
+        /* Default center, updated by JS */
+        top: 50%;
+        left: 50%;
+        width: 20px;
+        height: 20px;
+        border: 2px solid rgba(255, 255, 255, 0.8);
+        border-radius: 50%;
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+        transition: opacity 0.2s;
+        box-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
+      }
+      #crosshair::after {
+        content: "";
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 4px;
+        height: 4px;
+        background: red;
+        transform: translate(-50%, -50%);
+        border-radius: 50%;
+      }
+      #action-hint {
+        position: absolute;
+        bottom: 50px;
+        width: 100%;
+        text-align: center;
+        font-size: 20px;
+        color: white;
+        text-shadow: 1px 1px 2px black;
+        opacity: 0.8;
+      }
+      /* Flash effect overlay */
+      #flash-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: white;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.1s;
+        z-index: 5;
+      }
+    </style>
+    <!-- Import Google Font -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&display=swap"
+      rel="stylesheet"
+    />
+    <!-- Import Three.js and Cannon-es as modules -->
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
+          "cannon-es": "https://unpkg.com/cannon-es@0.20.0/dist/cannon-es.js"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <div id="ui-layer">
+      <div id="score-board">Score: <span id="score">0</span>%</div>
+      <div id="crosshair"></div>
+      <div id="fuse-display"></div>
+      <div id="action-hint">Aim with Mouse • Click/Space to Fire</div>
+      <div id="flash-overlay"></div>
+    </div>
+
+    <div id="end-screen">
+      <h1 id="end-title">VICTORY</h1>
+      <div class="stat">Destruction: <span id="final-score">0</span>%</div>
+      <button id="restart-btn">FULL RESET</button>
+    </div>
+
+    <script type="module">
+      import * as THREE from "three";
+      import * as CANNON from "cannon-es";
+
+      // --- Game Configuration ---
+      const CONFIG = {
+        gravity: -9.82,
+        brickMass: 1,
+        ballMass: 20,
+        ballSpeed: 45,
+        fuseTime: 1500, // ms
+        explosionForce: 100, // Increased for more chaos
+        explosionRadius: 25, // Larger radius
+        castleRows: 10,
+        castleSideCols: 12,
+        brickSize: { w: 1.5, h: 1, d: 1.5 },
+        winThreshold: 70,
+      };
+
+      // --- Global Variables ---
+      let scene, camera, renderer, world;
+      let clock, deltaTime;
+      let gameState = "AIMING"; // AIMING, FUSE, FIRED, EXPLODED, END
+      let score = 0;
+      let maxScore = 0;
+
+      // Impact Feel Variables
+      let screenShake = 0;
+      let timeScale = 1.0;
+      let explosionLight;
+
+      // Objects
+      let cannonMesh, cannonBody;
+      let barrelMesh;
+      let cannonball = null;
+      const bricks = []; // Array of { mesh, body, initialPos, scored }
+      let inhabitants = []; // Kings, Queens, etc.
+      let explosionParticles = [];
+      const scenery = [];
+
+      // Camera Logic
+      let cameraOffset = new THREE.Vector3(-10, 5, 0);
+
+      // Aiming
+      let aimAngleY = 0; // Horizontal
+      let aimAngleX = 0.5; // Vertical (Pitch)
+
+      // UI Elements
+      const uiScore = document.getElementById("score");
+      const fuseDisplay = document.getElementById("fuse-display");
+      const endScreen = document.getElementById("end-screen");
+      const endTitle = document.getElementById("end-title");
+      const finalScore = document.getElementById("final-score");
+      const restartBtn = document.getElementById("restart-btn");
+      const crosshair = document.getElementById("crosshair");
+      const actionHint = document.getElementById("action-hint");
+      const flashOverlay = document.getElementById("flash-overlay");
+
+      // --- Initialization ---
+
+      function init() {
+        // 1. Three.js Setup
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x87ceeb);
+        scene.fog = new THREE.Fog(0x87ceeb, 50, 200);
+
+        camera = new THREE.PerspectiveCamera(
+          60,
+          window.innerWidth / window.innerHeight,
+          0.1,
+          1000
+        );
+
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        document.body.appendChild(renderer.domElement);
+
+        clock = new THREE.Clock();
+
+        // 2. Cannon.js Setup
+        world = new CANNON.World();
+        world.gravity.set(0, CONFIG.gravity, 0);
+        world.broadphase = new CANNON.SAPBroadphase(world);
+        world.solver.iterations = 10;
+        world.allowSleep = true;
+
+        // Materials
+        const physicsMaterial = new CANNON.Material("physics");
+        const physicsContactMaterial = new CANNON.ContactMaterial(
+          physicsMaterial,
+          physicsMaterial,
+          {
+            friction: 0.4,
+            restitution: 0.3,
+          }
+        );
+        world.addContactMaterial(physicsContactMaterial);
+
+        // 3. Lighting
+        const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+        dirLight.position.set(-30, 50, 30);
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.width = 2048;
+        dirLight.shadow.mapSize.height = 2048;
+        dirLight.shadow.camera.left = -100;
+        dirLight.shadow.camera.right = 100;
+        dirLight.shadow.camera.top = 100;
+        dirLight.shadow.camera.bottom = -100;
+        dirLight.shadow.camera.far = 200;
+        scene.add(dirLight);
+
+        // Explosion flash light (hidden initially)
+        explosionLight = new THREE.PointLight(0xffaa00, 0, 50);
+        scene.add(explosionLight);
+
+        // 4. Environment
+        createGround(physicsMaterial);
+        createEnvironment();
+        createCastle(25, 0, 0, physicsMaterial);
+        createCannon();
+
+        // 5. Event Listeners
+        window.addEventListener("resize", onWindowResize);
+        document.addEventListener("mousemove", onMouseMove);
+        restartBtn.addEventListener("click", fullResetGame);
+
+        document.addEventListener("keydown", (e) => {
+          if (e.code === "Space") handleInteraction();
+        });
+        document.addEventListener("mousedown", (e) => {
+          if (e.target.tagName !== "BUTTON") handleInteraction();
+        });
+
+        // Start Loop
+        animate();
+      }
+
+      // --- Object Creation ---
+
+      function createGround(material) {
+        const geo = new THREE.PlaneGeometry(600, 600);
+        const mat = new THREE.MeshStandardMaterial({
+          color: 0x3a5f0b,
+          roughness: 0.9,
+          metalness: 0.1,
+        });
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.rotation.x = -Math.PI / 2;
+        mesh.receiveShadow = true;
+        scene.add(mesh);
+
+        const shape = new CANNON.Plane();
+        const body = new CANNON.Body({ mass: 0, material: material });
+        body.addShape(shape);
+        body.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
+        world.addBody(body);
+      }
+
+      function createEnvironment() {
+        const treeGeo = new THREE.ConeGeometry(2, 6, 8);
+        const treeMat = new THREE.MeshStandardMaterial({
+          color: 0x228b22,
+          roughness: 0.8,
+        });
+        const trunkGeo = new THREE.CylinderGeometry(0.5, 0.5, 2, 8);
+        const trunkMat = new THREE.MeshStandardMaterial({
+          color: 0x8b4513,
+          roughness: 0.9,
+        });
+        const rockGeo = new THREE.DodecahedronGeometry(1.5, 0);
+        const rockMat = new THREE.MeshStandardMaterial({
+          color: 0x666666,
+          roughness: 0.7,
+        });
+
+        for (let i = 0; i < 80; i++) {
+          let x = (Math.random() - 0.5) * 400;
+          let z = (Math.random() - 0.5) * 400;
+
+          if (Math.abs(x) < 15 && z > -20 && z < 60) continue;
+
+          if (Math.random() > 0.3) {
+            const treeGroup = new THREE.Group();
+            const treeTop = new THREE.Mesh(treeGeo, treeMat);
+            treeTop.position.y = 4;
+            treeTop.castShadow = true;
+            const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+            trunk.position.y = 1;
+            trunk.castShadow = true;
+            treeGroup.add(trunk);
+            treeGroup.add(treeTop);
+            treeGroup.position.set(x, 0, z);
+            treeGroup.rotation.y = Math.random() * Math.PI;
+            treeGroup.scale.setScalar(0.8 + Math.random() * 0.5);
+            scene.add(treeGroup);
+            scenery.push(treeGroup);
+          } else {
+            const rock = new THREE.Mesh(rockGeo, rockMat);
+            rock.position.set(x, 0.5, z);
+            rock.rotation.set(Math.random(), Math.random(), Math.random());
+            rock.scale.setScalar(0.8 + Math.random() * 0.8);
+            rock.castShadow = true;
+            scene.add(rock);
+            scenery.push(rock);
+          }
+        }
+      }
+
+      function createInhabitant(type, pos) {
+        let geo, mat, shape, offset;
+        let mass = 2; // Inhabitants are light
+
+        if (type === "KING") {
+          geo = new THREE.BoxGeometry(1, 2, 1);
+          mat = new THREE.MeshStandardMaterial({ color: 0xffd700 }); // Gold
+          shape = new CANNON.Box(new CANNON.Vec3(0.5, 1, 0.5));
+          offset = 1;
+        } else if (type === "QUEEN") {
+          geo = new THREE.CylinderGeometry(0.4, 0.6, 2, 8);
+          mat = new THREE.MeshStandardMaterial({ color: 0x9932cc }); // Purple
+          shape = new CANNON.Cylinder(0.4, 0.6, 2, 8);
+          offset = 1;
+        } else if (type === "KNIGHT") {
+          geo = new THREE.BoxGeometry(1, 1.8, 1);
+          mat = new THREE.MeshStandardMaterial({
+            color: 0xc0c0c0,
+            metalness: 0.8,
+          }); // Silver
+          shape = new CANNON.Box(new CANNON.Vec3(0.5, 0.9, 0.5));
+          offset = 0.9;
+        } else if (type === "PEASANT") {
+          geo = new THREE.CapsuleGeometry(0.4, 1, 4, 8);
+          mat = new THREE.MeshStandardMaterial({ color: 0xd2b48c }); // Tan
+          shape = new CANNON.Cylinder(0.4, 0.4, 1.8, 8); // Approx
+          offset = 0.9;
+        } else if (type === "HORSE") {
+          geo = new THREE.BoxGeometry(1, 1, 2.5);
+          mat = new THREE.MeshStandardMaterial({ color: 0x8b4513 }); // Brown
+          shape = new CANNON.Box(new CANNON.Vec3(0.5, 0.5, 1.25));
+          offset = 0.5;
+          mass = 5;
+        }
+
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.position.copy(pos);
+        mesh.position.y += offset;
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        scene.add(mesh);
+
+        const body = new CANNON.Body({ mass: mass });
+
+        // Adjust cylinder orientation for Cannon (Z-up vs Y-up)
+        if (type === "QUEEN" || type === "PEASANT") {
+          // Cylinder logic can be tricky in cannon vs three, usually easier to just use box for physics or simple cylinder
+          // We need to rotate the shape relative to body if using Cylinder shape in Cannon as it aligns with Z
+          const q = new CANNON.Quaternion();
+          q.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
+          body.addShape(shape, new CANNON.Vec3(0, 0, 0), q);
+        } else {
+          body.addShape(shape);
+        }
+
+        body.position.copy(mesh.position);
+        body.allowSleep = true;
+        body.sleep();
+        world.addBody(body);
+
+        inhabitants.push({ mesh, body });
+      }
+
+      function createCastle(centerX, centerY, centerZ, material) {
+        // Existing wall creation logic...
+        const brickGeo = new THREE.BoxGeometry(
+          CONFIG.brickSize.w,
+          CONFIG.brickSize.h,
+          CONFIG.brickSize.d
+        );
+        const brickMat = new THREE.MeshStandardMaterial({
+          color: 0x999999,
+          roughness: 1.0,
+        });
+        const shape = new CANNON.Box(
+          new CANNON.Vec3(
+            CONFIG.brickSize.w / 2,
+            CONFIG.brickSize.h / 2,
+            CONFIG.brickSize.d / 2
+          )
+        );
+        const wallLength = CONFIG.castleSideCols * CONFIG.brickSize.w;
+        const wallDepth = CONFIG.castleSideCols * CONFIG.brickSize.d;
+
+        const createWall = (bx, by, bz, rotate) => {
+          const mesh = new THREE.Mesh(brickGeo, brickMat.clone());
+          mesh.position.set(bx, by, bz);
+          mesh.castShadow = true;
+          mesh.receiveShadow = true;
+          scene.add(mesh);
+          const body = new CANNON.Body({
+            mass: CONFIG.brickMass,
+            material: material,
+          });
+          body.addShape(shape);
+          body.position.set(bx, by, bz);
+          body.position.x += (Math.random() - 0.5) * 0.01;
+          body.position.z += (Math.random() - 0.5) * 0.01;
+          if (rotate) {
+            mesh.rotation.y = Math.PI / 2;
+            body.quaternion.setFromAxisAngle(
+              new CANNON.Vec3(0, 1, 0),
+              Math.PI / 2
+            );
+          }
+          body.allowSleep = true;
+          body.sleepSpeedLimit = 0.5;
+          body.sleepTimeLimit = 0.1;
+          body.sleep();
+          world.addBody(body);
+          bricks.push({
+            mesh,
+            body,
+            initialPos: new THREE.Vector3(bx, by, bz),
+            scored: false,
+          });
+        };
+
+        for (let i = 0; i < CONFIG.castleRows; i++) {
+          const by = centerY + CONFIG.brickSize.h / 2 + i * CONFIG.brickSize.h;
+          for (let j = 0; j < CONFIG.castleSideCols; j++) {
+            let stagger = i % 2 === 0 ? 0 : CONFIG.brickSize.w / 2;
+            let bx =
+              centerX - wallLength / 2 + j * CONFIG.brickSize.w + stagger;
+            let bz = centerZ - wallDepth / 2;
+            if (!(i % 2 !== 0 && j === CONFIG.castleSideCols - 1))
+              createWall(bx, by, bz, false);
+            bx = centerX - wallLength / 2 + j * CONFIG.brickSize.w + stagger;
+            bz = centerZ + wallDepth / 2;
+            if (!(i % 2 !== 0 && j === CONFIG.castleSideCols - 1))
+              createWall(bx, by, bz, false);
+            stagger = i % 2 === 0 ? 0 : CONFIG.brickSize.d / 2;
+            bx = centerX - wallLength / 2;
+            bz = centerZ - wallDepth / 2 + j * CONFIG.brickSize.d + stagger;
+            if (!(i % 2 !== 0 && j === CONFIG.castleSideCols - 1))
+              createWall(bx, by, bz, true);
+            bx = centerX + wallLength / 2;
+            bz = centerZ - wallDepth / 2 + j * CONFIG.brickSize.d + stagger;
+            if (!(i % 2 !== 0 && j === CONFIG.castleSideCols - 1))
+              createWall(bx, by, bz, true);
+          }
+        }
+        maxScore = bricks.length;
+        createArcherNests(
+          centerX,
+          CONFIG.castleRows * CONFIG.brickSize.h,
+          wallLength,
+          wallDepth,
+          material
+        );
+
+        // --- POPULATE INHABITANTS ---
+        // King & Queen in Center
+        createInhabitant("KING", new THREE.Vector3(centerX - 2, 1, centerZ));
+        createInhabitant("QUEEN", new THREE.Vector3(centerX + 2, 1, centerZ));
+
+        // Knights and Peasants random
+        for (let k = 0; k < 10; k++) {
+          let rx = (Math.random() - 0.5) * (wallLength - 4);
+          let rz = (Math.random() - 0.5) * (wallDepth - 4);
+          createInhabitant(
+            Math.random() > 0.5 ? "KNIGHT" : "PEASANT",
+            new THREE.Vector3(centerX + rx, 1, centerZ + rz)
+          );
+        }
+
+        // Horses
+        createInhabitant(
+          "HORSE",
+          new THREE.Vector3(centerX - 5, 1, centerZ + 5)
+        );
+        createInhabitant(
+          "HORSE",
+          new THREE.Vector3(centerX + 5, 1, centerZ + 5)
+        );
+
+        // Populate Walls (Archers/Knights on nests)
+        const nestHeight = CONFIG.castleRows * CONFIG.brickSize.h;
+        const corners = [
+          { x: centerX - wallLength / 2, z: -wallDepth / 2 },
+          { x: centerX + wallLength / 2, z: -wallDepth / 2 },
+          { x: centerX - wallLength / 2, z: wallDepth / 2 },
+          { x: centerX + wallLength / 2, z: wallDepth / 2 },
+        ];
+        corners.forEach((c) => {
+          createInhabitant(
+            "KNIGHT",
+            new THREE.Vector3(c.x, nestHeight + 0.5, c.z)
+          );
+        });
+      }
+
+      function createArcherNests(centerX, height, length, depth, material) {
+        const nestSize = 4;
+        const nestGeo = new THREE.CylinderGeometry(
+          nestSize / 2,
+          nestSize / 2,
+          0.5,
+          8
+        );
+        const nestMat = new THREE.MeshStandardMaterial({
+          color: 0x5c4033,
+          roughness: 1.0,
+        });
+        const shape = new CANNON.Cylinder(nestSize / 2, nestSize / 2, 0.5, 8);
+
+        const corners = [
+          { x: centerX - length / 2, z: -depth / 2 },
+          { x: centerX + length / 2, z: -depth / 2 },
+          { x: centerX - length / 2, z: depth / 2 },
+          { x: centerX + length / 2, z: depth / 2 },
+        ];
+
+        corners.forEach((pos) => {
+          const mesh = new THREE.Mesh(nestGeo, nestMat);
+          mesh.position.set(pos.x, height, pos.z);
+          mesh.castShadow = true;
+          scene.add(mesh);
+          scenery.push(mesh);
+          const body = new CANNON.Body({ mass: 5, material: material });
+          const q = new CANNON.Quaternion();
+          q.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
+          body.addShape(shape, new CANNON.Vec3(0, 0, 0), q);
+          body.position.set(pos.x, height, pos.z);
+          body.allowSleep = true;
+          body.sleep();
+          world.addBody(body);
+          bricks.push({
+            mesh,
+            body,
+            initialPos: new THREE.Vector3(pos.x, height, pos.z),
+            scored: false,
+          });
+        });
+      }
+
+      function createCannon() {
+        cannonMesh = new THREE.Group();
+        cannonMesh.position.set(-15, 0.5, 0);
+        scene.add(cannonMesh);
+        const wheelGeo = new THREE.CylinderGeometry(1, 1, 0.5, 16);
+        const wheelMat = new THREE.MeshStandardMaterial({ color: 0x4a3c31 });
+        const wheelLeft = new THREE.Mesh(wheelGeo, wheelMat);
+        wheelLeft.rotation.z = Math.PI / 2;
+        wheelLeft.position.z = 1.2;
+        wheelLeft.castShadow = true;
+        cannonMesh.add(wheelLeft);
+        const wheelRight = new THREE.Mesh(wheelGeo, wheelMat);
+        wheelRight.rotation.z = Math.PI / 2;
+        wheelRight.position.z = -1.2;
+        wheelRight.castShadow = true;
+        cannonMesh.add(wheelRight);
+        const axleGeo = new THREE.CylinderGeometry(0.2, 0.2, 2.5);
+        const woodMat = new THREE.MeshStandardMaterial({ color: 0x5c4033 });
+        const axle = new THREE.Mesh(axleGeo, woodMat);
+        axle.rotation.x = Math.PI / 2;
+        cannonMesh.add(axle);
+        const pivotGroup = new THREE.Group();
+        pivotGroup.position.y = 0.8;
+        cannonMesh.add(pivotGroup);
+        barrelMesh = pivotGroup;
+        const barrelGeo = new THREE.CylinderGeometry(0.6, 0.8, 4, 16);
+        const metalMat = new THREE.MeshStandardMaterial({
+          color: 0x222222,
+          metalness: 0.8,
+          roughness: 0.3,
+        });
+        const barrel = new THREE.Mesh(barrelGeo, metalMat);
+        barrel.rotation.z = -Math.PI / 2;
+        barrel.position.x = 1.5;
+        barrel.castShadow = true;
+        pivotGroup.add(barrel);
+      }
+
+      function createCannonball(pos, quat, velocity) {
+        const radius = 0.5;
+        const geo = new THREE.SphereGeometry(radius, 32, 32);
+        const mat = new THREE.MeshStandardMaterial({
+          color: 0x222222,
+          metalness: 0.6,
+          roughness: 0.4,
+          emissive: 0x220000,
+        });
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.position.copy(pos);
+        mesh.castShadow = true;
+        scene.add(mesh);
+        const shape = new CANNON.Sphere(radius);
+        const body = new CANNON.Body({ mass: CONFIG.ballMass });
+        body.addShape(shape);
+        body.position.copy(pos);
+        body.velocity.copy(velocity);
+        body.angularDamping = 0.5;
+        body.linearDamping = 0.1;
+        world.addBody(body);
+        cannonball = { mesh, body, active: true, trailTimer: 0 };
+      }
+
+      function createParticle(pos, color, scale, speed) {
+        const geo = new THREE.BoxGeometry(scale, scale, scale);
+        const mat = new THREE.MeshBasicMaterial({ color: color });
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.position.copy(pos);
+        mesh.position.x += (Math.random() - 0.5) * 0.5;
+        mesh.position.y += (Math.random() - 0.5) * 0.5;
+        mesh.position.z += (Math.random() - 0.5) * 0.5;
+        scene.add(mesh);
+        explosionParticles.push({
+          mesh: mesh,
+          life: 0.8 + Math.random() * 0.5,
+          vel: new THREE.Vector3(
+            (Math.random() - 0.5) * speed,
+            (Math.random() - 0.5) * speed,
+            (Math.random() - 0.5) * speed
+          ),
+        });
+      }
+
+      // --- Game Logic ---
+
+      function onMouseMove(event) {
+        if (gameState !== "AIMING") return;
+        const xNorm = (event.clientX / window.innerWidth) * 2 - 1;
+        const yNorm = (event.clientY / window.innerHeight) * 2 - 1;
+        aimAngleY = -xNorm * 0.8;
+        aimAngleX = 0.5 - yNorm * 0.8;
+        aimAngleX = Math.max(-0.2, Math.min(Math.PI / 2.5, aimAngleX));
+      }
+
+      function handleInteraction() {
+        if (gameState === "AIMING") {
+          startFuse();
+        } else if (gameState === "FIRED") {
+          explodeBomb();
+        } else if (gameState === "EXPLODED" || gameState === "END") {
+          resetBall();
+        }
+      }
+
+      function startFuse() {
+        if (gameState !== "AIMING") return;
+        gameState = "FUSE";
+        crosshair.style.opacity = "0";
+        actionHint.innerText = "FUSE LIT...";
+        fuseDisplay.style.width = "100%";
+        fuseDisplay.style.transition = `width ${CONFIG.fuseTime}ms linear`;
+        void fuseDisplay.offsetWidth;
+        setTimeout(() => {
+          fuseDisplay.style.width = "0%";
+        }, 10);
+        setTimeout(fireCannon, CONFIG.fuseTime);
+      }
+
+      function fireCannon() {
+        gameState = "FIRED";
+        actionHint.innerText = "PRESS SPACE TO DETONATE!";
+        const tipLocal = new THREE.Vector3(3.5, 0, 0);
+        tipLocal.applyAxisAngle(new THREE.Vector3(0, 0, 1), aimAngleX);
+        tipLocal.applyAxisAngle(new THREE.Vector3(0, 1, 0), aimAngleY);
+        const spawnPos = new THREE.Vector3()
+          .copy(cannonMesh.position)
+          .add(tipLocal);
+        spawnPos.y += 0.8;
+        const velocity = new THREE.Vector3(1, 0, 0);
+        velocity.applyAxisAngle(new THREE.Vector3(0, 0, 1), aimAngleX);
+        velocity.applyAxisAngle(new THREE.Vector3(0, 1, 0), aimAngleY);
+        velocity.multiplyScalar(CONFIG.ballSpeed);
+        createCannonball(spawnPos, new THREE.Quaternion(), velocity);
+        for (let i = 0; i < 15; i++) createParticle(spawnPos, 0xffaa00, 0.3, 8);
+      }
+
+      function explodeBomb() {
+        if (!cannonball) return;
+        gameState = "EXPLODED";
+        actionHint.innerText = "Click to Reset Ball";
+
+        const bombPos = cannonball.body.position;
+        const bombPosThree = new THREE.Vector3(bombPos.x, bombPos.y, bombPos.z);
+
+        // --- GAME JUICE ---
+        screenShake = 2.0; // Violent shake
+        timeScale = 0.1; // Slow motion hit stop
+        explosionLight.position.copy(bombPosThree);
+        explosionLight.intensity = 20;
+
+        // Flash overlay
+        flashOverlay.style.opacity = "0.6";
+        setTimeout(() => {
+          flashOverlay.style.opacity = "0";
+        }, 100);
+
+        // Particles
+        for (let i = 0; i < 80; i++) {
+          createParticle(bombPosThree, 0xff5500, 0.5, 25);
+          createParticle(bombPosThree, 0xffff00, 0.3, 20);
+          createParticle(bombPosThree, 0x555555, 0.6, 10); // Smoke
+        }
+
+        // Physics Force
+        const radius = CONFIG.explosionRadius;
+        const force = CONFIG.explosionForce;
+
+        // Apply to Bricks
+        bricks.forEach((b) => {
+          const dist = b.body.position.distanceTo(bombPos);
+          if (dist < radius) {
+            const dir = b.body.position.vsub(bombPos);
+            dir.normalize();
+            const appliedForce = force * (1 - dist / radius);
+            const impulse = dir.scale(appliedForce);
+            b.body.wakeUp();
+            b.body.applyImpulse(impulse, b.body.position);
+            b.mesh.material.color.setHex(0x333333);
+            b.scored = true;
+          }
+        });
+
+        // Apply to Inhabitants
+        inhabitants.forEach((c) => {
+          const dist = c.body.position.distanceTo(bombPos);
+          if (dist < radius) {
+            const dir = c.body.position.vsub(bombPos);
+            dir.normalize();
+            const appliedForce = force * 1.5 * (1 - dist / radius); // Extra force for fun
+            // Add some up-force so they fly high
+            dir.y += 0.5;
+            dir.normalize();
+            const impulse = dir.scale(appliedForce);
+            c.body.wakeUp();
+            c.body.applyImpulse(impulse, c.body.position);
+            // Spin them!
+            c.body.angularVelocity.set(
+              Math.random() * 10,
+              Math.random() * 10,
+              Math.random() * 10
+            );
+          }
+        });
+
+        // Remove Bomb
+        scene.remove(cannonball.mesh);
+        world.removeBody(cannonball.body);
+        cannonball = null;
+      }
+
+      function resetBall() {
+        if (gameState === "AIMING" || gameState === "FUSE") return;
+        if (cannonball) {
+          scene.remove(cannonball.mesh);
+          world.removeBody(cannonball.body);
+          cannonball = null;
+        }
+        endScreen.style.display = "none";
+        crosshair.style.opacity = "1";
+        actionHint.innerText = "Aim with Mouse • Click/Space to Fire";
+        aimAngleY = 0;
+        aimAngleX = 0.5;
+        gameState = "AIMING";
+      }
+
+      function fullResetGame() {
+        resetBall();
+        bricks.forEach((b) => {
+          scene.remove(b.mesh);
+          world.removeBody(b.body);
+        });
+        bricks.length = 0;
+        inhabitants.forEach((c) => {
+          scene.remove(c.mesh);
+          world.removeBody(c.body);
+        });
+        inhabitants.length = 0;
+
+        createCastle(25, 0, 0, new CANNON.Material());
+        score = 0;
+        uiScore.innerText = "0%";
+      }
+
+      function checkScore() {
+        let currentScore = 0;
+        bricks.forEach((b) => {
+          const dx = b.body.position.x - b.initialPos.x;
+          const dy = b.body.position.y - b.initialPos.y;
+          const dz = b.body.position.z - b.initialPos.z;
+          const distSq = dx * dx + dy * dy + dz * dz;
+          if (distSq > 2.25) {
+            if (!b.scored) {
+              b.scored = true;
+              b.mesh.material.color.setHex(0x555555);
+            }
+          }
+          if (b.scored) currentScore++;
+        });
+        score = currentScore;
+        const percentage = Math.floor((score / maxScore) * 100);
+        uiScore.innerText = `${percentage}%`;
+        if (gameState === "END") {
+          finalScore.innerText = percentage;
+          if (percentage >= CONFIG.winThreshold) {
+            endTitle.innerText = "VICTORY";
+            endTitle.style.color = "#ffd700";
+          } else {
+            endTitle.innerText = "DEFEAT";
+            endTitle.style.color = "#aa0000";
+          }
+        }
+        if (gameState === "FIRED" && cannonball) {
+          const vel = cannonball.body.velocity.length();
+          if (vel < 0.2 && cannonball.body.position.y < 2) {
+            actionHint.innerText = "IT'S STUCK! PRESS SPACE TO DETONATE!";
+          }
+          if (cannonball.body.position.y < -10) resetBall();
+        }
+      }
+
+      function updateCrosshair() {
+        if (gameState !== "AIMING") return;
+        const tipLocal = new THREE.Vector3(3.5, 0, 0);
+        tipLocal.applyAxisAngle(new THREE.Vector3(0, 0, 1), aimAngleX);
+        tipLocal.applyAxisAngle(new THREE.Vector3(0, 1, 0), aimAngleY);
+        const muzzlePos = new THREE.Vector3()
+          .copy(cannonMesh.position)
+          .add(tipLocal);
+        muzzlePos.y += 0.8;
+        const direction = new THREE.Vector3(1, 0, 0);
+        direction.applyAxisAngle(new THREE.Vector3(0, 0, 1), aimAngleX);
+        direction.applyAxisAngle(new THREE.Vector3(0, 1, 0), aimAngleY);
+        const targetPoint = muzzlePos.clone().add(direction.multiplyScalar(50));
+        targetPoint.project(camera);
+        const x = (targetPoint.x * 0.5 + 0.5) * window.innerWidth;
+        const y = (-(targetPoint.y * 0.5) + 0.5) * window.innerHeight;
+        crosshair.style.left = `${x}px`;
+        crosshair.style.top = `${y}px`;
+      }
+
+      function animate() {
+        requestAnimationFrame(animate);
+        let dt = clock.getDelta();
+
+        // Handle Slow Motion recovery
+        timeScale = THREE.MathUtils.lerp(timeScale, 1.0, dt * 2);
+        // Clamp minimal time scale to avoid physics breakage
+        const steppedDt = Math.max(dt * timeScale, 0.001);
+
+        world.step(1 / 60, steppedDt, 3);
+
+        // Light Decay
+        if (explosionLight.intensity > 0) explosionLight.intensity -= 1;
+
+        if (gameState === "AIMING" || gameState === "FUSE") {
+          cannonMesh.rotation.y = THREE.MathUtils.lerp(
+            cannonMesh.rotation.y,
+            aimAngleY,
+            0.1
+          );
+          barrelMesh.rotation.z = THREE.MathUtils.lerp(
+            barrelMesh.rotation.z,
+            aimAngleX,
+            0.1
+          );
+          updateCrosshair();
+        }
+
+        bricks.forEach((b) => {
+          b.mesh.position.copy(b.body.position);
+          b.mesh.quaternion.copy(b.body.quaternion);
+        });
+
+        inhabitants.forEach((c) => {
+          c.mesh.position.copy(c.body.position);
+          c.mesh.quaternion.copy(c.body.quaternion);
+        });
+
+        if (cannonball) {
+          cannonball.mesh.position.copy(cannonball.body.position);
+          cannonball.mesh.quaternion.copy(cannonball.body.quaternion);
+          if (gameState === "FIRED") {
+            createParticle(cannonball.mesh.position, 0xff4400, 0.15, 0.5);
+          }
+        }
+
+        for (let i = explosionParticles.length - 1; i >= 0; i--) {
+          const p = explosionParticles[i];
+          p.life -= steppedDt; // Particles respect time scale
+          p.mesh.position.addScaledVector(p.vel, steppedDt);
+          p.mesh.rotation.x += steppedDt * 2;
+          p.mesh.scale.setScalar(p.life);
+          if (p.life <= 0) {
+            scene.remove(p.mesh);
+            explosionParticles.splice(i, 1);
+          }
+        }
+
+        // Camera Logic with Shake
+        let targetPos = new THREE.Vector3();
+        let lookAtTarget = new THREE.Vector3();
+
+        if (gameState === "AIMING" || gameState === "FUSE") {
+          targetPos.set(
+            cannonMesh.position.x - 12,
+            cannonMesh.position.y + 6,
+            cannonMesh.position.z
+          );
+          targetPos.z += aimAngleY * 8;
+          lookAtTarget.set(
+            cannonMesh.position.x + 30,
+            3,
+            cannonMesh.position.z + aimAngleY * -30
+          );
+          camera.position.lerp(targetPos, 0.1);
+          camera.lookAt(lookAtTarget);
+        } else if (
+          (gameState === "FIRED" || gameState === "EXPLODED") &&
+          cannonball
+        ) {
+          const ballPos = cannonball.mesh.position;
+          targetPos.copy(ballPos).add(new THREE.Vector3(-10, 4, 0));
+          targetPos.y = Math.max(2, targetPos.y);
+          lookAtTarget.copy(ballPos);
+          camera.position.lerp(targetPos, 0.15);
+          camera.lookAt(lookAtTarget);
+        } else if (gameState === "EXPLODED" && !cannonball) {
+          lookAtTarget.set(25, 5, 0);
+          targetPos.copy(lookAtTarget).add(new THREE.Vector3(-25, 15, 0));
+          camera.position.lerp(targetPos, 0.05);
+          camera.lookAt(lookAtTarget);
+        } else if (gameState === "END") {
+          const timer = Date.now() * 0.0002;
+          camera.position.x = Math.cos(timer) * 40 + 25;
+          camera.position.z = Math.sin(timer) * 40;
+          camera.position.y = 20;
+          camera.lookAt(new THREE.Vector3(25, 5, 0));
+        }
+
+        // Apply Screen Shake
+        if (screenShake > 0) {
+          const shakeAmount = screenShake * 0.5;
+          camera.position.x += (Math.random() - 0.5) * shakeAmount;
+          camera.position.y += (Math.random() - 0.5) * shakeAmount;
+          camera.position.z += (Math.random() - 0.5) * shakeAmount;
+          screenShake -= dt * 3; // Decay
+          if (screenShake < 0) screenShake = 0;
+        }
+
+        checkScore();
+        renderer.render(scene, camera);
+      }
+
+      function onWindowResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      }
+
+      init();
+    </script>
+  </body>
+</html>
