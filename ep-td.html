@@ -1,0 +1,1812 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>Neon Defense v3.6 - Stable</title>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap");
+
+      body,
+      html {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background-color: #050505;
+        font-family: "Orbitron", sans-serif;
+        touch-action: none;
+        user-select: none;
+      }
+
+      #game-container {
+        position: relative;
+        width: 100%;
+        height: 100%;
+      }
+
+      canvas {
+        display: block;
+        position: absolute;
+        top: 0;
+        left: 0;
+      }
+
+      /* --- Screens --- */
+      .screen {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: rgba(5, 5, 10, 0.95);
+        z-index: 200;
+        transition: opacity 0.5s;
+      }
+
+      .hidden {
+        display: none !important;
+      }
+
+      h1 {
+        color: #fff;
+        text-shadow: 0 0 20px #0ff;
+        font-size: 64px;
+        margin-bottom: 40px;
+        text-transform: uppercase;
+        letter-spacing: 5px;
+      }
+
+      /* Map Selection */
+      .map-select-container {
+        display: flex;
+        gap: 30px;
+      }
+
+      .map-card {
+        width: 200px;
+        height: 250px;
+        border: 2px solid #333;
+        border-radius: 12px;
+        background: #111;
+        cursor: pointer;
+        transition: all 0.3s;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .map-card:hover {
+        transform: translateY(-10px);
+        border-color: #0ff;
+        box-shadow: 0 0 30px rgba(0, 255, 255, 0.4);
+      }
+
+      .map-title {
+        position: absolute;
+        bottom: 20px;
+        color: #fff;
+        font-size: 18px;
+        font-weight: bold;
+        z-index: 2;
+        text-shadow: 0 2px 4px #000;
+      }
+
+      .difficulty-tag {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        font-size: 10px;
+        padding: 4px 8px;
+        border-radius: 4px;
+        background: #000;
+        border: 1px solid #555;
+      }
+
+      /* Perk Selection */
+      #perk-container {
+        display: flex;
+        gap: 20px;
+        flex-wrap: wrap;
+        justify-content: center;
+        max-width: 900px;
+      }
+
+      .perk-card {
+        background: rgba(20, 20, 30, 0.9);
+        border: 2px solid #a0f;
+        padding: 20px;
+        width: 220px;
+        cursor: pointer;
+        transition: 0.3s;
+        text-align: center;
+        border-radius: 8px;
+        color: #fff;
+      }
+      .perk-card:hover {
+        transform: scale(1.05);
+        box-shadow: 0 0 20px #a0f;
+        background: #201030;
+      }
+      .perk-title {
+        color: #d0f;
+        font-weight: bold;
+        margin-bottom: 10px;
+        font-size: 18px;
+      }
+      .perk-desc {
+        font-size: 12px;
+        color: #ccc;
+        line-height: 1.4;
+      }
+
+      /* --- UI Overlay --- */
+      #ui-layer {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        z-index: 10;
+      }
+
+      /* HUD */
+      .hud-top {
+        display: flex;
+        justify-content: space-between;
+        padding: 15px 25px;
+        background: linear-gradient(
+          to bottom,
+          rgba(0, 0, 0, 0.95),
+          transparent
+        );
+        pointer-events: auto;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .stat-group {
+        display: flex;
+        gap: 30px;
+      }
+      .stat-box {
+        display: flex;
+        flex-direction: column;
+      }
+      .stat-label {
+        font-size: 10px;
+        color: #888;
+        letter-spacing: 1px;
+      }
+      .stat-val {
+        font-size: 24px;
+        color: #fff;
+        font-weight: 700;
+        text-shadow: 0 0 10px currentColor;
+      }
+
+      /* Speed Controls */
+      .controls-right {
+        display: flex;
+        gap: 5px;
+        align-items: center;
+      }
+      .icon-btn {
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: #fff;
+        min-width: 36px;
+        height: 36px;
+        padding: 0 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 12px;
+        transition: 0.2s;
+        font-weight: bold;
+      }
+      .icon-btn:hover,
+      .icon-btn.active {
+        background: #0ff;
+        color: #000;
+        box-shadow: 0 0 15px #0ff;
+        border-color: #0ff;
+      }
+
+      /* Build Bar */
+      .build-bar {
+        background: linear-gradient(to top, rgba(0, 0, 0, 0.95), transparent);
+        padding: 15px;
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        pointer-events: auto;
+      }
+
+      .tower-btn {
+        position: relative;
+        width: 70px;
+        height: 70px;
+        background: rgba(10, 20, 30, 0.9);
+        border: 1px solid #444;
+        border-radius: 6px;
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        transition: 0.2s;
+        overflow: hidden;
+      }
+
+      .tower-btn:hover,
+      .tower-btn.selected {
+        transform: translateY(-5px);
+        border-color: #0ff;
+        box-shadow: 0 0 15px rgba(0, 255, 255, 0.4);
+        background: rgba(0, 40, 60, 0.9);
+      }
+
+      .tower-btn.too-expensive {
+        opacity: 0.5;
+        filter: grayscale(1);
+      }
+
+      .key-hint {
+        position: absolute;
+        top: 2px;
+        left: 4px;
+        font-size: 10px;
+        color: #666;
+        font-weight: bold;
+      }
+
+      .t-icon {
+        width: 20px;
+        height: 20px;
+        border: 2px solid #fff;
+        margin-bottom: 4px;
+      }
+      .t-name {
+        font-size: 9px;
+        color: #fff;
+        margin-bottom: 2px;
+      }
+      .t-cost {
+        font-size: 10px;
+        color: #ff0;
+        font-weight: bold;
+      }
+
+      /* Upgrade Panel (Contextual) */
+      #upgrade-panel {
+        position: absolute;
+        bottom: 120px;
+        right: 20px;
+        width: 280px;
+        background: rgba(10, 15, 20, 0.98);
+        border: 1px solid #0ff;
+        padding: 20px;
+        border-radius: 4px;
+        display: none;
+        pointer-events: auto;
+        box-shadow: 0 0 30px rgba(0, 0, 0, 0.8);
+        z-index: 50;
+      }
+
+      .upg-header {
+        display: flex;
+        justify-content: space-between;
+        border-bottom: 1px solid #333;
+        padding-bottom: 10px;
+        margin-bottom: 10px;
+      }
+      .upg-name {
+        font-size: 18px;
+        color: #fff;
+      }
+      .upg-level {
+        color: #0ff;
+      }
+
+      .upg-stats {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        margin-bottom: 15px;
+      }
+      .stat-row {
+        font-size: 11px;
+        color: #aaa;
+      }
+      .stat-row span {
+        color: #fff;
+        float: right;
+      }
+
+      .path-container {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 10px;
+      }
+      .path-btn {
+        flex: 1;
+        padding: 10px;
+        border: 1px solid #555;
+        background: rgba(255, 255, 255, 0.05);
+        color: #aaa;
+        font-size: 10px;
+        cursor: pointer;
+        text-align: center;
+        transition: 0.2s;
+      }
+      .path-btn:hover {
+        background: #333;
+        border-color: #888;
+      }
+      .path-btn.active {
+        border-color: #0ff;
+        color: #0ff;
+        background: rgba(0, 255, 255, 0.1);
+      }
+
+      .main-action {
+        width: 100%;
+        padding: 12px;
+        background: #0f0;
+        color: #000;
+        font-weight: bold;
+        border: none;
+        cursor: pointer;
+        font-family: inherit;
+        text-transform: uppercase;
+      }
+      .main-action:disabled {
+        background: #333;
+        color: #555;
+        cursor: not-allowed;
+      }
+
+      .sell-btn {
+        width: 100%;
+        margin-top: 5px;
+        background: transparent;
+        border: 1px solid #f05;
+        color: #f05;
+        padding: 5px;
+        cursor: pointer;
+      }
+      .sell-btn:hover {
+        background: #f05;
+        color: #fff;
+      }
+
+      /* Notifications */
+      #notification {
+        position: absolute;
+        top: 15%;
+        width: 100%;
+        text-align: center;
+        font-size: 32px;
+        color: #fff;
+        text-shadow: 0 0 15px #0ff;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.5s;
+      }
+
+      #tooltip {
+        position: absolute;
+        background: rgba(0, 10, 20, 0.95);
+        border: 1px solid #0ff;
+        padding: 12px;
+        pointer-events: none;
+        display: none;
+        z-index: 100;
+        width: 200px;
+        box-shadow: 0 0 15px rgba(0, 255, 255, 0.2);
+        backdrop-filter: blur(5px);
+      }
+      #tooltip h4 {
+        margin: 0 0 8px 0;
+        font-size: 14px;
+        color: #0ff;
+        text-transform: uppercase;
+        border-bottom: 1px solid #333;
+        padding-bottom: 5px;
+      }
+      #tooltip p {
+        margin: 0;
+        font-size: 11px;
+        color: #ccc;
+        line-height: 1.4;
+      }
+      .tt-row {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 4px;
+        font-size: 11px;
+      }
+      .tt-val {
+        color: #fff;
+        font-weight: bold;
+      }
+      .tt-label {
+        color: #888;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Map Select Screen -->
+    <div id="screen-map" class="screen">
+      <h1>
+        Neon Defense <span style="font-size: 20px; color: #f0f">v3.6</span>
+      </h1>
+      <p style="color: #aaa; margin-bottom: 40px">Select Mission Protocol</p>
+      <div class="map-select-container">
+        <div class="map-card" onclick="startGame(0)">
+          <div class="difficulty-tag" style="color: #0f0; border-color: #0f0">
+            NOVICE
+          </div>
+          <div class="map-title">SERPENTINE</div>
+        </div>
+        <div class="map-card" onclick="startGame(1)">
+          <div class="difficulty-tag" style="color: #ff0; border-color: #ff0">
+            ADEPT
+          </div>
+          <div class="map-title">THE KNOT</div>
+        </div>
+        <div class="map-card" onclick="startGame(2)">
+          <div class="difficulty-tag" style="color: #f05; border-color: #f05">
+            VETERAN
+          </div>
+          <div class="map-title">ZIG ZAG</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Perk Selection Screen -->
+    <div id="screen-perk" class="screen hidden">
+      <h1 style="color: #d0f; text-shadow: 0 0 20px #d0f">
+        SYSTEM HACK DETECTED
+      </h1>
+      <p style="color: #fff; margin-bottom: 30px">
+        Choose a subroutine augmentation:
+      </p>
+      <div id="perk-container">
+        <!-- Perks injected here -->
+      </div>
+    </div>
+
+    <!-- Game Over / Victory -->
+    <div id="screen-end" class="screen hidden">
+      <h1 id="end-title">MISSION FAILED</h1>
+      <p id="end-stats" style="color: #fff; margin-bottom: 30px">
+        Wave 15 Reached
+      </p>
+      <button
+        class="main-action"
+        style="width: 200px"
+        onclick="location.reload()"
+      >
+        RESTART SYSTEM
+      </button>
+    </div>
+
+    <!-- Game Container -->
+    <div id="game-container">
+      <canvas id="bg-canvas"></canvas>
+      <canvas id="game-canvas"></canvas>
+
+      <div id="ui-layer" class="hidden">
+        <div class="hud-top">
+          <div class="stat-group">
+            <div class="stat-box">
+              <span class="stat-label">CREDITS</span
+              ><span class="stat-val" id="ui-credits" style="color: #ff0"
+                >150</span
+              >
+            </div>
+            <div class="stat-box">
+              <span class="stat-label">LIVES</span
+              ><span class="stat-val" id="ui-lives" style="color: #f05"
+                >20</span
+              >
+            </div>
+            <div class="stat-box">
+              <span class="stat-label">WAVE</span
+              ><span class="stat-val" id="ui-wave" style="color: #0ff">1</span>
+            </div>
+          </div>
+          <div class="controls-right">
+            <div class="icon-btn" onclick="togglePause()">||</div>
+            <div class="icon-btn active" onclick="setSpeed(1)">1x</div>
+            <div class="icon-btn" onclick="setSpeed(5)">5x</div>
+            <div class="icon-btn" onclick="setSpeed(10)">10x</div>
+            <div class="icon-btn" onclick="setSpeed(100)">100x</div>
+          </div>
+        </div>
+
+        <div id="notification">WAVE 1</div>
+
+        <!-- Upgrade UI -->
+        <div id="upgrade-panel">
+          <div class="upg-header">
+            <span class="upg-name" id="u-name">Blaster</span>
+            <span class="upg-level" id="u-level">Lvl 1</span>
+          </div>
+          <div class="upg-stats">
+            <div class="stat-row">Damage <span id="u-dmg">10</span></div>
+            <div class="stat-row">Range <span id="u-rng">100</span></div>
+            <div class="stat-row">Speed <span id="u-spd">1.0</span></div>
+            <div class="stat-row">Kills <span id="u-kills">0</span></div>
+          </div>
+
+          <!-- Branch Selection (Hidden until Lvl 3) -->
+          <div id="path-selector" class="path-container" style="display: none">
+            <div class="path-btn" id="path-a-btn" onclick="selectPath('A')">
+              Path A
+            </div>
+            <div class="path-btn" id="path-b-btn" onclick="selectPath('B')">
+              Path B
+            </div>
+          </div>
+
+          <button class="main-action" id="u-buy-btn" onclick="buyUpgrade()">
+            UPGRADE ($50)
+          </button>
+          <button class="sell-btn" onclick="sellTower()">DISMANTLE</button>
+        </div>
+
+        <!-- Build Bar -->
+        <div class="build-bar">
+          <!-- Generated via JS -->
+        </div>
+      </div>
+
+      <div id="tooltip">
+        <h4>Title</h4>
+        <div id="tt-content"></div>
+      </div>
+    </div>
+
+    <script>
+      // --- Configuration ---
+      const TOWER_TYPES = {
+        blaster: {
+          name: "Blaster",
+          cost: 50,
+          color: "#0ff",
+          range: 120,
+          dmg: 10,
+          rate: 20,
+          type: "single",
+          desc: "Fast firing basic unit.",
+          paths: {
+            A: { name: "Gatling", desc: "Insane fire rate, low dmg per shot." },
+            B: { name: "Plasma", desc: "High dmg, burns enemies." },
+          },
+        },
+        sniper: {
+          name: "Sniper",
+          cost: 150,
+          color: "#0f0",
+          range: 350,
+          dmg: 80,
+          rate: 90,
+          type: "single",
+          desc: "Long range, high damage. Slow.",
+          paths: {
+            A: { name: "Railgun", desc: "Pierces through enemies." },
+            B: { name: "Assassin", desc: "x3 Crit Damage vs High HP." },
+          },
+        },
+        pulsar: {
+          name: "Pulsar",
+          cost: 200,
+          color: "#f0f",
+          range: 110,
+          dmg: 2,
+          rate: 10,
+          type: "aoe",
+          desc: "Constant area damage.",
+          paths: {
+            A: { name: "Nova", desc: "Huge range, pushes enemies." },
+            B: { name: "Corrosion", desc: "Permanently strips Armor." },
+          },
+        },
+        arc: {
+          name: "Arc",
+          cost: 250,
+          color: "#ff0",
+          range: 140,
+          dmg: 15,
+          rate: 30,
+          type: "chain",
+          desc: "Chains lightning to 3 targets.",
+          paths: {
+            A: { name: "Tesla", desc: "Chains to 8 targets." },
+            B: { name: "Overload", desc: "Stuns enemies briefly." },
+          },
+        },
+        cryo: {
+          name: "Cryo",
+          cost: 180,
+          color: "#0af",
+          range: 130,
+          dmg: 5,
+          rate: 15,
+          type: "slow",
+          desc: "Slows enemies by 30%.",
+          paths: {
+            A: { name: "Permafrost", desc: "Stops enemies completely." },
+            B: { name: "Blizzard", desc: "Massive AoE Slow." },
+          },
+        },
+        mortar: {
+          name: "Mortar",
+          cost: 300,
+          color: "#f50",
+          range: 250,
+          dmg: 40,
+          rate: 120,
+          type: "splash",
+          desc: "Explosive splash damage.",
+          paths: {
+            A: { name: "Cluster", desc: "Spawns mini-bombs on hit." },
+            B: { name: "Nuke", desc: "Huge area, leaves radiation." },
+          },
+        },
+      };
+
+      const PERK_POOL = [
+        {
+          id: "dmg_boost",
+          title: "Overclock",
+          desc: "All towers deal +15% Damage.",
+        },
+        {
+          id: "range_boost",
+          title: "Long Range",
+          desc: "All towers gain +15% Range.",
+        },
+        {
+          id: "cheap_build",
+          title: "Efficient Code",
+          desc: "Building costs reduced by 10%.",
+        },
+        {
+          id: "crit_chance",
+          title: "Fatal Error",
+          desc: "Towers have 10% chance to deal double damage.",
+        },
+        {
+          id: "slow_enemies",
+          title: "Lag Spike",
+          desc: "Enemies move 15% slower.",
+        },
+        {
+          id: "rich_kills",
+          title: "Data Mining",
+          desc: "Enemies drop +1 Credit.",
+        },
+      ];
+
+      const MAPS = [
+        { name: "Serpentine", color: "#003", id: 0 },
+        { name: "The Knot", color: "#300", id: 1 },
+        { name: "ZigZag", color: "#030", id: 2 },
+      ];
+
+      // --- Engine State ---
+      const canvas = document.getElementById("game-canvas");
+      const ctx = canvas.getContext("2d");
+      const bgCanvas = document.getElementById("bg-canvas");
+      const bgCtx = bgCanvas.getContext("2d");
+
+      let width, height;
+
+      const state = {
+        screen: "menu", // menu, game, perk, end
+        mapId: 0,
+        credits: 150,
+        lives: 20,
+        wave: 1,
+        speed: 1,
+        paused: false,
+
+        path: [],
+        enemies: [],
+        towers: [],
+        projectiles: [],
+        particles: [],
+        bgParticles: [],
+
+        waveActive: false,
+        spawning: false,
+        enemiesToSpawn: 0,
+        spawnTimer: 0,
+
+        selection: null,
+        buildType: null,
+        hoverUI: null, // Stores UI tooltip data
+
+        // Roguelite Stats
+        augments: {
+          damageMult: 1,
+          rangeMult: 1,
+          costMult: 1,
+          critChance: 0,
+          speedDiv: 1,
+          bonusCreds: 0,
+        },
+      };
+
+      // --- Initialization ---
+      function init() {
+        resize();
+        window.addEventListener("resize", resize);
+        setupBuildMenu();
+
+        // Init BG particles
+        for (let i = 0; i < 300; i++)
+          state.bgParticles.push(createFlowParticle());
+
+        requestAnimationFrame(loop);
+      }
+
+      function resize() {
+        width = window.innerWidth;
+        height = window.innerHeight;
+        canvas.width = width;
+        canvas.height = height;
+        bgCanvas.width = width;
+        bgCanvas.height = height;
+        if (state.screen !== "menu") generateFixedPath(state.mapId);
+      }
+
+      function setupBuildMenu() {
+        const container = document.querySelector(".build-bar");
+        container.innerHTML = "";
+        let i = 1;
+        for (let key in TOWER_TYPES) {
+          const t = TOWER_TYPES[key];
+          const btn = document.createElement("div");
+          btn.className = "tower-btn";
+          btn.innerHTML = `
+                <div class="key-hint">${i}</div>
+                <div class="t-icon" style="border-color:${t.color}"></div>
+                <div class="t-name">${t.name}</div>
+                <div class="t-cost">${t.cost}</div>
+            `;
+          btn.onclick = () => setBuildMode(key);
+
+          // Detailed Stats Tooltip
+          btn.onmouseenter = (e) => {
+            const rate = (t.rate / 10).toFixed(1);
+            const html = `
+                    <div class="tt-row"><span class="tt-label">Damage</span><span class="tt-val">${
+                      t.dmg
+                    }</span></div>
+                    <div class="tt-row"><span class="tt-label">Range</span><span class="tt-val">${
+                      t.range
+                    }</span></div>
+                    <div class="tt-row"><span class="tt-label">Rate</span><span class="tt-val">${rate}/s</span></div>
+                    <div class="tt-row"><span class="tt-label">Type</span><span class="tt-val">${t.type.toUpperCase()}</span></div>
+                    <div style="margin-top:5px; color:#ccc; font-style:italic; font-size:10px;">${
+                      t.desc
+                    }</div>
+                    <div style="margin-top:5px; color:#ff0; font-weight:bold; border-top:1px solid #333; padding-top:3px;">Cost: ${
+                      t.cost
+                    }</div>
+                `;
+            state.hoverUI = { title: t.name, html: html };
+            showTooltip(t.name, html);
+          };
+          btn.onmouseleave = () => {
+            state.hoverUI = null;
+            hideTooltip();
+          };
+
+          btn.id = `btn-${key}`;
+          container.appendChild(btn);
+          i++;
+        }
+      }
+
+      function createFlowParticle() {
+        return {
+          x: Math.random() * width,
+          y: Math.random() * height,
+          vx: 0,
+          vy: 0,
+          life: Math.random() * 100,
+          size: Math.random() * 2,
+        };
+      }
+
+      // --- Game Logic ---
+
+      window.startGame = function (mapId) {
+        state.mapId = mapId;
+        state.screen = "game";
+        state.credits = 150 + mapId * 50;
+        state.lives = 20;
+        state.wave = 1;
+        state.towers = [];
+        state.enemies = [];
+        state.projectiles = [];
+        state.particles = [];
+        state.waveActive = false;
+
+        // Reset Augments
+        state.augments = {
+          damageMult: 1,
+          rangeMult: 1,
+          costMult: 1,
+          critChance: 0,
+          speedDiv: 1,
+          bonusCreds: 0,
+        };
+
+        document.getElementById("screen-map").classList.add("hidden");
+        document.getElementById("ui-layer").classList.remove("hidden");
+
+        generateFixedPath(mapId);
+        startWave();
+        updateHUD();
+      };
+
+      function generateFixedPath(id) {
+        state.path = [];
+        const cy = height / 2;
+        const w = width;
+        const h = height;
+
+        if (id === 0) {
+          // Serpentine
+          const points = 100;
+          for (let i = 0; i <= points; i++) {
+            const x = (i / points) * w;
+            const y = cy + Math.sin(i * 0.1) * (h * 0.35);
+            state.path.push({ x, y });
+          }
+        } else if (id === 1) {
+          // The Knot
+          state.path.push({ x: 0, y: cy });
+          state.path.push({ x: w * 0.3, y: cy });
+          state.path.push({ x: w * 0.5, y: h * 0.2 });
+          state.path.push({ x: w * 0.7, y: cy });
+          state.path.push({ x: w * 0.5, y: h * 0.8 });
+          state.path.push({ x: w * 0.3, y: cy });
+          state.path.push({ x: w, y: cy });
+        } else {
+          // ZigZag
+          state.path.push({ x: 0, y: h * 0.2 });
+          state.path.push({ x: w * 0.2, y: h * 0.2 });
+          state.path.push({ x: w * 0.2, y: h * 0.8 });
+          state.path.push({ x: w * 0.5, y: h * 0.8 });
+          state.path.push({ x: w * 0.5, y: h * 0.2 });
+          state.path.push({ x: w * 0.8, y: h * 0.2 });
+          state.path.push({ x: w * 0.8, y: h * 0.8 });
+          state.path.push({ x: w, y: h * 0.8 });
+        }
+      }
+
+      // --- Entities ---
+
+      class Enemy {
+        constructor(wave) {
+          const difficultyMod = 1 + state.mapId * 0.3;
+
+          this.maxHp = Math.floor(15 * Math.pow(1.2, wave) * difficultyMod);
+          this.hp = this.maxHp;
+          this.armor = Math.floor(wave * 0.5 * difficultyMod);
+
+          // Types
+          const rand = Math.random();
+          this.type = "normal";
+          this.typeName = "Standard";
+          this.baseSpeed = 1.0;
+          this.color = "#fff";
+          this.radius = 10;
+          this.bounty = Math.max(
+            1,
+            Math.floor(wave * 0.5) + state.augments.bonusCreds
+          );
+
+          if (wave > 3 && rand < 0.2) {
+            this.type = "fast";
+            this.typeName = "Sprinter";
+            this.baseSpeed = 1.8;
+            this.hp *= 0.6;
+            this.color = "#ff0";
+            this.radius = 8;
+          } else if (wave > 5 && rand > 0.8) {
+            this.type = "tank";
+            this.typeName = "Heavy";
+            this.baseSpeed = 0.6;
+            this.hp *= 2.5;
+            this.armor += 5;
+            this.color = "#f00";
+            this.radius = 14;
+          }
+
+          // Apply Augment
+          this.speed = this.baseSpeed / state.augments.speedDiv;
+
+          this.pathIndex = 0;
+          this.x = state.path[0].x;
+          this.y = state.path[0].y;
+
+          this.effects = {
+            slow: { val: 0, time: 0 },
+            burn: { val: 0, time: 0, tick: 0 },
+            stun: { time: 0 },
+            shred: 0,
+          };
+        }
+
+        update() {
+          let speedMod = 1.0;
+          if (this.effects.stun.time > 0) {
+            this.effects.stun.time--;
+            speedMod = 0;
+          } else if (this.effects.slow.time > 0) {
+            speedMod = 1.0 - this.effects.slow.val;
+            this.effects.slow.time--;
+          }
+
+          // Burn
+          if (this.effects.burn.time > 0) {
+            this.effects.burn.time--;
+            if (this.effects.burn.tick <= 0) {
+              this.hp -= this.effects.burn.val;
+              this.effects.burn.tick = 30;
+              addParticle(this.x, this.y, "#f50", 2);
+            }
+            this.effects.burn.tick--;
+          }
+
+          if (this.hp <= 0) return this.die();
+
+          // Movement
+          const currentSpeed = this.speed * speedMod;
+          const target = state.path[this.pathIndex + 1];
+          if (!target) return;
+
+          const dx = target.x - this.x;
+          const dy = target.y - this.y;
+          const dist = Math.hypot(dx, dy);
+
+          if (dist < currentSpeed) {
+            this.x = target.x;
+            this.y = target.y;
+            this.pathIndex++;
+            if (this.pathIndex >= state.path.length - 1) {
+              this.reachBase();
+            }
+          } else {
+            this.x += (dx / dist) * currentSpeed;
+            this.y += (dy / dist) * currentSpeed;
+          }
+        }
+
+        takeDamage(amt, type) {
+          let effectiveDmg = amt;
+          if (type !== "true_damage") {
+            const effectiveArmor = Math.max(0, this.armor - this.effects.shred);
+            effectiveDmg = Math.max(1, amt - effectiveArmor);
+          }
+
+          this.hp -= effectiveDmg;
+          addParticle(this.x, this.y, this.color, 2);
+          if (this.hp <= 0) return true;
+          return false;
+        }
+
+        die() {
+          state.credits += this.bounty;
+          state.enemies = state.enemies.filter((e) => e !== this);
+          addParticle(this.x, this.y, this.color, 10);
+          updateHUD();
+        }
+
+        reachBase() {
+          state.lives--;
+          state.enemies = state.enemies.filter((e) => e !== this);
+          updateHUD();
+          if (state.lives <= 0) endGame();
+        }
+
+        draw() {
+          ctx.fillStyle = this.color;
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+          ctx.fill();
+
+          if (this.effects.slow.time > 0) {
+            ctx.strokeStyle = "#0ff";
+            ctx.lineWidth = 2;
+            ctx.stroke();
+          }
+          if (this.effects.burn.time > 0) {
+            ctx.fillStyle = "rgba(255, 100, 0, 0.5)";
+            ctx.fill();
+          }
+
+          const pct = Math.max(0, this.hp / this.maxHp);
+          ctx.fillStyle = "#000";
+          ctx.fillRect(this.x - 10, this.y - 20, 20, 4);
+          ctx.fillStyle = pct > 0.5 ? "#0f0" : "#f00";
+          ctx.fillRect(this.x - 10, this.y - 20, 20 * pct, 4);
+        }
+      }
+
+      class Tower {
+        constructor(x, y, type) {
+          this.x = x;
+          this.y = y;
+          this.type = type;
+          this.config = TOWER_TYPES[type];
+          this.level = 1;
+          this.pathChoice = null;
+          this.kills = 0;
+          this.cooldown = 0;
+          this.angle = 0;
+
+          // Initial calculation
+          this.recalcStats();
+        }
+
+        recalcStats() {
+          // Re-apply all modifiers (Level + Augments)
+          // 1. Base Stats
+          let d = this.config.dmg;
+          let r = this.config.range;
+          let cooldown = 600 / this.config.rate;
+
+          // 2. Level Mods
+          const lvlMult = Math.pow(1.4, this.level - 1);
+          d *= lvlMult;
+          r *= 1.1; // Slight range buff per level
+
+          // 3. Path Mods
+          if (this.pathChoice) {
+            if (this.type === "blaster" && this.pathChoice === "A")
+              cooldown *= 0.6;
+            if (this.type === "sniper" && this.pathChoice === "A") d *= 0.8;
+          }
+
+          // 4. Global Augments
+          d *= state.augments.damageMult;
+          r *= state.augments.rangeMult;
+
+          this.stats = { dmg: d, range: r, maxCooldown: cooldown };
+        }
+
+        update() {
+          if (this.cooldown > 0) this.cooldown--;
+
+          // AoE logic
+          if (this.config.type === "aoe") {
+            if (this.cooldown <= 0) {
+              let hit = false;
+              state.enemies.forEach((e) => {
+                if (
+                  Math.hypot(e.x - this.x, e.y - this.y) <= this.stats.range
+                ) {
+                  e.takeDamage(this.stats.dmg / 5, "energy");
+                  if (this.pathChoice === "B") e.effects.shred += 0.1;
+                  if (this.pathChoice === "A")
+                    e.effects.slow = { val: 0.5, time: 5 };
+                  hit = true;
+                }
+              });
+              if (hit) {
+                this.cooldown = 10;
+                createPulse(
+                  this.x,
+                  this.y,
+                  this.stats.range,
+                  this.config.color
+                );
+              }
+            }
+            return;
+          }
+
+          // Targeted Logic
+          let target = null;
+          let minD = Infinity;
+          for (let e of state.enemies) {
+            let d = Math.hypot(e.x - this.x, e.y - this.y);
+            if (d <= this.stats.range && d < minD) {
+              minD = d;
+              target = e;
+            }
+          }
+
+          if (target) {
+            this.angle = Math.atan2(target.y - this.y, target.x - this.x);
+            if (this.cooldown <= 0) {
+              this.fire(target);
+              this.cooldown = this.stats.maxCooldown;
+            }
+          }
+        }
+
+        fire(target) {
+          let dmg = this.stats.dmg;
+          // Augment: Crit
+          if (Math.random() < state.augments.critChance) {
+            dmg *= 2;
+            addParticle(this.x, this.y, "#fff", 5); // Crit spark
+          }
+
+          const p = {
+            x: this.x,
+            y: this.y,
+            target: target,
+            speed: 12,
+            dmg: dmg,
+            color: this.config.color,
+            type: this.config.type,
+            source: this,
+            special: this.pathChoice,
+          };
+          state.projectiles.push(p);
+        }
+
+        draw() {
+          ctx.translate(this.x, this.y);
+
+          // Base
+          ctx.fillStyle = "#111";
+          ctx.beginPath();
+          ctx.arc(0, 0, 10, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = this.config.color;
+          ctx.lineWidth = 2;
+          ctx.stroke();
+
+          // Rank
+          if (this.level > 1) {
+            ctx.fillStyle = "#fff";
+            ctx.font = "8px Arial";
+            ctx.fillText(this.level + (this.pathChoice || ""), -6, -15);
+          }
+
+          if (this.config.type !== "aoe") {
+            ctx.rotate(this.angle);
+            ctx.fillStyle = this.config.color;
+            ctx.fillRect(0, -3, 15, 6);
+            if (this.type === "sniper") ctx.fillRect(15, -1, 10, 2);
+            if (this.type === "mortar") ctx.arc(0, 0, 6, 0, Math.PI * 2);
+          } else {
+            ctx.beginPath();
+            ctx.arc(0, 0, 6 + Math.sin(Date.now() * 0.01) * 2, 0, Math.PI * 2);
+            ctx.fillStyle = this.config.color;
+            ctx.fill();
+          }
+
+          ctx.resetTransform();
+        }
+
+        upgrade(path) {
+          if (this.level >= 5) return;
+
+          let cost = Math.floor(this.config.cost * Math.pow(1.5, this.level));
+          cost = Math.floor(cost * state.augments.costMult); // Apply discount and floor
+
+          if (state.credits < cost) return;
+
+          // Fix for Level 3 branching logic:
+          // If path argument is provided, use it.
+          if (path) this.pathChoice = path;
+
+          // If we are at level 3 and trying to upgrade, we MUST have a path choice
+          if (this.level === 3 && !this.pathChoice) return;
+
+          state.credits -= cost;
+          this.level++;
+
+          this.recalcStats();
+
+          addParticle(this.x, this.y, "#fff", 20);
+          updateUpgradeUI();
+          updateHUD();
+        }
+      }
+
+      // --- Core Systems ---
+
+      function startWave() {
+        if (state.waveActive) return;
+        state.waveActive = true;
+        state.enemiesToSpawn = 5 + Math.floor(state.wave * 1.5);
+        state.spawnTimer = 0;
+
+        const n = document.getElementById("notification");
+        n.innerText = `WAVE ${state.wave}`;
+        n.style.opacity = 1;
+        setTimeout(() => (n.style.opacity = 0), 2000);
+      }
+
+      function checkPerks() {
+        // Every 10 waves, trigger perks
+        if ((state.wave - 1) % 10 === 0 && state.wave > 1) {
+          offerPerks();
+          return true;
+        }
+        return false;
+      }
+
+      function offerPerks() {
+        state.paused = true;
+        const screen = document.getElementById("screen-perk");
+        const container = document.getElementById("perk-container");
+        container.innerHTML = "";
+        screen.classList.remove("hidden");
+
+        // Pick 3 random
+        const options = [];
+        while (options.length < 3) {
+          const p = PERK_POOL[Math.floor(Math.random() * PERK_POOL.length)];
+          if (!options.includes(p)) options.push(p);
+        }
+
+        options.forEach((p) => {
+          const card = document.createElement("div");
+          card.className = "perk-card";
+          card.innerHTML = `<div class="perk-title">${p.title}</div><div class="perk-desc">${p.desc}</div>`;
+          card.onclick = () => applyPerk(p);
+          container.appendChild(card);
+        });
+      }
+
+      function applyPerk(perk) {
+        if (perk.id === "dmg_boost") state.augments.damageMult += 0.15;
+        if (perk.id === "range_boost") state.augments.rangeMult += 0.15;
+        if (perk.id === "cheap_build") state.augments.costMult *= 0.9;
+        if (perk.id === "crit_chance") state.augments.critChance += 0.1;
+        if (perk.id === "slow_enemies") state.augments.speedDiv *= 1.15;
+        if (perk.id === "rich_kills") state.augments.bonusCreds += 1;
+
+        // Recalculate everything
+        state.towers.forEach((t) => t.recalcStats());
+
+        document.getElementById("screen-perk").classList.add("hidden");
+        state.paused = false;
+
+        // Resume wave spawn
+        setTimeout(startWave, 1000);
+      }
+
+      function gameLoop() {
+        if (state.paused || state.screen !== "game") return;
+
+        // --- Background Flow ---
+        bgCtx.fillStyle = "rgba(0,0,0,0.1)";
+        bgCtx.fillRect(0, 0, width, height);
+
+        // Draw Path (Faint)
+        if (state.path.length > 0) {
+          bgCtx.beginPath();
+          bgCtx.strokeStyle = "#111";
+          bgCtx.lineWidth = 40;
+          bgCtx.lineCap = "round";
+          bgCtx.moveTo(state.path[0].x, state.path[0].y);
+          state.path.forEach((p) => bgCtx.lineTo(p.x, p.y));
+          bgCtx.stroke();
+        }
+
+        // Draw Flow Particles
+        bgCtx.fillStyle = MAPS[state.mapId].color.replace("0.2", "0.5"); // Brighten base color
+        state.bgParticles.forEach((p) => {
+          // Flow Field Math
+          const zoom = 0.005;
+          const angle =
+            (Math.sin(p.x * zoom) + Math.cos(p.y * zoom)) * Math.PI * 2;
+
+          p.vx += Math.cos(angle) * 0.05;
+          p.vy += Math.sin(angle) * 0.05;
+          p.vx *= 0.98;
+          p.vy *= 0.98;
+          p.x += p.vx;
+          p.y += p.vy;
+
+          // Wrap
+          if (p.x < 0) p.x = width;
+          if (p.x > width) p.x = 0;
+          if (p.y < 0) p.y = height;
+          if (p.y > height) p.y = 0;
+
+          bgCtx.fillRect(p.x, p.y, p.size, p.size);
+        });
+
+        ctx.clearRect(0, 0, width, height);
+
+        // Spawning
+        if (state.waveActive && state.enemiesToSpawn > 0) {
+          state.spawnTimer--;
+          if (state.spawnTimer <= 0) {
+            state.enemies.push(new Enemy(state.wave));
+            state.enemiesToSpawn--;
+            state.spawnTimer = 30;
+          }
+        } else if (
+          state.waveActive &&
+          state.enemies.length === 0 &&
+          state.enemiesToSpawn <= 0
+        ) {
+          state.waveActive = false;
+          state.wave++;
+
+          if (!checkPerks()) {
+            setTimeout(startWave, 2000);
+          }
+          updateHUD();
+        }
+
+        // Updates
+        state.towers.forEach((t) => {
+          t.update();
+          t.draw();
+        });
+        state.enemies.forEach((e) => {
+          e.update();
+          e.draw();
+        });
+
+        state.projectiles.forEach((p, i) => {
+          if (!p.active && p.active !== undefined) return;
+
+          const dx = p.target.x - p.x;
+          const dy = p.target.y - p.y;
+          const dist = Math.hypot(dx, dy);
+
+          if (dist < p.speed) {
+            let killed = p.target.takeDamage(p.dmg, "kinetic");
+
+            // Hit Effects
+            if (p.source.type === "blaster" && p.special === "B") {
+              p.target.effects.burn = { val: 2, time: 180, tick: 0 };
+            }
+            if (p.source.type === "cryo") {
+              const slowAmt = p.special === "A" ? 1.0 : 0.4;
+              const dur = p.special === "A" ? 30 : 60;
+              p.target.effects.slow = { val: slowAmt, time: dur };
+            }
+            if (p.source.type === "arc" && p.special === "B") {
+              p.target.effects.stun.time = 20;
+            }
+            if (p.source.type === "mortar") {
+              createExplosion(p.x, p.y, p.color, 20);
+              state.enemies.forEach((subE) => {
+                if (Math.hypot(subE.x - p.x, subE.y - p.y) < 60)
+                  subE.takeDamage(p.dmg * 0.5, "explosive");
+              });
+            }
+
+            if (killed) {
+              p.source.kills++;
+              state.projectiles.splice(i, 1);
+            } else {
+              state.projectiles.splice(i, 1);
+            }
+          } else {
+            p.x += (dx / dist) * p.speed;
+            p.y += (dy / dist) * p.speed;
+            ctx.fillStyle = p.color;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        });
+
+        // Particles
+        state.particles.forEach((p, i) => {
+          p.x += p.vx;
+          p.y += p.vy;
+          p.life -= 0.05;
+          ctx.globalAlpha = p.life;
+          ctx.fillStyle = p.color;
+          ctx.fillRect(p.x, p.y, 2, 2);
+          if (p.life <= 0) state.particles.splice(i, 1);
+        });
+        ctx.globalAlpha = 1.0;
+
+        // Build Ghost
+        if (state.buildType) {
+          const range =
+            TOWER_TYPES[state.buildType].range * state.augments.rangeMult;
+          ctx.beginPath();
+          ctx.arc(mouse.x, mouse.y, range, 0, Math.PI * 2);
+          ctx.fillStyle = "rgba(255, 255, 255, 0.1)";
+          ctx.strokeStyle = "#fff";
+          ctx.fill();
+          ctx.stroke();
+        }
+
+        // Selection Ring
+        if (state.selection) {
+          ctx.beginPath();
+          ctx.strokeStyle = "#fff";
+          ctx.setLineDash([5, 5]);
+          ctx.arc(state.selection.x, state.selection.y, 25, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          // Range
+          ctx.beginPath();
+          ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
+          ctx.arc(
+            state.selection.x,
+            state.selection.y,
+            state.selection.stats.range,
+            0,
+            Math.PI * 2
+          );
+          ctx.stroke();
+        }
+      }
+
+      // --- Helpers ---
+
+      function addParticle(x, y, c, n) {
+        for (let i = 0; i < n; i++) {
+          state.particles.push({
+            x,
+            y,
+            color: c,
+            life: 1.0,
+            vx: (Math.random() - 0.5) * 5,
+            vy: (Math.random() - 0.5) * 5,
+          });
+        }
+      }
+
+      function createExplosion(x, y, c, n) {
+        addParticle(x, y, c, n);
+      }
+
+      function createPulse(x, y, r, c) {
+        ctx.strokeStyle = c;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      // --- Interaction ---
+
+      const mouse = { x: 0, y: 0 };
+
+      // --- Hover Logic ---
+      // Change to Window listener to handle UI elements better
+      window.addEventListener("mousemove", (e) => {
+        mouse.x = e.clientX;
+        mouse.y = e.clientY;
+
+        if (state.screen !== "game") return;
+
+        // Check for UI hover (Button)
+        if (state.hoverUI) {
+          showTooltip(state.hoverUI.title, state.hoverUI.html);
+          moveTooltip(e);
+          return;
+        }
+
+        // Check for Entities
+        let hovered = false;
+
+        // 1. Towers
+        const hoverTower = state.towers.find(
+          (t) => Math.hypot(t.x - mouse.x, t.y - mouse.y) < 15
+        );
+        if (hoverTower) {
+          hovered = true;
+          const pathName = hoverTower.pathChoice
+            ? `[${hoverTower.config.paths[hoverTower.pathChoice].name}]`
+            : "";
+          const html = `
+                <div class="tt-row"><span class="tt-label">Level</span><span class="tt-val">${
+                  hoverTower.level
+                } ${pathName}</span></div>
+                <div class="tt-row"><span class="tt-label">Damage</span><span class="tt-val">${Math.floor(
+                  hoverTower.stats.dmg
+                )}</span></div>
+                <div class="tt-row"><span class="tt-label">Range</span><span class="tt-val">${Math.floor(
+                  hoverTower.stats.range
+                )}</span></div>
+                <div class="tt-row"><span class="tt-label">Speed</span><span class="tt-val">${(
+                  60 / hoverTower.stats.maxCooldown
+                ).toFixed(1)}/s</span></div>
+                <div class="tt-row"><span class="tt-label">Kills</span><span class="tt-val">${
+                  hoverTower.kills
+                }</span></div>
+            `;
+          showTooltip(hoverTower.config.name, html);
+        }
+
+        // 2. Enemies (if not over tower)
+        if (!hovered) {
+          const hoverEnemy = state.enemies.find(
+            (en) => Math.hypot(en.x - mouse.x, en.y - mouse.y) < en.radius + 5
+          );
+          if (hoverEnemy) {
+            hovered = true;
+            const html = `
+                    <div class="tt-row"><span class="tt-label">Type</span><span class="tt-val">${
+                      hoverEnemy.typeName
+                    }</span></div>
+                    <div class="tt-row"><span class="tt-label">HP</span><span class="tt-val">${Math.floor(
+                      hoverEnemy.hp
+                    )}/${hoverEnemy.maxHp}</span></div>
+                    <div class="tt-row"><span class="tt-label">Armor</span><span class="tt-val">${
+                      hoverEnemy.armor
+                    }</span></div>
+                    <div class="tt-row"><span class="tt-label">Speed</span><span class="tt-val">${(
+                      hoverEnemy.speed *
+                      (hoverEnemy.effects.slow.time > 0
+                        ? 1 - hoverEnemy.effects.slow.val
+                        : 1)
+                    ).toFixed(1)}</span></div>
+                    <div class="tt-row"><span class="tt-label">Bounty</span><span class="tt-val">${
+                      hoverEnemy.bounty
+                    }</span></div>
+                `;
+            showTooltip("Enemy Signal", html);
+          }
+        }
+
+        if (hovered) {
+          moveTooltip(e);
+        } else {
+          hideTooltip();
+        }
+      });
+
+      function moveTooltip(e) {
+        const tt = document.getElementById("tooltip");
+        // Prevent overflow
+        let tx = e.clientX + 15;
+        let ty = e.clientY + 15;
+        if (tx + 200 > width) tx -= 220;
+        if (ty + 100 > height) ty -= 120;
+        tt.style.left = tx + "px";
+        tt.style.top = ty + "px";
+      }
+
+      canvas.addEventListener("mousedown", (e) => {
+        if (state.buildType) {
+          let cost = TOWER_TYPES[state.buildType].cost;
+          cost = Math.floor(cost * state.augments.costMult);
+
+          if (state.credits >= cost) {
+            let nearPath = false;
+            for (let p of state.path) {
+              if (Math.hypot(p.x - mouse.x, p.y - mouse.y) < 20)
+                nearPath = true;
+            }
+
+            if (!nearPath) {
+              state.credits -= cost;
+              state.towers.push(new Tower(mouse.x, mouse.y, state.buildType));
+              state.buildType = null;
+              document.body.style.cursor = "default";
+              updateHUD();
+            }
+          }
+          return;
+        }
+
+        const clicked = state.towers.find(
+          (t) => Math.hypot(t.x - mouse.x, t.y - mouse.y) < 20
+        );
+        if (clicked) selectTower(clicked);
+        else deselect();
+      });
+
+      function setBuildMode(type) {
+        state.buildType = type;
+        document.body.style.cursor = "crosshair";
+        deselect();
+      }
+
+      function selectTower(t) {
+        state.selection = t;
+        updateUpgradeUI();
+        document.getElementById("upgrade-panel").style.display = "block";
+      }
+
+      function deselect() {
+        state.selection = null;
+        document.getElementById("upgrade-panel").style.display = "none";
+      }
+
+      // --- UI Updates ---
+
+      function updateHUD() {
+        document.getElementById("ui-credits").innerText = Math.floor(
+          state.credits
+        );
+        document.getElementById("ui-lives").innerText = state.lives;
+        document.getElementById("ui-wave").innerText = state.wave;
+
+        for (let key in TOWER_TYPES) {
+          const btn = document.getElementById(`btn-${key}`);
+          const cost = Math.floor(
+            TOWER_TYPES[key].cost * state.augments.costMult
+          );
+          // Update cost text
+          btn.querySelector(".t-cost").innerText = cost;
+
+          if (state.credits < cost) btn.classList.add("too-expensive");
+          else btn.classList.remove("too-expensive");
+        }
+
+        // AUTO UPDATE SELECTED TOWER UI IF OPEN
+        if (state.selection) {
+          updateUpgradeUI();
+        }
+      }
+
+      function updateUpgradeUI() {
+        if (!state.selection) return;
+        const t = state.selection;
+        const conf = t.config;
+
+        document.getElementById("u-name").innerText = conf.name;
+        document.getElementById("u-name").style.color = conf.color;
+
+        let lvlText = `Lvl ${t.level}`;
+        if (t.pathChoice) lvlText += ` [${conf.paths[t.pathChoice].name}]`;
+        document.getElementById("u-level").innerText = lvlText;
+
+        document.getElementById("u-dmg").innerText = Math.floor(t.stats.dmg);
+        document.getElementById("u-rng").innerText = Math.floor(t.stats.range);
+        document.getElementById("u-kills").innerText = t.kills;
+
+        // Upgrade Button Logic
+        let cost = Math.floor(conf.cost * Math.pow(1.5, t.level));
+        cost = Math.floor(cost * state.augments.costMult); // Discount
+
+        const btn = document.getElementById("u-buy-btn");
+        const selector = document.getElementById("path-selector");
+
+        // Path A Tooltip
+        const btnA = document.getElementById("path-a-btn");
+        btnA.onmouseenter = () => {
+          const desc = conf.paths.A.desc;
+          const html = `<div style="color:#fff; font-size:11px;">${desc}</div>`;
+          state.hoverUI = { title: conf.paths.A.name, html: html };
+          showTooltip(conf.paths.A.name, html);
+        };
+        btnA.onmouseleave = () => {
+          state.hoverUI = null;
+          hideTooltip();
+        };
+
+        // Path B Tooltip
+        const btnB = document.getElementById("path-b-btn");
+        btnB.onmouseenter = () => {
+          const desc = conf.paths.B.desc;
+          const html = `<div style="color:#fff; font-size:11px;">${desc}</div>`;
+          state.hoverUI = { title: conf.paths.B.name, html: html };
+          showTooltip(conf.paths.B.name, html);
+        };
+        btnB.onmouseleave = () => {
+          state.hoverUI = null;
+          hideTooltip();
+        };
+
+        if (t.level === 3 && !t.pathChoice) {
+          selector.style.display = "flex";
+          btn.style.display = "none";
+
+          btnA.innerText = `${conf.paths.A.name} ($${Math.floor(cost)})`;
+          btnB.innerText = `${conf.paths.B.name} ($${Math.floor(cost)})`;
+
+          btnA.onclick = () => attemptPathUpgrade("A", cost);
+          btnB.onclick = () => attemptPathUpgrade("B", cost);
+        } else if (t.level >= 5) {
+          selector.style.display = "none";
+          btn.style.display = "block";
+          btn.innerText = "MAX LEVEL";
+          btn.disabled = true;
+        } else {
+          selector.style.display = "none";
+          btn.style.display = "block";
+          btn.innerText = `UPGRADE ($${Math.floor(cost)})`;
+          btn.disabled = state.credits < cost;
+        }
+      }
+
+      function attemptPathUpgrade(path, cost) {
+        if (state.credits >= cost) {
+          state.selection.upgrade(path); // PASS PATH HERE
+          updateUpgradeUI();
+        }
+      }
+
+      window.buyUpgrade = function () {
+        if (state.selection) state.selection.upgrade();
+      };
+
+      window.sellTower = function () {
+        if (!state.selection) return;
+        state.credits += Math.floor(state.selection.config.cost / 2);
+        state.towers = state.towers.filter((t) => t !== state.selection);
+        deselect();
+        updateHUD();
+      };
+
+      window.setSpeed = function (s) {
+        state.speed = s;
+        document.querySelectorAll(".controls-right .icon-btn").forEach((b) => {
+          b.classList.remove("active");
+          if (b.textContent === s + "x") b.classList.add("active");
+        });
+      };
+
+      window.togglePause = function () {
+        state.paused = !state.paused;
+      };
+
+      function showTooltip(title, html) {
+        const tt = document.getElementById("tooltip");
+        tt.style.display = "block";
+        tt.querySelector("h4").innerText = title;
+        tt.querySelector("#tt-content").innerHTML = html;
+      }
+      function hideTooltip() {
+        document.getElementById("tooltip").style.display = "none";
+      }
+
+      function endGame() {
+        state.screen = "end";
+        state.waveActive = false;
+        document.getElementById("ui-layer").classList.add("hidden");
+        document.getElementById("screen-end").classList.remove("hidden");
+        document.getElementById(
+          "end-stats"
+        ).innerText = `You reached Wave ${state.wave}`;
+      }
+
+      function loop() {
+        requestAnimationFrame(loop);
+        if (state.paused) return;
+        for (let i = 0; i < state.speed; i++) gameLoop();
+      }
+
+      window.addEventListener("keydown", (e) => {
+        if (e.key === "1") setBuildMode("blaster");
+        if (e.key === "2") setBuildMode("sniper");
+        if (e.key === "3") setBuildMode("pulsar");
+        if (e.key === "4") setBuildMode("arc");
+        if (e.key === "5") setBuildMode("cryo");
+        if (e.key === "6") setBuildMode("mortar");
+        if (e.key === "Escape") deselect();
+        if (e.key === " ") togglePause();
+      });
+
+      init();
+    </script>
+  </body>
+</html>
