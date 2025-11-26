@@ -165,38 +165,36 @@
       let moveForward = false,
         moveBackward = false,
         moveLeft = false,
-        moveRight = false,
-        moveUp = false;
+        moveRight = false;
       let velocity = new THREE.Vector3();
       let direction = new THREE.Vector3();
       let prevTime = performance.now();
       let raycaster = new THREE.Raycaster();
-      let mouse = new THREE.Vector2();
 
-      // World Data: A map of "x,y,z" string keys to Block IDs
+      // FPS Logic
+      let frameCount = 0;
+      let lastFpsTime = 0;
+
+      // World Data
       const worldData = new Map();
 
       // Instance Managers
-      const instanceMeshes = {}; // type -> InstancedMesh
-      const instanceCounts = {}; // type -> current count
-      const instanceMatrices = {}; // type -> Array of matrices (helper)
+      const instanceMeshes = {};
+      const instanceCounts = {};
 
       let selectedBlock = BLOCKS.GRASS;
       const playerSize = { h: 1.8, w: 0.3 };
 
       // --- TEXTURE GENERATION ---
-
-      function createNoiseTexture(colorHex, noiseScale = 20) {
+      function createNoiseTexture(colorHex) {
         const canvas = document.createElement("canvas");
         canvas.width = 64;
         canvas.height = 64;
         const ctx = canvas.getContext("2d");
 
-        // Base
         ctx.fillStyle = colorHex;
         ctx.fillRect(0, 0, 64, 64);
 
-        // Noise
         for (let i = 0; i < 400; i++) {
           const x = Math.random() * 64;
           const y = Math.random() * 64;
@@ -207,7 +205,6 @@
           ctx.fillRect(x, y, w, h);
         }
 
-        // Border for voxel look
         ctx.strokeStyle = "rgba(0,0,0,0.1)";
         ctx.lineWidth = 4;
         ctx.strokeRect(0, 0, 64, 64);
@@ -220,12 +217,10 @@
       // --- INITIALIZATION ---
 
       function init() {
-        // 1. Scene
         scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x87ceeb); // Sky blue
+        scene.background = new THREE.Color(0x87ceeb);
         scene.fog = new THREE.Fog(0x87ceeb, 20, 60);
 
-        // 2. Camera
         camera = new THREE.PerspectiveCamera(
           75,
           window.innerWidth / window.innerHeight,
@@ -233,15 +228,15 @@
           1000
         );
         camera.position.set(WORLD_SIZE / 2, 10, WORLD_SIZE / 2);
+        // Explicitly set rotation order to YXZ to prevent gimbal lock issues and ensure standard FPS feel
+        camera.rotation.order = "YXZ";
 
-        // 3. Renderer
-        renderer = new THREE.WebGLRenderer({ antialias: false }); // False for retro feel & performance
+        renderer = new THREE.WebGLRenderer({ antialias: false });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         document.body.appendChild(renderer.domElement);
 
-        // 4. Lights
         const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
         scene.add(ambientLight);
 
@@ -252,7 +247,6 @@
         dirLight.shadow.mapSize.height = 2048;
         scene.add(dirLight);
 
-        // 5. Initialize Instance Meshes
         const boxGeo = new THREE.BoxGeometry(1, 1, 1);
 
         Object.keys(BLOCK_PROPS).forEach((type) => {
@@ -263,13 +257,12 @@
           const mesh = new THREE.InstancedMesh(boxGeo, mat, MAX_INSTANCES);
           mesh.castShadow = true;
           mesh.receiveShadow = true;
-          mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); // Optimizing for updates
+          mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
 
           scene.add(mesh);
           instanceMeshes[type] = mesh;
           instanceCounts[type] = 0;
 
-          // Hide all initially
           for (let i = 0; i < MAX_INSTANCES; i++) {
             mesh.setMatrixAt(
               i,
@@ -291,18 +284,16 @@
                 0,
                 0
               )
-            ); // Zero scale
+            );
           }
         });
 
-        // 6. Generate World
         generateWorld();
 
-        // 7. Inputs
         document.addEventListener("keydown", onKeyDown);
         document.addEventListener("keyup", onKeyUp);
         document.addEventListener("mousedown", onMouseDown);
-        document.addEventListener("mousemove", onMouseMove); // Added listener
+        document.addEventListener("mousemove", onMouseMove);
         window.addEventListener("resize", onWindowResize);
         document.addEventListener("click", () => {
           if (!controlsLocked) document.body.requestPointerLock();
@@ -315,27 +306,22 @@
         });
         document.addEventListener("wheel", onScroll);
 
-        // Loop
         animate();
       }
 
       // --- WORLD GENERATION ---
 
-      // Simple Pseudo Random
       function simpleNoise(x, z) {
         const s = Math.sin(x * 0.1) * Math.cos(z * 0.1) * 2;
         const n = Math.sin(x * 0.3 + z * 0.2) * 1.5;
-        return Math.floor(s + n) + 5; // Base height 5
+        return Math.floor(s + n) + 5;
       }
 
       function setBlock(x, y, z, type) {
         const key = `${x},${y},${z}`;
-
-        // If block exists, remove visual instance
         if (worldData.has(key)) {
           removeBlockVisual(x, y, z, worldData.get(key));
         }
-
         worldData.set(key, type);
         addBlockVisual(x, y, z, type);
       }
@@ -344,20 +330,16 @@
         const key = `${x},${y},${z}`;
         if (worldData.has(key)) {
           const type = worldData.get(key);
-          if (type === BLOCKS.BEDROCK) return; // Unbreakable
-
+          if (type === BLOCKS.BEDROCK) return;
           removeBlockVisual(x, y, z, type);
           worldData.delete(key);
         }
       }
 
-      // This is a naive visual manager. In prod, use a sparse map.
-      // To keep code small, we iterate instances to find the match.
       function removeBlockVisual(x, y, z, type) {
         const mesh = instanceMeshes[type];
         const dummy = new THREE.Object3D();
 
-        // Linear search (Slow for huge counts, acceptable for demo < 5000)
         for (let i = 0; i < instanceCounts[type]; i++) {
           mesh.getMatrixAt(i, dummy.matrix);
           dummy.matrix.decompose(dummy.position, dummy.quaternion, dummy.scale);
@@ -367,11 +349,10 @@
             Math.abs(dummy.position.y - y) < 0.1 &&
             Math.abs(dummy.position.z - z) < 0.1
           ) {
-            // Found it. Swap with last element to keep array packed.
             const lastIdx = instanceCounts[type] - 1;
             const matrix = new THREE.Matrix4();
             mesh.getMatrixAt(lastIdx, matrix);
-            mesh.setMatrixAt(i, matrix); // Move last to current
+            mesh.setMatrixAt(i, matrix);
             mesh.setMatrixAt(
               lastIdx,
               new THREE.Matrix4().set(
@@ -392,7 +373,7 @@
                 0,
                 0
               )
-            ); // Zero last
+            );
 
             instanceCounts[type]--;
             mesh.instanceMatrix.needsUpdate = true;
@@ -404,8 +385,7 @@
       function addBlockVisual(x, y, z, type) {
         const mesh = instanceMeshes[type];
         const count = instanceCounts[type];
-
-        if (count >= MAX_INSTANCES) return; // Full
+        if (count >= MAX_INSTANCES) return;
 
         const dummy = new THREE.Object3D();
         dummy.position.set(x, y, z);
@@ -417,38 +397,25 @@
       }
 
       function generateWorld() {
-        // Ground
         for (let x = 0; x < WORLD_SIZE; x++) {
           for (let z = 0; z < WORLD_SIZE; z++) {
-            // Bedrock
             setBlock(x, 0, z, BLOCKS.BEDROCK);
-
             const h = simpleNoise(x, z);
-
             for (let y = 1; y <= h; y++) {
               let type = BLOCKS.DIRT;
               if (y === h) type = BLOCKS.GRASS;
               if (y < 3) type = BLOCKS.STONE;
-
               setBlock(x, y, z, type);
             }
-
-            // Trees (Randomly on top)
             if (x > 2 && x < WORLD_SIZE - 2 && z > 2 && z < WORLD_SIZE - 2) {
-              if (Math.random() < 0.02) {
-                generateTree(x, h + 1, z);
-              }
+              if (Math.random() < 0.02) generateTree(x, h + 1, z);
             }
           }
         }
       }
 
       function generateTree(x, y, z) {
-        // Trunk
-        for (let i = 0; i < 4; i++) {
-          setBlock(x, y + i, z, BLOCKS.WOOD);
-        }
-        // Leaves
+        for (let i = 0; i < 4; i++) setBlock(x, y + i, z, BLOCKS.WOOD);
         for (let lx = x - 2; lx <= x + 2; lx++) {
           for (let lz = z - 2; lz <= z + 2; lz++) {
             for (let ly = y + 2; ly <= y + 4; ly++) {
@@ -465,12 +432,6 @@
 
       // --- PHYSICS & CONTROLS ---
 
-      function getBlock(x, y, z) {
-        return worldData.get(
-          `${Math.floor(x)},${Math.floor(y)},${Math.floor(z)}`
-        );
-      }
-
       function onKeyDown(event) {
         switch (event.code) {
           case "ArrowUp":
@@ -479,7 +440,7 @@
             break;
           case "ArrowLeft":
           case "KeyA":
-            moveLeft = true;
+            moveRight = true;
             break;
           case "ArrowDown":
           case "KeyS":
@@ -487,10 +448,10 @@
             break;
           case "ArrowRight":
           case "KeyD":
-            moveRight = true;
+            moveLeft = true;
             break;
           case "Space":
-            if (velocity.y === 0) velocity.y = 12; // Jump
+            if (Math.abs(velocity.y) < 0.1) velocity.y = 10; // Jump only if on ground
             break;
           case "Digit1":
             selectBlock(1);
@@ -518,7 +479,7 @@
             break;
           case "ArrowLeft":
           case "KeyA":
-            moveLeft = false;
+            moveRight = false;
             break;
           case "ArrowDown":
           case "KeyS":
@@ -526,7 +487,7 @@
             break;
           case "ArrowRight":
           case "KeyD":
-            moveRight = false;
+            moveLeft = false;
             break;
         }
       }
@@ -536,9 +497,12 @@
         camera.rotation.y -= event.movementX * 0.002;
         camera.rotation.x -= event.movementY * 0.002;
 
-        // Clamp vertical look to 90 degrees to prevent flipping
-        const PI_2 = Math.PI / 2;
-        camera.rotation.x = Math.max(-PI_2, Math.min(PI_2, camera.rotation.x));
+        // Clamp vertical look to almost 90 degrees (1.57 radians)
+        const limit = 1.5;
+        camera.rotation.x = Math.max(
+          -limit,
+          Math.min(limit, camera.rotation.x)
+        );
       }
 
       function onScroll(event) {
@@ -559,10 +523,7 @@
       function onMouseDown(event) {
         if (!controlsLocked) return;
 
-        // Raycasting for block interaction
         raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
-
-        // Get all instance meshes
         const meshes = Object.values(instanceMeshes);
         const intersects = raycaster.intersectObjects(meshes);
 
@@ -571,15 +532,12 @@
           const p = hit.point;
           const n = hit.face.normal;
 
-          // Calculate block coord
-          // For breaking: go 0.5 units INTO the block to get its center index
           const breakPos = p.clone().sub(n.clone().multiplyScalar(0.5));
           const bx = Math.floor(breakPos.x);
           const by = Math.floor(breakPos.y);
           const bz = Math.floor(breakPos.z);
 
           if (event.button === 0) {
-            // Left Click: Break
             removeBlock(bx, by, bz);
             createParticles(
               bx + 0.5,
@@ -588,14 +546,11 @@
               BLOCK_PROPS[worldData.get(`${bx},${by},${bz}`)]?.color || "#555"
             );
           } else if (event.button === 2) {
-            // Right Click: Place
-            // Calculate adjacent block: Simply add the normal to the broken block index
-            // (Since n is 1, 0 or -1, rounding it handles any float noise)
             const px = bx + Math.round(n.x);
             const py = by + Math.round(n.y);
             const pz = bz + Math.round(n.z);
 
-            // Check collision with player
+            // Player Bounds for Collision prevention
             const playerBox = new THREE.Box3();
             const center = new THREE.Vector3(
               camera.position.x,
@@ -624,7 +579,6 @@
         }
       }
 
-      // Helper particles
       let particles = [];
       function createParticles(x, y, z, color) {
         for (let i = 0; i < 8; i++) {
@@ -633,7 +587,6 @@
           const mesh = new THREE.Mesh(geo, mat);
           mesh.position.set(x, y, z);
 
-          // Random velocity
           const vel = new THREE.Vector3(
             (Math.random() - 0.5) * 5,
             Math.random() * 5,
@@ -645,82 +598,65 @@
         }
       }
 
+      // COMPLETELY REVAMPED PHYSICS ENGINE
       function updatePhysics(delta) {
-        // 1. Friction / Drag
+        // 1. Friction (Stronger for snappier movement)
+        // We apply friction to X/Z separately from Y (Gravity)
         velocity.x -= velocity.x * 10.0 * delta;
         velocity.z -= velocity.z * 10.0 * delta;
+        velocity.y -= 30.0 * delta; // Gravity
 
-        // 2. Gravity
-        velocity.y -= 30.0 * delta; // 9.8 is too floaty for games
-
-        // 3. Input Force
+        // 2. Calculate Movement Vector
         direction.z = Number(moveForward) - Number(moveBackward);
         direction.x = Number(moveRight) - Number(moveLeft);
-        direction.normalize();
+        direction.normalize(); // Prevent fast diagonal movement
 
-        // Rotate move vector by camera Y rotation
-        if (moveForward || moveBackward) {
-          // We only care about Y rotation (yaw) for movement
-          const yRotation = camera.rotation.y;
-          const dz =
-            direction.z * Math.cos(yRotation) -
-            direction.x * Math.sin(yRotation);
-          const dx =
-            direction.z * Math.sin(yRotation) +
-            direction.x * Math.cos(yRotation);
-          velocity.z -= dz * 50.0 * delta;
-          velocity.x -= dx * 50.0 * delta;
-        } else if (moveLeft || moveRight) {
-          // If only strafing (no forward/back), the above logic handles it if direction is set correctly,
-          // but since we separate the if statements in the original, we should combine them or handle rotation properly.
-          // Actually, let's just use the direction vector fully:
-        }
-
-        // Correct Movement Logic with Camera Rotation
         if (moveForward || moveBackward || moveLeft || moveRight) {
-          const theta = camera.rotation.y;
-          // Direction vector is relative to camera
-          // Forward (Z) is cos(theta), Strafe (X) is sin(theta)
-          // Standard WASD mapping relative to look direction:
-          const v = new THREE.Vector3(direction.x, 0, direction.z);
-          v.applyAxisAngle(new THREE.Vector3(0, 1, 0), theta);
+          // Create a vector for direction relative to camera
+          const moveVector = new THREE.Vector3(direction.x, 0, direction.z);
 
-          velocity.x -= v.x * 50.0 * delta;
-          velocity.z -= v.z * 50.0 * delta;
+          // Rotate this vector to match camera's Y rotation (yaw)
+          moveVector.applyAxisAngle(
+            new THREE.Vector3(0, 1, 0),
+            camera.rotation.y
+          );
+
+          // Apply to velocity (WASD moves relative to look direction)
+          // Note: In Three.js, Forward is -Z.
+          // W key (dir.z=1) should effectively push us into the screen.
+          // We invert Z application here to match standard inputs
+
+          // Acceleration speed
+          const speed = 60.0;
+          velocity.x -= moveVector.x * speed * delta;
+          velocity.z -= moveVector.z * speed * delta;
         }
 
-        // 4. Collision Detection (AABB)
-        // We check X, Y, Z axes independently
-
-        const steps = 5; // Sub-steps for high speed
+        // 3. Apply Velocity & Collision
+        const steps = 5;
         const dt = delta / steps;
 
         for (let s = 0; s < steps; s++) {
-          // --- X Axis ---
           camera.position.x += velocity.x * dt;
           if (checkCollision(camera.position)) {
             camera.position.x -= velocity.x * dt;
             velocity.x = 0;
           }
 
-          // --- Z Axis ---
           camera.position.z += velocity.z * dt;
           if (checkCollision(camera.position)) {
             camera.position.z -= velocity.z * dt;
             velocity.z = 0;
           }
 
-          // --- Y Axis ---
           camera.position.y += velocity.y * dt;
           if (checkCollision(camera.position)) {
             camera.position.y -= velocity.y * dt;
-            velocity.y = 0;
-            // On ground?
-            // If we were falling and hit something, we can jump again
+            velocity.y = 0; // Grounded or Hit Ceiling
           }
         }
 
-        // Floor check simple
+        // Respawn if fell
         if (camera.position.y < -20) {
           camera.position.set(WORLD_SIZE / 2, 20, WORLD_SIZE / 2);
           velocity.set(0, 0, 0);
@@ -728,18 +664,13 @@
       }
 
       function checkCollision(pos) {
-        // Player dimensions
-        const w = playerSize.w; // radius
+        const w = playerSize.w;
         const h = playerSize.h;
-
-        // Check corners of bounding box
-        // Min: x-w, y-h, z-w
-        // Max: x+w, y, z+w (Camera is at eye level, roughly top)
 
         const xMin = Math.floor(pos.x - w);
         const xMax = Math.floor(pos.x + w);
-        const yMin = Math.floor(pos.y - h); // Feet
-        const yMax = Math.floor(pos.y); // Head
+        const yMin = Math.floor(pos.y - h);
+        const yMax = Math.floor(pos.y);
         const zMin = Math.floor(pos.z - w);
         const zMax = Math.floor(pos.z + w);
 
@@ -757,14 +688,23 @@
         requestAnimationFrame(animate);
 
         const time = performance.now();
-        const delta = (time - prevTime) / 1000;
+        const delta = Math.min((time - prevTime) / 1000, 0.1); // Cap delta to prevent huge jumps
         prevTime = time;
+
+        // FPS Counter Logic
+        frameCount++;
+        if (time > lastFpsTime + 1000) {
+          document.getElementById(
+            "debug"
+          ).innerText = `FPS: ${frameCount} | Chunks: 1`;
+          frameCount = 0;
+          lastFpsTime = time;
+        }
 
         if (controlsLocked) {
           updatePhysics(delta);
         }
 
-        // Particles
         for (let i = particles.length - 1; i >= 0; i--) {
           const p = particles[i];
           p.life -= delta * 2;
@@ -772,7 +712,6 @@
           p.mesh.position.addScaledVector(p.vel, delta);
           p.mesh.rotation.x += delta;
           p.mesh.rotation.y += delta;
-
           if (p.life <= 0) {
             scene.remove(p.mesh);
             particles.splice(i, 1);
@@ -788,7 +727,6 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
       }
 
-      // Start
       init();
     </script>
   </body>
