@@ -6,7 +6,7 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
     />
-    <title>Neon Defense v4.0 - Cozy Update</title>
+    <title>Neon Defense v4.1 - Cozy & Soft</title>
     <style>
       @import url("https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap");
       @import url("https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap"); /* Cozy Font */
@@ -21,11 +21,11 @@
       }
 
       body.theme-cozy {
-        --bg-color: #fdf6e3; /* Solarized Light Cream */
-        --panel-bg: rgba(255, 255, 255, 0.9);
+        --bg-color: #e8e0c8; /* Warmer, darker cream */
+        --panel-bg: rgba(245, 238, 225, 0.95); /* Less bright panel */
         --text-color: #586e75;
         --accent-color: #268bd2;
-        --border-color: #93a1a1;
+        --border-color: #b0b0b0;
         --font-main: "Nunito", sans-serif;
       }
 
@@ -113,7 +113,7 @@
       }
 
       body.theme-cozy .map-card {
-        background: rgba(255, 255, 255, 0.5);
+        background: rgba(255, 255, 255, 0.6);
       }
 
       .map-card:hover {
@@ -496,7 +496,7 @@
     <!-- Map Select Screen -->
     <div id="screen-map" class="screen">
       <h1>
-        Neon Defense <span style="font-size: 20px; opacity: 0.7">v4.0</span>
+        Neon Defense <span style="font-size: 20px; opacity: 0.7">v4.1</span>
       </h1>
       <p style="color: var(--text-color); margin-bottom: 40px">
         Select Mission Protocol
@@ -1422,11 +1422,23 @@
           // --- TRACK FLASH EFFECT ---
           if (state.trackFlash > 0) {
             bgCtx.save();
-            bgCtx.shadowBlur = 20 * state.trackFlash;
-            bgCtx.shadowColor = state.flashColor;
-            bgCtx.strokeStyle = state.flashColor;
-            bgCtx.globalAlpha = state.trackFlash * 0.5;
-            bgCtx.lineWidth = 40; // Same as path
+
+            if (state.theme === "neon") {
+              bgCtx.shadowBlur = 20 * state.trackFlash;
+              bgCtx.shadowColor = state.flashColor;
+              bgCtx.strokeStyle = state.flashColor;
+              bgCtx.globalAlpha = state.trackFlash * 0.5;
+              bgCtx.lineWidth = 40;
+            } else {
+              // Softer, wider flash for cozy mode
+              bgCtx.shadowBlur = 0; // No harsh shadow
+              bgCtx.strokeStyle = state.flashColor;
+              bgCtx.globalAlpha = state.trackFlash * 0.25; // Lower opacity
+              bgCtx.lineWidth = 50; // Wider, softer path
+              // Use 'screen' blend mode for a soft glow
+              bgCtx.globalCompositeOperation = "screen";
+            }
+
             bgCtx.stroke();
             bgCtx.restore();
             state.trackFlash -= 0.05;
