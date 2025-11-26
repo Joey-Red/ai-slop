@@ -302,6 +302,7 @@
         document.addEventListener("keydown", onKeyDown);
         document.addEventListener("keyup", onKeyUp);
         document.addEventListener("mousedown", onMouseDown);
+        document.addEventListener("mousemove", onMouseMove); // Added listener
         window.addEventListener("resize", onWindowResize);
         document.addEventListener("click", () => {
           if (!controlsLocked) document.body.requestPointerLock();
@@ -332,14 +333,6 @@
 
         // If block exists, remove visual instance
         if (worldData.has(key)) {
-          // Advanced: In a real engine, we'd swap/pop the instance matrix.
-          // For this single-file "Lite" version, we'll assume we can't remove easily without visual glitches
-          // unless we rebuild or use a heavy manager.
-          // Hack: We will rebuild the entire InstancedMesh array for that type if we modify too much?
-          // No, that's too slow.
-          // Fast approach: Store index in value?
-          // Let's keep it simple: We won't fully optimize *removal* memory in this demo,
-          // we will just zero out the matrix at the location.
           removeBlockVisual(x, y, z, worldData.get(key));
         }
 
@@ -365,7 +358,6 @@
         const dummy = new THREE.Object3D();
 
         // Linear search (Slow for huge counts, acceptable for demo < 5000)
-        // Optimization: We could store the index in a map `pos -> index`
         for (let i = 0; i < instanceCounts[type]; i++) {
           mesh.getMatrixAt(i, dummy.matrix);
           dummy.matrix.decompose(dummy.position, dummy.quaternion, dummy.scale);
@@ -539,6 +531,16 @@
         }
       }
 
+      function onMouseMove(event) {
+        if (!controlsLocked) return;
+        camera.rotation.y -= event.movementX * 0.002;
+        camera.rotation.x -= event.movementY * 0.002;
+
+        // Clamp vertical look to 90 degrees to prevent flipping
+        const PI_2 = Math.PI / 2;
+        camera.rotation.x = Math.max(-PI_2, Math.min(PI_2, camera.rotation.x));
+      }
+
       function onScroll(event) {
         let next = selectedBlock + (event.deltaY > 0 ? 1 : -1);
         if (next > 5) next = 1;
@@ -570,10 +572,11 @@
           const n = hit.face.normal;
 
           // Calculate block coord
-          // For breaking: go slightly inside the block
-          const bx = Math.floor(p.x - n.x * 0.1);
-          const by = Math.floor(p.y - n.y * 0.1);
-          const bz = Math.floor(p.z - n.z * 0.1);
+          // For breaking: go 0.5 units INTO the block to get its center index
+          const breakPos = p.clone().sub(n.clone().multiplyScalar(0.5));
+          const bx = Math.floor(breakPos.x);
+          const by = Math.floor(breakPos.y);
+          const bz = Math.floor(breakPos.z);
 
           if (event.button === 0) {
             // Left Click: Break
@@ -586,10 +589,11 @@
             );
           } else if (event.button === 2) {
             // Right Click: Place
-            // Go slightly outside
-            const px = Math.floor(p.x + n.x * 0.1);
-            const py = Math.floor(p.y + n.y * 0.1);
-            const pz = Math.floor(p.z + n.z * 0.1);
+            // Calculate adjacent block: Simply add the normal to the broken block index
+            // (Since n is 1, 0 or -1, rounding it handles any float noise)
+            const px = bx + Math.round(n.x);
+            const py = by + Math.round(n.y);
+            const pz = bz + Math.round(n.z);
 
             // Check collision with player
             const playerBox = new THREE.Box3();
@@ -654,9 +658,36 @@
         direction.x = Number(moveRight) - Number(moveLeft);
         direction.normalize();
 
-        if (moveForward || moveBackward)
-          velocity.z -= direction.z * 50.0 * delta;
-        if (moveLeft || moveRight) velocity.x -= direction.x * 50.0 * delta;
+        // Rotate move vector by camera Y rotation
+        if (moveForward || moveBackward) {
+          // We only care about Y rotation (yaw) for movement
+          const yRotation = camera.rotation.y;
+          const dz =
+            direction.z * Math.cos(yRotation) -
+            direction.x * Math.sin(yRotation);
+          const dx =
+            direction.z * Math.sin(yRotation) +
+            direction.x * Math.cos(yRotation);
+          velocity.z -= dz * 50.0 * delta;
+          velocity.x -= dx * 50.0 * delta;
+        } else if (moveLeft || moveRight) {
+          // If only strafing (no forward/back), the above logic handles it if direction is set correctly,
+          // but since we separate the if statements in the original, we should combine them or handle rotation properly.
+          // Actually, let's just use the direction vector fully:
+        }
+
+        // Correct Movement Logic with Camera Rotation
+        if (moveForward || moveBackward || moveLeft || moveRight) {
+          const theta = camera.rotation.y;
+          // Direction vector is relative to camera
+          // Forward (Z) is cos(theta), Strafe (X) is sin(theta)
+          // Standard WASD mapping relative to look direction:
+          const v = new THREE.Vector3(direction.x, 0, direction.z);
+          v.applyAxisAngle(new THREE.Vector3(0, 1, 0), theta);
+
+          velocity.x -= v.x * 50.0 * delta;
+          velocity.z -= v.z * 50.0 * delta;
+        }
 
         // 4. Collision Detection (AABB)
         // We check X, Y, Z axes independently
