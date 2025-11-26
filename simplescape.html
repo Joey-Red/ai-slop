@@ -1,0 +1,1486 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SimpleScape - Browser RPG</title>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap");
+
+      :root {
+        --bg-color: #0f0f0f;
+        --ui-bg: #4a4a4a; /* Stone Grey */
+        --ui-border-light: #6e6e6e;
+        --ui-border-dark: #2b2b2b;
+        --text-orange: #ff981f; /* OSRS Orange */
+        --text-yellow: #ffff00;
+        --shadow: 2px 2px 0 #000;
+      }
+
+      body {
+        margin: 0;
+        padding: 0;
+        background-color: #050505;
+        color: white;
+        font-family: "Verdana", sans-serif;
+        overflow: hidden;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        user-select: none;
+      }
+
+      #game-container {
+        display: flex;
+        width: 1000px;
+        height: 640px;
+        background: #1a1a1a;
+        border: 4px solid #2b2b2b;
+        box-shadow: 0 0 30px rgba(0, 0, 0, 0.8);
+        border-radius: 4px;
+      }
+
+      #canvas-wrapper {
+        position: relative;
+        flex-grow: 1;
+        cursor: default;
+        overflow: hidden;
+        border-right: 4px solid #111;
+      }
+
+      canvas {
+        display: block;
+        image-rendering: pixelated;
+      }
+
+      /* UI SIDEBAR - STONE THEME */
+      #ui-sidebar {
+        width: 260px;
+        background-color: #38342e;
+        background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSIjNDg0MzM5Ii8+CjxwYXRoIGQ9Ik0wIDBoMnYySDB6bTIgMmgydjJIMnoiIGZpbGw9IiMzODM0MmUiLz4KPC9zdmc+");
+        border-left: 3px solid #111;
+        display: flex;
+        flex-direction: column;
+        padding: 8px;
+        box-sizing: border-box;
+        box-shadow: inset 5px 0 15px rgba(0, 0, 0, 0.5);
+      }
+
+      .panel-header {
+        color: var(--text-orange);
+        text-shadow: 1px 1px 0 #000;
+        text-align: center;
+        font-weight: bold;
+        font-family: "Press Start 2P", monospace;
+        font-size: 14px;
+        border: 2px solid #5d5242;
+        background: #2b251d;
+        padding: 8px;
+        margin-bottom: 10px;
+        box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.1);
+      }
+
+      /* Inventory Grid */
+      #inventory {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 6px;
+        margin-bottom: 20px;
+        padding: 5px;
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 4px;
+      }
+
+      .inv-slot {
+        width: 46px;
+        height: 42px;
+        background: #3e3529;
+        border: 2px solid #222;
+        border-top-color: #1a1a1a;
+        border-left-color: #1a1a1a;
+        border-bottom-color: #554d41;
+        border-right-color: #554d41;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        position: relative;
+        cursor: pointer;
+        transition: background 0.1s;
+      }
+
+      .inv-slot:hover {
+        background: #4e4436;
+      }
+
+      .inv-item {
+        width: 32px;
+        height: 32px;
+        filter: drop-shadow(2px 2px 0 rgba(0, 0, 0, 0.5));
+      }
+
+      /* Icons */
+      .icon-ore {
+        border-radius: 50%;
+        border: 2px solid rgba(0, 0, 0, 0.3);
+      }
+      .icon-bar {
+        width: 28px;
+        height: 14px;
+        border-radius: 2px;
+        border: 1px solid rgba(0, 0, 0, 0.5);
+      }
+      .icon-weapon {
+        width: 6px;
+        height: 28px;
+        transform: rotate(45deg);
+        border: 1px solid rgba(0, 0, 0, 0.5);
+      }
+      .icon-fish {
+        width: 24px;
+        height: 16px;
+        border-radius: 50% 50% 0 0;
+        border: 1px solid rgba(0, 0, 0, 0.3);
+        transform: rotate(-15deg);
+      }
+
+      /* Stats List */
+      #stats {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        background: #25201a;
+        padding: 8px;
+        border: 1px solid #555;
+        box-shadow: inset 0 0 5px #000;
+      }
+
+      .stat-row {
+        display: flex;
+        justify-content: space-between;
+        font-size: 12px;
+        padding: 4px;
+        border-bottom: 1px solid #333;
+      }
+      .stat-row:last-child {
+        border-bottom: none;
+      }
+
+      .stat-name {
+        color: #ffd700;
+        font-weight: bold;
+      }
+      .stat-val {
+        color: #fff;
+        font-family: monospace;
+      }
+
+      /* Message Log */
+      #chat-box {
+        height: 160px;
+        background: rgba(0, 0, 0, 0.4);
+        border: 1px solid #555;
+        margin-top: auto;
+        overflow-y: auto;
+        font-size: 13px;
+        padding: 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        font-weight: bold;
+        text-shadow: 1px 1px 0 #000;
+        scrollbar-width: thin;
+        scrollbar-color: #555 #222;
+      }
+
+      .msg {
+        color: #fff;
+      }
+      .msg.gain {
+        color: #00ff00;
+      }
+      .msg.combat {
+        color: #ff0000;
+      }
+      .msg.info {
+        color: #999;
+        font-style: italic;
+      }
+      .msg.save {
+        color: #00ffff;
+      }
+
+      /* Smithing Overlay */
+      #smithing-interface {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: #3e3529;
+        border: 3px solid #5d5242;
+        padding: 15px;
+        display: none;
+        flex-direction: column;
+        gap: 12px;
+        z-index: 10;
+        width: 300px;
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.8);
+      }
+
+      .craft-btn {
+        background: #5b1818;
+        color: #ffd700;
+        border: 2px solid #2e0d0d;
+        border-top-color: #8c2626;
+        border-left-color: #8c2626;
+        padding: 12px;
+        cursor: pointer;
+        font-family: "Verdana", sans-serif;
+        font-weight: bold;
+        text-shadow: 1px 1px 0 #000;
+        text-align: left;
+        transition: all 0.1s;
+      }
+
+      .craft-btn:hover {
+        background: #752121;
+      }
+      .craft-btn:active {
+        border-color: #2e0d0d;
+        border-width: 2px;
+        transform: translateY(1px);
+      }
+
+      /* Tooltip */
+      #tooltip {
+        position: absolute;
+        background: rgba(0, 0, 0, 0.85);
+        color: white;
+        border: 1px solid #fff;
+        padding: 5px 8px;
+        pointer-events: none;
+        display: none;
+        z-index: 100;
+        font-size: 12px;
+        font-weight: bold;
+        white-space: nowrap;
+        box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.5);
+      }
+
+      .action-text {
+        color: #00ffff;
+      }
+      .target-text {
+        color: #ffff00;
+      }
+
+      #save-status {
+        position: absolute;
+        bottom: 5px;
+        right: 5px;
+        color: #aaa;
+        font-size: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="game-container">
+      <div id="canvas-wrapper">
+        <canvas id="gameCanvas" width="736" height="632"></canvas>
+        <div id="tooltip"></div>
+        <div id="save-status"></div>
+
+        <!-- Smithing Menu -->
+        <div id="smithing-interface">
+          <div class="panel-header" style="margin: 0">Smithing Anvil</div>
+          <div style="font-size: 12px; color: #aaa; text-align: center">
+            Select an item to forge
+          </div>
+          <button class="craft-btn" onclick="game.craftItem('dagger')">
+            🗡️ Dagger <span style="float: right; color: #ccc">1 Bar</span>
+          </button>
+          <button class="craft-btn" onclick="game.craftItem('sword')">
+            ⚔️ Sword <span style="float: right; color: #ccc">2 Bars</span>
+          </button>
+          <button
+            class="craft-btn"
+            style="background: #333; border-color: #111"
+            onclick="game.closeInterfaces()"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+
+      <div id="ui-sidebar">
+        <div class="panel-header">Stats</div>
+        <div id="stats">
+          <div class="stat-row">
+            <span class="stat-name">❤️ Hitpoints</span
+            ><span id="hp-val" class="stat-val">10/10</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-name">⚔️ Attack</span
+            ><span id="atk-val" class="stat-val">1</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-name">⛏️ Mining</span
+            ><span id="min-val" class="stat-val">1</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-name">🔨 Smithing</span
+            ><span id="smt-val" class="stat-val">1</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-name">🐟 Fishing</span
+            ><span id="fsh-val" class="stat-val">1</span>
+          </div>
+        </div>
+
+        <div class="panel-header">Inventory</div>
+        <div id="inventory"></div>
+
+        <div id="chat-box"></div>
+      </div>
+    </div>
+
+    <script>
+      /**
+       * SimpleScape Engine v3.1 - Fixes (Ghost Combat, Stats Saving, NaN Health)
+       */
+
+      const COLORS = {
+        grass: "#354a2a",
+        grass_detail: "#2d3e23",
+        dirt: "#544636",
+        water: "#2c5b7c",
+        water_light: "#3e7ca6",
+        rock_copper: "#A05C35",
+        rock_tin: "#9EA3A8",
+        rock_empty: "#4A4A4A",
+        rock_base: "#585858",
+        fishing_spot: "#8ac4ea",
+
+        goblin_skin: "#4e8736",
+        goblin_cloth: "#63452c",
+        bear_skin: "#4a3728",
+        bear_fur: "#36281d",
+
+        player_skin: "#eebb99",
+        player_shirt: "#445566",
+        player_pants: "#333333",
+
+        hitsplat_dmg: "#960b0b",
+        hitsplat_zero: "#1a4d96",
+        xp: "#ffffff",
+      };
+
+      const ITEMS = {
+        copper: {
+          id: "copper",
+          name: "Copper Ore",
+          color: "#b87333",
+          type: "ore",
+        },
+        tin: { id: "tin", name: "Tin Ore", color: "#a9a9a9", type: "ore" },
+        bronze_bar: {
+          id: "bronze_bar",
+          name: "Bronze Bar",
+          color: "#cd7f32",
+          type: "bar",
+        },
+        dagger: {
+          id: "dagger",
+          name: "Bronze Dagger",
+          color: "#cd7f32",
+          bonus: 5,
+          type: "weapon",
+        },
+        sword: {
+          id: "sword",
+          name: "Bronze Sword",
+          color: "#cd7f32",
+          bonus: 10,
+          type: "weapon",
+        },
+        shrimp: {
+          id: "shrimp",
+          name: "Raw Shrimp",
+          color: "#ff9999",
+          type: "fish",
+        },
+      };
+
+      const XP_TABLE = [
+        0, 0, 83, 174, 276, 388, 512, 650, 801, 969, 1154, 1358, 1584, 1833,
+        2107, 2411, 2746, 3115, 3523,
+      ];
+
+      const canvas = document.getElementById("gameCanvas");
+      const ctx = canvas.getContext("2d");
+      const tooltip = document.getElementById("tooltip");
+      const saveStatus = document.getElementById("save-status");
+
+      const game = {
+        tick: 0,
+        lastTime: 0,
+        width: canvas.width,
+        height: canvas.height,
+
+        patterns: {},
+
+        player: {
+          x: 360,
+          y: 300,
+          radius: 10,
+          speed: 3.5,
+          target: null,
+          actionState: "idle",
+          actionTimer: 0,
+          hp: 10, // Current HP needs to be separate from stats struct for saving logic usually, or synced
+          stats: {
+            maxHp: 10,
+            attack: { level: 1, xp: 0 },
+            mining: { level: 1, xp: 0 },
+            smithing: { level: 1, xp: 0 },
+            fishing: { level: 1, xp: 0 },
+          },
+          inventory: Array(20).fill(null),
+          combatTarget: null,
+          combatCooldown: 0,
+          equipment: { weapon: null },
+        },
+
+        entities: [],
+        objects: [],
+        particles: [],
+
+        init() {
+          this.generatePatterns();
+
+          // Attempt to load
+          if (!this.loadData()) {
+            this.initNewWorld();
+          } else {
+            this.generateWorldObjects();
+            this.log("Welcome back to SimpleScape!", "save");
+          }
+
+          canvas.addEventListener("mousedown", (e) => this.handleInput(e));
+          canvas.addEventListener("mousemove", (e) => this.handleHover(e));
+          canvas.addEventListener("contextmenu", (event) =>
+            event.preventDefault()
+          );
+
+          requestAnimationFrame((t) => this.loop(t));
+
+          setInterval(() => this.saveData(), 5000); // Save every 5s
+        },
+
+        initNewWorld() {
+          this.generateWorldObjects();
+          this.log("Welcome to SimpleScape!", "info");
+          this.log("Click to Move/Interact.", "info");
+        },
+
+        generateWorldObjects() {
+          this.objects = [];
+          this.entities = [];
+
+          // Mine Area (Top Left)
+          for (let i = 0; i < 6; i++) {
+            this.objects.push({
+              type: "rock",
+              ore: "copper",
+              x: 60 + Math.random() * 150,
+              y: 60 + Math.random() * 150,
+              r: 18,
+              depleted: false,
+              respawn: 0,
+            });
+            this.objects.push({
+              type: "rock",
+              ore: "tin",
+              x: 250 + Math.random() * 120,
+              y: 60 + Math.random() * 150,
+              r: 18,
+              depleted: false,
+              respawn: 0,
+            });
+          }
+
+          // Smithing Area (Top Right)
+          this.objects.push({ type: "furnace", x: 600, y: 80, w: 70, h: 70 });
+          this.objects.push({ type: "anvil", x: 650, y: 220, w: 40, h: 40 });
+
+          // Fishing Spots
+          this.objects.push({ type: "fishing_spot", x: 650, y: 550, r: 15 });
+          this.objects.push({ type: "fishing_spot", x: 580, y: 580, r: 15 });
+          this.objects.push({ type: "fishing_spot", x: 700, y: 500, r: 15 });
+
+          // Enemies
+          for (let i = 0; i < 6; i++) this.spawnEnemy("goblin");
+          this.spawnEnemy("bear");
+          this.spawnEnemy("bear");
+        },
+
+        generatePatterns() {
+          const pCanvas = document.createElement("canvas");
+          pCanvas.width = 64;
+          pCanvas.height = 64;
+          const pCtx = pCanvas.getContext("2d");
+          pCtx.fillStyle = COLORS.grass;
+          pCtx.fillRect(0, 0, 64, 64);
+          pCtx.fillStyle = COLORS.grass_detail;
+          for (let i = 0; i < 20; i++) {
+            const x = Math.random() * 64;
+            const y = Math.random() * 64;
+            pCtx.fillRect(x, y, 2, 2);
+            pCtx.fillRect(x + 2, y + 2, 2, 2);
+          }
+          this.patterns.grass = ctx.createPattern(pCanvas, "repeat");
+        },
+
+        spawnEnemy(type) {
+          if (type === "goblin") {
+            this.entities.push({
+              type: "goblin",
+              name: "Goblin",
+              level: 2,
+              x: 100 + Math.random() * 300,
+              y: 400 + Math.random() * 180,
+              hp: 10,
+              maxHp: 10,
+              radius: 10,
+              state: "wander",
+              moveTimer: 0,
+              targetX: 0,
+              targetY: 0,
+              attackCooldown: 0,
+              maxHit: 2,
+              xp: 20,
+            });
+          } else if (type === "bear") {
+            this.entities.push({
+              type: "bear",
+              name: "Black Bear",
+              level: 10,
+              x: 50 + Math.random() * 200,
+              y: 300 + Math.random() * 100,
+              hp: 30,
+              maxHp: 30,
+              radius: 16,
+              state: "wander",
+              moveTimer: 0,
+              targetX: 0,
+              targetY: 0,
+              attackCooldown: 0,
+              maxHit: 4,
+              xp: 60,
+            });
+          }
+        },
+
+        loop(timestamp) {
+          const dt = timestamp - this.lastTime;
+          this.lastTime = timestamp;
+          this.update(dt);
+          this.draw();
+          requestAnimationFrame((t) => this.loop(t));
+        },
+
+        update(dt) {
+          this.tick++;
+          const p = this.player;
+
+          // --- Player Movement ---
+          if (p.target) {
+            const dx = p.target.x - p.x;
+            const dy = p.target.y - p.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            if (dist > p.speed) {
+              p.x += (dx / dist) * p.speed;
+              p.y += (dy / dist) * p.speed;
+              p.actionState = "moving";
+            } else {
+              p.x = p.target.x;
+              p.y = p.target.y;
+              if (p.target.type === "move") {
+                p.target = null;
+                p.actionState = "idle";
+              } else if (p.target.type === "interact") {
+                this.interact(p.target.entity);
+                p.target = null;
+              }
+            }
+          }
+
+          // --- Action Logic ---
+          if (p.actionState === "mining") {
+            p.actionTimer--;
+            if (this.tick % 20 === 0)
+              this.addParticle(".", p.x, p.y - 30, "#fff");
+            if (p.actionTimer <= 0) this.completeMining();
+          }
+
+          if (p.actionState === "fishing") {
+            p.actionTimer--;
+            if (this.tick % 40 === 0)
+              this.addParticle(
+                "o",
+                p.targetEntity.x,
+                p.targetEntity.y,
+                "#fff",
+                30
+              );
+            if (p.actionTimer <= 0) this.completeFishing();
+          }
+
+          if (p.actionState === "fighting" && p.combatTarget) {
+            const dx = p.combatTarget.x - p.x;
+            const dy = p.combatTarget.y - p.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const range = p.combatTarget.radius + p.radius + 5;
+
+            if (dist > range) {
+              p.x += (dx / dist) * (p.speed * 0.8);
+              p.y += (dy / dist) * (p.speed * 0.8);
+            } else {
+              if (p.combatCooldown <= 0) {
+                this.performAttack(p, p.combatTarget);
+                p.combatCooldown = 40;
+              }
+            }
+          }
+          if (p.combatCooldown > 0) p.combatCooldown--;
+
+          // --- Entity Logic ---
+          this.entities.forEach((e) => {
+            if (e.hp <= 0) return;
+
+            if (e.state === "wander") {
+              e.moveTimer--;
+              if (e.moveTimer <= 0) {
+                e.moveTimer = 60 + Math.random() * 120;
+                e.targetX = e.x + (Math.random() - 0.5) * 80;
+                e.targetY = e.y + (Math.random() - 0.5) * 80;
+                if (e.targetX < 50) e.targetX = 50;
+                if (e.targetX > this.width - 50) e.targetX = this.width - 50;
+                if (e.targetY < 50) e.targetY = 50;
+                if (e.targetY > this.height - 50) e.targetY = this.height - 50;
+              }
+              const dx = e.targetX - e.x;
+              const dy = e.targetY - e.y;
+              const dist = Math.sqrt(dx * dx + dy * dy);
+              if (dist > 1) {
+                e.x += (dx / dist) * (e.type === "bear" ? 1 : 1.5);
+                e.y += (dy / dist) * (e.type === "bear" ? 1 : 1.5);
+              }
+            }
+
+            if (p.actionState === "fighting" && p.combatTarget === e) {
+              e.state = "fighting";
+              const dx = p.x - e.x;
+              const dy = p.y - e.y;
+              const dist = Math.sqrt(dx * dx + dy * dy);
+              const range = e.radius + p.radius + 5;
+              if (dist <= range) {
+                if (e.attackCooldown <= 0) {
+                  this.performAttack(e, p);
+                  e.attackCooldown = e.type === "bear" ? 100 : 80;
+                }
+              }
+            }
+            if (e.attackCooldown > 0) e.attackCooldown--;
+          });
+
+          // Cleanup Dead Entities (FIXED GHOST BUG)
+          for (let i = this.entities.length - 1; i >= 0; i--) {
+            if (this.entities[i].hp <= 0) {
+              // Capture the entity before splicing so reference check works
+              const deadEntity = this.entities[i];
+              const type = deadEntity.type;
+
+              this.entities.splice(i, 1);
+
+              setTimeout(() => this.spawnEnemy(type), 8000);
+
+              // Compare p.combatTarget against the deadEntity reference we captured
+              if (p.combatTarget === deadEntity) {
+                p.combatTarget = null;
+                p.actionState = "idle";
+              }
+            }
+          }
+
+          // --- Object Respawn ---
+          this.objects.forEach((obj) => {
+            if (obj.type === "rock" && obj.depleted) {
+              obj.respawn--;
+              if (obj.respawn <= 0) obj.depleted = false;
+            }
+          });
+
+          this.particles.forEach((pt) => {
+            pt.life--;
+            pt.y -= 0.8;
+            if (pt.type === "hitsplat") pt.y += 0.4;
+          });
+          this.particles = this.particles.filter((pt) => pt.life > 0);
+        },
+
+        handleInput(e) {
+          const rect = canvas.getBoundingClientRect();
+          const mx = e.clientX - rect.left;
+          const my = e.clientY - rect.top;
+
+          // Entities
+          for (let ent of this.entities) {
+            if (Math.hypot(ent.x - mx, ent.y - my) < ent.radius + 10) {
+              this.setTarget(ent, "combat");
+              return;
+            }
+          }
+
+          // Objects
+          for (let obj of this.objects) {
+            let hit = false;
+            if (obj.type === "rock" || obj.type === "fishing_spot") {
+              if (Math.hypot(obj.x - mx, obj.y - my) < obj.r + 5) hit = true;
+            } else if (obj.type === "furnace" || obj.type === "anvil") {
+              if (
+                mx > obj.x &&
+                mx < obj.x + obj.w &&
+                my > obj.y &&
+                my < obj.y + obj.h
+              )
+                hit = true;
+            }
+
+            if (hit) {
+              this.setTarget(obj, "interact");
+              return;
+            }
+          }
+
+          // Move
+          this.player.target = { x: mx, y: my, type: "move" };
+          this.player.actionState = "moving";
+          this.player.combatTarget = null;
+          document.getElementById("smithing-interface").style.display = "none";
+
+          this.addParticle("X", mx, my, "#ffff00", 20, "click");
+        },
+
+        setTarget(entity, type) {
+          let tx = entity.x;
+          let ty = entity.y;
+          if (entity.type === "rock") tx += 20;
+          if (entity.type === "furnace") ty += 40;
+          if (entity.type === "fishing_spot") tx -= 25;
+
+          this.player.target = {
+            x: tx,
+            y: ty,
+            type: "interact",
+            entity: entity,
+          };
+
+          if (type === "combat") {
+            this.player.combatTarget = entity;
+            this.player.actionState = "fighting";
+            this.player.target = null;
+          }
+        },
+
+        interact(obj) {
+          const p = this.player;
+          if (obj.type === "rock") {
+            if (obj.depleted) {
+              this.log("Empty rock.");
+              return;
+            }
+            this.log(`You swing at the ${obj.ore}...`);
+            p.actionState = "mining";
+            p.currentObj = obj;
+            p.actionTimer = 60;
+          } else if (obj.type === "fishing_spot") {
+            this.log("You cast your net...");
+            p.actionState = "fishing";
+            p.targetEntity = obj;
+            p.actionTimer = 100;
+          } else if (obj.type === "furnace") {
+            this.smeltOres();
+          } else if (obj.type === "anvil") {
+            document.getElementById("smithing-interface").style.display =
+              "flex";
+          }
+        },
+
+        // --- Skills ---
+        completeMining() {
+          const p = this.player;
+          const obj = p.currentObj;
+          if (!obj || obj.depleted) {
+            p.actionState = "idle";
+            return;
+          }
+
+          this.addXP("mining", 17);
+          const item = ITEMS[obj.ore];
+
+          if (this.addToInventory(item)) {
+            this.log(`You mine some ${item.name}.`, "gain");
+            obj.depleted = true;
+            obj.respawn = 300;
+          } else {
+            this.log("Inventory full!", "combat");
+          }
+          p.actionState = "idle";
+          p.currentObj = null;
+        },
+
+        completeFishing() {
+          const p = this.player;
+          this.addXP("fishing", 10);
+
+          if (this.addToInventory(ITEMS.shrimp)) {
+            this.log("You catch shrimp.", "gain");
+          } else {
+            this.log("Inventory full!", "combat");
+          }
+
+          if (Math.random() > 0.3) p.actionTimer = 100;
+          else p.actionState = "idle";
+        },
+
+        smeltOres() {
+          const p = this.player;
+          let copperIdx = p.inventory.findIndex((i) => i && i.id === "copper");
+          let tinIdx = p.inventory.findIndex((i) => i && i.id === "tin");
+
+          if (copperIdx !== -1 && tinIdx !== -1) {
+            p.inventory[copperIdx] = null;
+            p.inventory[tinIdx] = null;
+            this.addToInventory(ITEMS.bronze_bar);
+            this.addXP("smithing", 6);
+            this.log("You smelt a bar.", "gain");
+            this.updateUI();
+          } else {
+            this.log("Need Copper & Tin.", "info");
+          }
+        },
+
+        craftItem(itemId) {
+          const item = ITEMS[itemId];
+          const p = this.player;
+          const cost = itemId === "sword" ? 2 : 1;
+
+          let barIndices = [];
+          p.inventory.forEach((itm, idx) => {
+            if (itm && itm.id === "bronze_bar") barIndices.push(idx);
+          });
+
+          if (barIndices.length >= cost) {
+            for (let i = 0; i < cost; i++) p.inventory[barIndices[i]] = null;
+            this.addToInventory(item);
+            this.addXP("smithing", 12 * cost);
+            this.log(`You smith a ${item.name}.`, "gain");
+            this.closeInterfaces();
+          } else {
+            this.log(`Need ${cost} Bars.`, "info");
+          }
+        },
+
+        performAttack(attacker, defender) {
+          let maxHit = 0;
+          if (attacker === this.player) {
+            maxHit = 1 + Math.floor(attacker.stats.attack.level / 2);
+            if (attacker.equipment.weapon)
+              maxHit += Math.floor(attacker.equipment.weapon.bonus / 2);
+          } else {
+            maxHit = defender.type === "bear" ? 4 : 2;
+          }
+
+          const damage = Math.floor(Math.random() * (maxHit + 1));
+          defender.hp -= damage;
+
+          this.addHitsplat(damage, defender.x, defender.y - 10);
+
+          if (attacker === this.player) this.addXP("attack", 4 * damage);
+
+          if (defender.hp <= 0) {
+            if (defender === this.player) {
+              this.log("Oh dear, you died!", "combat");
+              this.player.hp = this.player.stats.maxHp;
+              this.player.x = 360;
+              this.player.y = 300;
+              this.player.combatTarget = null;
+              this.player.actionState = "idle";
+            } else {
+              this.log(`Defeated ${defender.name}.`, "gain");
+            }
+          }
+
+          // Ensure HP updates visually immediately
+          this.updateUI();
+        },
+
+        addToInventory(item) {
+          const emptySlot = this.player.inventory.indexOf(null);
+          if (emptySlot === -1) return false;
+          this.player.inventory[emptySlot] = { ...item };
+          this.updateUI();
+          return true;
+        },
+
+        equipItem(index) {
+          const item = this.player.inventory[index];
+          if (!item) return;
+
+          if (item.type === "weapon") {
+            if (this.player.equipment.weapon) {
+              const oldWeapon = this.player.equipment.weapon;
+              this.player.inventory[index] = oldWeapon;
+            } else {
+              this.player.inventory[index] = null;
+            }
+            this.player.equipment.weapon = item;
+            this.log(`Equipped ${item.name}.`, "info");
+          } else if (item.type === "fish") {
+            const heal = 3;
+            this.player.hp = Math.min(
+              this.player.stats.maxHp,
+              this.player.hp + heal
+            );
+            this.player.inventory[index] = null;
+            this.log(`Ate shrimp. Healed ${heal}.`, "gain");
+          }
+          this.updateUI();
+        },
+
+        addXP(skill, amount) {
+          const s = this.player.stats[skill];
+          if (!s) return; // safety
+          s.xp += amount;
+
+          let newLevel = 1;
+          for (let i = 0; i < XP_TABLE.length; i++) {
+            if (s.xp >= XP_TABLE[i]) newLevel = i + 1;
+          }
+
+          if (newLevel > s.level) {
+            s.level = newLevel;
+            this.log(`${skill} is now Lvl ${s.level}!`, "gain");
+            this.addParticle(
+              `${skill} Lvl ${s.level}!`,
+              this.player.x,
+              this.player.y - 40,
+              "#ffff00"
+            );
+            this.recalcMaxHp();
+          }
+          this.updateUI();
+        },
+
+        // Centralized HP calculation to avoid NaN issues
+        recalcMaxHp() {
+          const stats = this.player.stats;
+          const atk = stats.attack.level || 1;
+          const fish = stats.fishing.level || 1;
+          const min = stats.mining.level || 1;
+
+          // Formula: Base 10 + (Avg of skills)
+          stats.maxHp = 10 + Math.floor((atk + fish + min) / 3);
+          if (isNaN(stats.maxHp)) stats.maxHp = 10; // Fallback
+        },
+
+        log(msg, type = "info") {
+          const box = document.getElementById("chat-box");
+          const div = document.createElement("div");
+          div.className = "msg " + type;
+          div.textContent = msg;
+          box.appendChild(div);
+          box.scrollTop = box.scrollHeight;
+        },
+
+        updateUI() {
+          const p = this.player;
+          const s = p.stats;
+
+          // Safe access to stats
+          document.getElementById("hp-val").textContent = `${p.hp}/${s.maxHp}`;
+          document.getElementById("atk-val").textContent = s.attack.level;
+          document.getElementById("min-val").textContent = s.mining.level;
+          document.getElementById("smt-val").textContent = s.smithing.level;
+          document.getElementById("fsh-val").textContent = s.fishing.level;
+
+          const invDiv = document.getElementById("inventory");
+          invDiv.innerHTML = "";
+          p.inventory.forEach((item, idx) => {
+            const slot = document.createElement("div");
+            slot.className = "inv-slot";
+            if (item) {
+              const itemDiv = document.createElement("div");
+              itemDiv.className = "inv-item";
+
+              if (item.type === "ore") {
+                itemDiv.className += " icon-ore";
+                itemDiv.style.backgroundColor = item.color;
+              } else if (item.type === "bar") {
+                itemDiv.className += " icon-bar";
+                itemDiv.style.backgroundColor = item.color;
+              } else if (item.type === "weapon") {
+                itemDiv.className += " icon-weapon";
+                itemDiv.style.backgroundColor = item.color;
+              } else if (item.type === "fish") {
+                itemDiv.className += " icon-fish";
+                itemDiv.style.backgroundColor = item.color;
+              }
+
+              slot.appendChild(itemDiv);
+              slot.title = item.name;
+              slot.onclick = () => this.equipItem(idx);
+            }
+            invDiv.appendChild(slot);
+          });
+        },
+
+        closeInterfaces() {
+          document.getElementById("smithing-interface").style.display = "none";
+        },
+
+        saveData() {
+          const data = {
+            stats: this.player.stats,
+            inventory: this.player.inventory,
+            equipment: this.player.equipment,
+            x: this.player.x,
+            y: this.player.y,
+            currentHp: this.player.hp, // Saving Current HP specifically
+          };
+          try {
+            localStorage.setItem("simplescape_save_v2", JSON.stringify(data));
+            saveStatus.textContent = "Saved.";
+            setTimeout(() => (saveStatus.textContent = ""), 2000);
+          } catch (e) {
+            console.error("Save failed", e);
+          }
+        },
+
+        loadData() {
+          const raw = localStorage.getItem("simplescape_save_v2");
+          if (!raw) return false;
+          try {
+            const data = JSON.parse(raw);
+
+            this.player.inventory = data.inventory || Array(20).fill(null);
+            this.player.equipment = data.equipment || { weapon: null };
+            if (data.x) this.player.x = data.x;
+            if (data.y) this.player.y = data.y;
+            if (data.currentHp) this.player.hp = data.currentHp;
+
+            // Safer deep merge for stats to prevent NaN on new skills
+            if (data.stats) {
+              for (let key in this.player.stats) {
+                if (data.stats[key]) {
+                  this.player.stats[key] = data.stats[key];
+                }
+              }
+            }
+
+            this.recalcMaxHp();
+            this.updateUI();
+            return true;
+          } catch (e) {
+            console.error("Load failed", e);
+            return false;
+          }
+        },
+
+        addHitsplat(damage, x, y) {
+          this.particles.push({
+            text: damage,
+            x: x,
+            y: y,
+            type: "hitsplat",
+            color: damage > 0 ? "#fff" : "#fff",
+            bg: damage > 0 ? COLORS.hitsplat_dmg : COLORS.hitsplat_zero,
+            life: 60,
+          });
+        },
+
+        addParticle(text, x, y, color, life = 100, type = "text") {
+          this.particles.push({
+            text: text,
+            x: x,
+            y: y,
+            color: color,
+            life: life,
+            type: type,
+          });
+        },
+
+        draw() {
+          ctx.fillStyle = "#000";
+          ctx.fillRect(0, 0, this.width, this.height);
+
+          ctx.fillStyle = this.patterns.grass || COLORS.grass;
+          ctx.fillRect(0, 0, this.width, this.height);
+
+          // Environment
+          ctx.fillStyle = COLORS.dirt;
+          ctx.beginPath();
+          ctx.ellipse(150, 150, 140, 120, 0, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = "#444";
+          ctx.fillRect(580, 50, 120, 220);
+          ctx.strokeStyle = "#222";
+          ctx.strokeRect(580, 50, 120, 220);
+
+          ctx.fillStyle = COLORS.water;
+          ctx.beginPath();
+          ctx.moveTo(500, 640);
+          ctx.bezierCurveTo(550, 550, 650, 450, 750, 500);
+          ctx.lineTo(750, 640);
+          ctx.fill();
+
+          // Render List
+          const renderList = [
+            this.player,
+            ...this.entities,
+            ...this.objects,
+          ].sort((a, b) => {
+            const ay = a.y + (a.h || 0);
+            const by = b.y + (b.h || 0);
+            return ay - by;
+          });
+
+          renderList.forEach((obj) => {
+            if (obj === this.player) this.drawPlayer(obj);
+            else if (obj.type === "goblin") this.drawGoblin(obj);
+            else if (obj.type === "bear") this.drawBear(obj);
+            else if (obj.type === "rock") this.drawRock(obj);
+            else if (obj.type === "furnace") this.drawFurnace(obj);
+            else if (obj.type === "anvil") this.drawAnvil(obj);
+            else if (obj.type === "fishing_spot") this.drawFishingSpot(obj);
+          });
+
+          this.drawParticles();
+        },
+
+        drawPlayer(p) {
+          ctx.fillStyle = "rgba(0,0,0,0.3)";
+          ctx.beginPath();
+          ctx.ellipse(p.x, p.y + 4, 8, 4, 0, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = COLORS.player_pants;
+          ctx.fillRect(p.x - 4, p.y + 2, 3, 8);
+          ctx.fillRect(p.x + 1, p.y + 2, 3, 8);
+
+          ctx.fillStyle = COLORS.player_shirt;
+          ctx.fillRect(p.x - 6, p.y - 6, 12, 10);
+
+          ctx.fillStyle = COLORS.player_skin;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y - 10, 5, 0, Math.PI * 2);
+          ctx.fill();
+
+          if (p.equipment.weapon) {
+            ctx.fillStyle = "#888";
+            ctx.save();
+            ctx.translate(p.x + 6, p.y);
+            ctx.rotate((-20 * Math.PI) / 180);
+            if (p.actionState === "fighting") {
+              const swing = Math.sin(this.tick * 0.5) * 40;
+              ctx.rotate((swing * Math.PI) / 180);
+            }
+            ctx.fillRect(0, -8, 2, 16);
+            ctx.fillStyle = "#542";
+            ctx.fillRect(0, 0, 2, 6);
+            ctx.restore();
+          }
+
+          if (p.actionState === "fishing") {
+            ctx.save();
+            ctx.translate(p.x + 6, p.y);
+            ctx.rotate((45 * Math.PI) / 180);
+            ctx.fillStyle = "#654321";
+            ctx.fillRect(0, -20, 2, 30);
+            ctx.strokeStyle = "#fff";
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(1, -20);
+            const waterX = p.targetEntity.x - p.x;
+            const waterY = p.targetEntity.y - p.y;
+            ctx.quadraticCurveTo(waterX / 2, -30, waterX - 5, waterY - 5);
+            ctx.stroke();
+            ctx.restore();
+          }
+
+          if (p.actionState === "mining") this.drawOverhead(p, "⛏️");
+          if (p.actionState === "fighting") this.drawOverhead(p, "⚔️");
+          if (p.actionState === "fishing") this.drawOverhead(p, "🐟");
+        },
+
+        drawGoblin(g) {
+          ctx.fillStyle = "rgba(0,0,0,0.3)";
+          ctx.beginPath();
+          ctx.ellipse(g.x, g.y + 5, 8, 4, 0, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = COLORS.goblin_skin;
+          ctx.beginPath();
+          ctx.arc(g.x, g.y - 2, 7, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = COLORS.goblin_cloth;
+          ctx.fillRect(g.x - 5, g.y + 2, 10, 6);
+
+          ctx.fillStyle = COLORS.goblin_skin;
+          ctx.beginPath();
+          ctx.arc(g.x, g.y - 8, 5, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.beginPath();
+          ctx.moveTo(g.x - 4, g.y - 8);
+          ctx.lineTo(g.x - 8, g.y - 12);
+          ctx.lineTo(g.x - 4, g.y - 6);
+          ctx.moveTo(g.x + 4, g.y - 8);
+          ctx.lineTo(g.x + 8, g.y - 12);
+          ctx.lineTo(g.x + 4, g.y - 6);
+          ctx.fill();
+
+          if (g.hp < g.maxHp) this.drawHealthBar(g.x, g.y - 25, g.hp, g.maxHp);
+        },
+
+        drawBear(b) {
+          ctx.fillStyle = "rgba(0,0,0,0.3)";
+          ctx.beginPath();
+          ctx.ellipse(b.x, b.y + 8, 14, 6, 0, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = COLORS.bear_skin;
+          ctx.beginPath();
+          ctx.ellipse(b.x, b.y, 12, 10, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.beginPath();
+          ctx.arc(b.x, b.y - 8, 8, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.beginPath();
+          ctx.arc(b.x - 6, b.y - 14, 3, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.beginPath();
+          ctx.arc(b.x + 6, b.y - 14, 3, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = COLORS.bear_fur;
+          ctx.beginPath();
+          ctx.ellipse(b.x, b.y - 6, 4, 3, 0, 0, Math.PI * 2);
+          ctx.fill();
+
+          if (b.hp < b.maxHp) this.drawHealthBar(b.x, b.y - 30, b.hp, b.maxHp);
+        },
+
+        drawRock(o) {
+          const baseColor = o.depleted ? COLORS.rock_empty : COLORS.rock_base;
+          ctx.fillStyle = baseColor;
+          ctx.beginPath();
+          ctx.arc(o.x, o.y, o.r, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = "#222";
+          ctx.lineWidth = 2;
+          ctx.stroke();
+
+          if (!o.depleted) {
+            ctx.fillStyle =
+              o.ore === "copper" ? COLORS.rock_copper : COLORS.rock_tin;
+            ctx.beginPath();
+            ctx.arc(o.x - 5, o.y - 5, 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(o.x + 6, o.y + 2, 5, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        },
+
+        drawFurnace(o) {
+          ctx.fillStyle = "#555";
+          ctx.fillRect(o.x, o.y, o.w, o.h);
+          ctx.strokeStyle = "#333";
+          ctx.lineWidth = 3;
+          ctx.strokeRect(o.x, o.y, o.w, o.h);
+          const glow = Math.sin(this.tick * 0.1) * 20;
+          ctx.fillStyle = `rgb(${200 + glow}, ${100 + glow}, 0)`;
+          ctx.beginPath();
+          ctx.arc(o.x + o.w / 2, o.y + o.h - 15, 12, 0, Math.PI, true);
+          ctx.fill();
+          ctx.fillStyle = "#444";
+          ctx.fillRect(o.x + 5, o.y - 10, 15, 20);
+        },
+
+        drawAnvil(o) {
+          ctx.fillStyle = "#888";
+          ctx.fillRect(o.x - 5, o.y, o.w + 10, 10);
+          ctx.fillStyle = "#333";
+          ctx.fillRect(o.x + 5, o.y + 10, o.w - 10, o.h - 10);
+        },
+
+        drawFishingSpot(o) {
+          const r = (this.tick % 60) / 2;
+          ctx.strokeStyle = "#fff";
+          ctx.lineWidth = 1;
+          ctx.globalAlpha = 1 - r / 30;
+          ctx.beginPath();
+          ctx.arc(o.x, o.y, r, 0, Math.PI * 2);
+          ctx.stroke();
+
+          ctx.globalAlpha = 1;
+          if (this.tick % 40 < 20) {
+            ctx.fillStyle = "#fff";
+            ctx.beginPath();
+            ctx.arc(o.x - 5, o.y, 2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(o.x + 4, o.y + 4, 1.5, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        },
+
+        drawParticles() {
+          this.particles.forEach((pt) => {
+            if (pt.type === "hitsplat") {
+              ctx.fillStyle = pt.bg;
+              ctx.beginPath();
+              ctx.arc(pt.x, pt.y, 12, 0, Math.PI * 2);
+              ctx.fill();
+              ctx.strokeStyle = "#fff";
+              ctx.lineWidth = 1;
+              ctx.stroke();
+              ctx.fillStyle = "#fff";
+              ctx.font = "bold 14px Arial";
+              ctx.textAlign = "center";
+              ctx.fillText(pt.text, pt.x, pt.y + 5);
+            } else if (pt.type === "click") {
+              ctx.strokeStyle = "#ffff00";
+              ctx.lineWidth = 2;
+              ctx.beginPath();
+              ctx.moveTo(pt.x - 4, pt.y - 4);
+              ctx.lineTo(pt.x + 4, pt.y + 4);
+              ctx.moveTo(pt.x + 4, pt.y - 4);
+              ctx.lineTo(pt.x - 4, pt.y + 4);
+              ctx.stroke();
+            } else {
+              ctx.fillStyle = pt.color;
+              ctx.font = "bold 12px monospace";
+              ctx.textAlign = "center";
+              ctx.strokeStyle = "black";
+              ctx.lineWidth = 2;
+              ctx.strokeText(pt.text, pt.x, pt.y);
+              ctx.fillText(pt.text, pt.x, pt.y);
+            }
+          });
+        },
+
+        drawHealthBar(x, y, hp, max) {
+          const w = 24;
+          const h = 4;
+          const pct = hp / max;
+          ctx.fillStyle = "red";
+          ctx.fillRect(x - w / 2, y, w, h);
+          ctx.fillStyle = "#00ff00";
+          ctx.fillRect(x - w / 2, y, w * pct, h);
+        },
+
+        drawOverhead(entity, text) {
+          const yOffset = -25;
+          const bounce = Math.sin(this.tick * 0.2) * 2;
+          ctx.font = "16px serif";
+          ctx.textAlign = "center";
+          ctx.fillText(text, entity.x, entity.y + yOffset + bounce);
+        },
+
+        handleHover(e) {
+          const rect = canvas.getBoundingClientRect();
+          const mx = e.clientX - rect.left;
+          const my = e.clientY - rect.top;
+          let text = "";
+          let colorClass = "";
+
+          for (let i = this.entities.length - 1; i >= 0; i--) {
+            let ent = this.entities[i];
+            if (Math.hypot(ent.x - mx, ent.y - my) < ent.radius + 5) {
+              text = `Attack ${ent.name} (Lvl ${ent.level})`;
+              colorClass = "target-text";
+              break;
+            }
+          }
+
+          if (!text) {
+            for (let obj of this.objects) {
+              if (obj.type === "rock") {
+                if (Math.hypot(obj.x - mx, obj.y - my) < obj.r + 5) {
+                  text = obj.depleted ? "Empty Rock" : `Mine ${obj.ore} Rock`;
+                  colorClass = "action-text";
+                }
+              } else if (obj.type === "fishing_spot") {
+                if (Math.hypot(obj.x - mx, obj.y - my) < obj.r + 5) {
+                  text = "Net Fishing Spot";
+                  colorClass = "action-text";
+                }
+              } else if (obj.type === "furnace") {
+                if (
+                  mx > obj.x &&
+                  mx < obj.x + obj.w &&
+                  my > obj.y &&
+                  my < obj.y + obj.h
+                ) {
+                  text = "Smelt";
+                  colorClass = "action-text";
+                }
+              } else if (obj.type === "anvil") {
+                if (
+                  mx > obj.x &&
+                  mx < obj.x + obj.w &&
+                  my > obj.y &&
+                  my < obj.y + obj.h
+                ) {
+                  text = "Smith";
+                  colorClass = "action-text";
+                }
+              }
+            }
+          }
+
+          if (text) {
+            tooltip.style.display = "block";
+            tooltip.innerHTML = `<span class="${colorClass}">${
+              text.split(" ")[0]
+            }</span> ${text.substring(text.indexOf(" ") + 1)}`;
+            canvas.style.cursor = "pointer";
+
+            const tipWidth = tooltip.offsetWidth;
+            const tipHeight = tooltip.offsetHeight;
+            let tx = e.clientX + 15;
+            let ty = e.clientY + 15;
+
+            if (tx + tipWidth > window.innerWidth)
+              tx = e.clientX - tipWidth - 10;
+            if (ty + tipHeight > window.innerHeight)
+              ty = e.clientY - tipHeight - 10;
+
+            tooltip.style.left = tx + "px";
+            tooltip.style.top = ty + "px";
+          } else {
+            tooltip.style.display = "none";
+            canvas.style.cursor = "default";
+          }
+        },
+      };
+
+      window.onload = () => game.init();
+    </script>
+  </body>
+</html>
