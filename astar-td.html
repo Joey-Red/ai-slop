@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pathfinder Defense</title>
+    <style>
+      body {
+        margin: 0;
+        background-color: #111;
+        color: #eee;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+      }
+
+      #game-wrapper {
+        position: relative;
+        box-shadow: 0 0 20px rgba(0, 255, 255, 0.2);
+        border: 2px solid #333;
+      }
+
+      canvas {
+        display: block;
+        background-color: #0d0d0d;
+        cursor: crosshair;
+      }
+
+      #ui-layer {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        padding: 10px;
+        box-sizing: border-box;
+        display: flex;
+        justify-content: space-between;
+        pointer-events: none;
+      }
+
+      .stat-box {
+        background: rgba(0, 0, 0, 0.7);
+        border: 1px solid #444;
+        padding: 8px 15px;
+        border-radius: 4px;
+        font-size: 14px;
+        color: #00ffff;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        pointer-events: auto;
+      }
+
+      .controls {
+        position: absolute;
+        bottom: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        gap: 10px;
+        pointer-events: auto;
+      }
+
+      button {
+        background: #222;
+        border: 1px solid #00ffff;
+        color: #00ffff;
+        padding: 8px 16px;
+        cursor: pointer;
+        text-transform: uppercase;
+        font-weight: bold;
+        transition: all 0.2s;
+      }
+
+      button:hover {
+        background: #00ffff;
+        color: #000;
+      }
+
+      button.active {
+        background: #00ffff;
+        color: #000;
+        box-shadow: 0 0 10px #00ffff;
+      }
+
+      #game-over {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(0, 0, 0, 0.9);
+        border: 2px solid #ff0044;
+        padding: 40px;
+        text-align: center;
+        display: none;
+        pointer-events: auto;
+      }
+
+      h1 {
+        margin-top: 0;
+        color: #ff0044;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="game-wrapper">
+      <canvas id="gameCanvas"></canvas>
+
+      <div id="ui-layer">
+        <div class="stat-box">Lives: <span id="lives-display">20</span></div>
+        <div class="stat-box">Money: $<span id="money-display">100</span></div>
+        <div class="stat-box">Wave: <span id="wave-display">1</span></div>
+      </div>
+
+      <div class="controls">
+        <button id="btn-turret" class="active" onclick="selectTower('turret')">
+          Gun Turret ($20)
+        </button>
+        <button id="btn-sniper" onclick="selectTower('sniper')">
+          Sniper ($50)
+        </button>
+        <button id="btn-rapid" onclick="selectTower('rapid')">
+          Blaster ($100)
+        </button>
+      </div>
+
+      <div id="game-over">
+        <h1>BASE DESTROYED</h1>
+        <p>The enemies found a way.</p>
+        <button onclick="resetGame()">Try Again</button>
+      </div>
+    </div>
+
+    <script>
+      /**
+       * TOWER DEFENSE WITH DYNAMIC A* PATHFINDING
+       * * Core Concept:
+       * The grid is the graph. Every time the map changes (tower placed),
+       * we verify that a valid path exists from Spawn -> End AND from every Active Enemy -> End.
+       * If true, we update paths. If false, placement is blocked.
+       */
+
+      // --- CONFIGURATION ---
+      const TILE_SIZE = 32;
+      const GRID_W = 24;
+      const GRID_H = 16;
+      const CANVAS_W = TILE_SIZE * GRID_W;
+      const CANVAS_H = TILE_SIZE * GRID_H;
+
+      // Colors
+      const C_BG = "#0d0d0d";
+      const C_GRID = "#1a1a1a";
+      const C_WALL = "#444";
+      const C_PATH_HINT = "rgba(0, 255, 255, 0.1)";
+      const C_INVALID = "rgba(255, 0, 68, 0.5)";
+      const C_VALID = "rgba(0, 255, 136, 0.5)";
+
+      // --- GAME STATE ---
+      const canvas = document.getElementById("gameCanvas");
+      const ctx = canvas.getContext("2d");
+
+      canvas.width = CANVAS_W;
+      canvas.height = CANVAS_H;
+
+      let grid = []; // 0=empty, 1=wall
+      let enemies = [];
+      let towers = [];
+      let projectiles = [];
+      let particles = [];
+
+      let spawnTile = { x: 0, y: GRID_H / 2 };
+      let endTile = { x: GRID_W - 1, y: GRID_H / 2 };
+
+      // Player Stats
+      let money = 100;
+      let lives = 20;
+      let wave = 1;
+      let frameCount = 0;
+      let isGameOver = false;
+
+      // Selection
+      let selectedTowerType = "turret";
+      const TOWER_TYPES = {
+        turret: {
+          cost: 20,
+          range: 4,
+          damage: 10,
+          cooldown: 30,
+          color: "#00ffff",
+        },
+        sniper: {
+          cost: 50,
+          range: 10,
+          damage: 50,
+          cooldown: 120,
+          color: "#ff00ff",
+        },
+        rapid: {
+          cost: 100,
+          range: 3,
+          damage: 5,
+          cooldown: 8,
+          color: "#ffff00",
+        },
+      };
+
+      let mouseX = 0;
+      let mouseY = 0;
+      let hoverTile = { x: -1, y: -1 };
+
+      // Global cached path for visualization
+      let mainPath = [];
+
+      // --- A* ALGORITHM ---
+
+      class Node {
+        constructor(x, y, parent = null) {
+          this.x = x;
+          this.y = y;
+          this.parent = parent;
+          this.g = 0; // Cost from start
+          this.h = 0; // Heuristic to end
+          this.f = 0; // Total cost
+        }
+      }
+
+      function getNeighbors(node, tempGrid) {
+        const dirs = [
+          [0, 1],
+          [0, -1],
+          [1, 0],
+          [-1, 0],
+        ];
+        const neighbors = [];
+        for (let d of dirs) {
+          const nx = node.x + d[0];
+          const ny = node.y + d[1];
+
+          // Bounds check
+          if (nx >= 0 && nx < GRID_W && ny >= 0 && ny < GRID_H) {
+            // Collision check (0 is walk, 1 is block)
+            if (tempGrid[ny][nx] === 0) {
+              neighbors.push(new Node(nx, ny));
+            }
+          }
+        }
+        return neighbors;
+      }
+
+      function heuristic(a, b) {
+        // Manhattan distance
+        return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+      }
+
+      function findPath(start, end, tempGrid) {
+        let openSet = [];
+        let closedSet = new Set();
+
+        let startNode = new Node(start.x, start.y);
+        let endNode = new Node(end.x, end.y);
+
+        openSet.push(startNode);
+
+        while (openSet.length > 0) {
+          // Find lowest f
+          let lowestIndex = 0;
+          for (let i = 0; i < openSet.length; i++) {
+            if (openSet[i].f < openSet[lowestIndex].f) {
+              lowestIndex = i;
+            }
+          }
+
+          let current = openSet[lowestIndex];
+
+          // Reached end?
+          if (current.x === endNode.x && current.y === endNode.y) {
+            let path = [];
+            let temp = current;
+            while (temp) {
+              path.push({ x: temp.x, y: temp.y });
+              temp = temp.parent;
+            }
+            return path.reverse(); // Return path from start to end
+          }
+
+          // Move current from open to closed
+          openSet.splice(lowestIndex, 1);
+          closedSet.add(`${current.x},${current.y}`);
+
+          let neighbors = getNeighbors(current, tempGrid);
+
+          for (let neighbor of neighbors) {
+            if (closedSet.has(`${neighbor.x},${neighbor.y}`)) continue;
+
+            let tempG = current.g + 1;
+
+            let openNode = openSet.find(
+              (n) => n.x === neighbor.x && n.y === neighbor.y
+            );
+
+            if (!openNode) {
+              neighbor.g = tempG;
+              neighbor.h = heuristic(neighbor, endNode);
+              neighbor.f = neighbor.g + neighbor.h;
+              neighbor.parent = current;
+              openSet.push(neighbor);
+            } else {
+              if (tempG < openNode.g) {
+                openNode.g = tempG;
+                openNode.f = openNode.g + openNode.h;
+                openNode.parent = current;
+              }
+            }
+          }
+        }
+
+        return null; // No path found
+      }
+
+      // --- ENTITIES ---
+
+      class Enemy {
+        constructor(x, y) {
+          this.x = x * TILE_SIZE + TILE_SIZE / 2; // Pixel pos
+          this.y = y * TILE_SIZE + TILE_SIZE / 2;
+          this.gridX = x;
+          this.gridY = y;
+          this.speed = 1.5 + wave * 0.1;
+          this.health = 20 + wave * 10;
+          this.maxHealth = this.health;
+          this.path = [];
+          this.pathIndex = 0;
+          this.radius = 8;
+          this.frozen = false;
+
+          // Initial pathfind
+          this.recalculatePath();
+        }
+
+        recalculatePath() {
+          // Path from current grid position to end
+          const p = findPath({ x: this.gridX, y: this.gridY }, endTile, grid);
+          if (p) {
+            this.path = p;
+            this.pathIndex = 0; // Reset to start of new path (which is current loc)
+          }
+        }
+
+        update() {
+          if (this.path.length === 0) return;
+
+          // Target tile center
+          let targetTile = this.path[this.pathIndex];
+          if (!targetTile) return; // Should not happen if logic matches
+
+          let tx = targetTile.x * TILE_SIZE + TILE_SIZE / 2;
+          let ty = targetTile.y * TILE_SIZE + TILE_SIZE / 2;
+
+          let dx = tx - this.x;
+          let dy = ty - this.y;
+          let dist = Math.sqrt(dx * dx + dy * dy);
+
+          if (dist < this.speed) {
+            // Snap to tile
+            this.x = tx;
+            this.y = ty;
+            this.gridX = targetTile.x;
+            this.gridY = targetTile.y;
+            this.pathIndex++;
+
+            // Reached Base?
+            if (this.gridX === endTile.x && this.gridY === endTile.y) {
+              lives--;
+              updateUI();
+              return true; // remove me
+            }
+          } else {
+            // Move
+            this.x += (dx / dist) * this.speed;
+            this.y += (dy / dist) * this.speed;
+
+            // Update grid pos roughly
+            this.gridX = Math.floor(this.x / TILE_SIZE);
+            this.gridY = Math.floor(this.y / TILE_SIZE);
+          }
+          return false;
+        }
+
+        draw() {
+          ctx.fillStyle = "#ff0044";
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Health bar
+          const hpPct = this.health / this.maxHealth;
+          ctx.fillStyle = "red";
+          ctx.fillRect(this.x - 10, this.y - 14, 20, 4);
+          ctx.fillStyle = "#0f0";
+          ctx.fillRect(this.x - 10, this.y - 14, 20 * hpPct, 4);
+        }
+      }
+
+      class Tower {
+        constructor(gx, gy, type) {
+          this.gridX = gx;
+          this.gridY = gy;
+          this.x = gx * TILE_SIZE + TILE_SIZE / 2;
+          this.y = gy * TILE_SIZE + TILE_SIZE / 2;
+          this.type = type;
+          this.stats = TOWER_TYPES[type];
+          this.timer = 0;
+          this.angle = 0;
+        }
+
+        update() {
+          if (this.timer > 0) this.timer--;
+
+          // Find target
+          let target = null;
+          let minDist = Infinity;
+          const pxRange = this.stats.range * TILE_SIZE;
+
+          for (let e of enemies) {
+            let dx = e.x - this.x;
+            let dy = e.y - this.y;
+            let dist = Math.sqrt(dx * dx + dy * dy);
+
+            if (dist <= pxRange && dist < minDist) {
+              minDist = dist;
+              target = e;
+            }
+          }
+
+          if (target) {
+            // Aim
+            this.angle = Math.atan2(target.y - this.y, target.x - this.x);
+
+            // Shoot
+            if (this.timer <= 0) {
+              projectiles.push(
+                new Projectile(this.x, this.y, target, this.stats.damage)
+              );
+              this.timer = this.stats.cooldown;
+            }
+          }
+        }
+
+        draw() {
+          // Base
+          ctx.fillStyle = "#333";
+          ctx.fillRect(
+            this.gridX * TILE_SIZE + 2,
+            this.gridY * TILE_SIZE + 2,
+            TILE_SIZE - 4,
+            TILE_SIZE - 4
+          );
+
+          // Turret Head
+          ctx.save();
+          ctx.translate(this.x, this.y);
+          ctx.rotate(this.angle);
+          ctx.fillStyle = this.stats.color;
+
+          if (this.type === "sniper") {
+            ctx.fillRect(0, -3, 20, 6);
+          } else if (this.type === "rapid") {
+            ctx.fillRect(0, -4, 12, 8);
+            ctx.fillRect(4, -6, 4, 12);
+          } else {
+            ctx.fillRect(-6, -6, 18, 12);
+          }
+
+          ctx.restore();
+        }
+      }
+
+      class Projectile {
+        constructor(x, y, target, damage) {
+          this.x = x;
+          this.y = y;
+          this.target = target;
+          this.damage = damage;
+          this.speed = 8;
+          this.active = true;
+
+          // Predict or just track? Homing is satisfying for TD
+          let angle = Math.atan2(target.y - y, target.x - x);
+          this.vx = Math.cos(angle) * this.speed;
+          this.vy = Math.sin(angle) * this.speed;
+        }
+
+        update() {
+          // Simple Homing
+          if (this.target && enemies.includes(this.target)) {
+            let angle = Math.atan2(
+              this.target.y - this.y,
+              this.target.x - this.x
+            );
+            this.vx = Math.cos(angle) * this.speed;
+            this.vy = Math.sin(angle) * this.speed;
+          }
+
+          this.x += this.vx;
+          this.y += this.vy;
+
+          // Collision
+          if (this.target && enemies.includes(this.target)) {
+            let dx = this.target.x - this.x;
+            let dy = this.target.y - this.y;
+            if (Math.sqrt(dx * dx + dy * dy) < this.target.radius + 5) {
+              this.hit(this.target);
+            }
+          } else if (
+            this.x < 0 ||
+            this.x > CANVAS_W ||
+            this.y < 0 ||
+            this.y > CANVAS_H
+          ) {
+            this.active = false;
+          }
+        }
+
+        hit(enemy) {
+          enemy.health -= this.damage;
+          this.active = false;
+
+          // Particles
+          for (let i = 0; i < 5; i++) {
+            particles.push({
+              x: this.x,
+              y: this.y,
+              vx: (Math.random() - 0.5) * 4,
+              vy: (Math.random() - 0.5) * 4,
+              life: 20,
+              color: "#ffaa00",
+            });
+          }
+
+          if (enemy.health <= 0) {
+            // Kill logic handled in enemy update or here?
+            // Usually easier to mark dead or handle in main loop
+            // We'll let enemy update handle removal, but give money here
+            // (Logic split slightly, handled in main loop for safety)
+          }
+        }
+
+        draw() {
+          ctx.fillStyle = "#fff";
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, 3, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      // --- GAME LOGIC ---
+
+      function init() {
+        // Init Grid
+        for (let y = 0; y < GRID_H; y++) {
+          let row = [];
+          for (let x = 0; x < GRID_W; x++) {
+            row.push(0);
+          }
+          grid.push(row);
+        }
+
+        // Initial Path
+        mainPath = findPath(spawnTile, endTile, grid);
+
+        updateUI();
+
+        // Inputs
+        canvas.addEventListener("mousemove", (e) => {
+          const rect = canvas.getBoundingClientRect();
+          mouseX = e.clientX - rect.left;
+          mouseY = e.clientY - rect.top;
+          hoverTile.x = Math.floor(mouseX / TILE_SIZE);
+          hoverTile.y = Math.floor(mouseY / TILE_SIZE);
+        });
+
+        canvas.addEventListener("mousedown", tryPlaceTower);
+
+        requestAnimationFrame(gameLoop);
+      }
+
+      function selectTower(type) {
+        selectedTowerType = type;
+        document
+          .querySelectorAll(".controls button")
+          .forEach((b) => b.classList.remove("active"));
+        document.getElementById("btn-" + type).classList.add("active");
+      }
+
+      function tryPlaceTower() {
+        if (isGameOver) return;
+
+        const gx = hoverTile.x;
+        const gy = hoverTile.y;
+
+        // 1. Basic Checks
+        if (gx < 0 || gx >= GRID_W || gy < 0 || gy >= GRID_H) return;
+        if (grid[gy][gx] === 1) return; // Already occupied
+        if (
+          (gx === spawnTile.x && gy === spawnTile.y) ||
+          (gx === endTile.x && gy === endTile.y)
+        )
+          return; // No blocking start/end
+
+        const cost = TOWER_TYPES[selectedTowerType].cost;
+        if (money < cost) return;
+
+        // 2. PATHFINDING CHECK (The Critical Part)
+        // Temporarily place wall
+        grid[gy][gx] = 1;
+
+        // A: Check Spawn -> End
+        const newMainPath = findPath(spawnTile, endTile, grid);
+
+        if (!newMainPath) {
+          // Blocked! Revert
+          grid[gy][gx] = 0;
+          // Visual feedback (shake or sound)
+          console.log("Cannot block path!");
+          return;
+        }
+
+        // B: Check All Active Enemies -> End
+        // If an enemy is trapped, we cannot place.
+        for (let e of enemies) {
+          const enemyPath = findPath({ x: e.gridX, y: e.gridY }, endTile, grid);
+          if (!enemyPath) {
+            grid[gy][gx] = 0;
+            console.log("Cannot trap existing enemy!");
+            return;
+          }
+        }
+
+        // 3. SUCCESS - Commit Placement
+        money -= cost;
+        towers.push(new Tower(gx, gy, selectedTowerType));
+
+        // Update Paths
+        mainPath = newMainPath; // Update global spawn path
+
+        // Recalculate for all enemies
+        for (let e of enemies) {
+          e.recalculatePath();
+        }
+
+        updateUI();
+      }
+
+      function spawnWave() {
+        // Simple wave logic
+        if (frameCount % 60 === 0 && frameCount < 60 * (5 + wave)) {
+          enemies.push(new Enemy(spawnTile.x, spawnTile.y));
+        }
+
+        // Wave complete?
+        if (enemies.length === 0 && frameCount > 60 * (6 + wave)) {
+          wave++;
+          frameCount = 0;
+          updateUI();
+        }
+      }
+
+      function updateUI() {
+        document.getElementById("lives-display").innerText = lives;
+        document.getElementById("money-display").innerText = money;
+        document.getElementById("wave-display").innerText = wave;
+      }
+
+      function resetGame() {
+        grid = grid.map((row) => row.map((cell) => 0));
+        enemies = [];
+        towers = [];
+        projectiles = [];
+        particles = [];
+        money = 100;
+        lives = 20;
+        wave = 1;
+        frameCount = 0;
+        isGameOver = false;
+        document.getElementById("game-over").style.display = "none";
+        mainPath = findPath(spawnTile, endTile, grid);
+        updateUI();
+        requestAnimationFrame(gameLoop);
+      }
+
+      // --- RENDER LOOP ---
+
+      function gameLoop() {
+        if (lives <= 0 && !isGameOver) {
+          isGameOver = true;
+          document.getElementById("game-over").style.display = "block";
+        }
+
+        if (isGameOver) return; // Stop updates
+
+        frameCount++;
+
+        // 1. Logic
+        spawnWave();
+
+        // Update Entities
+        towers.forEach((t) => t.update());
+
+        for (let i = projectiles.length - 1; i >= 0; i--) {
+          projectiles[i].update();
+          if (!projectiles[i].active) projectiles.splice(i, 1);
+        }
+
+        for (let i = enemies.length - 1; i >= 0; i--) {
+          let reached = enemies[i].update();
+          if (reached) {
+            enemies.splice(i, 1);
+          } else if (enemies[i].health <= 0) {
+            money += 2 + Math.floor(wave * 0.5);
+            enemies.splice(i, 1);
+            updateUI();
+          }
+        }
+
+        for (let i = particles.length - 1; i >= 0; i--) {
+          particles[i].x += particles[i].vx;
+          particles[i].y += particles[i].vy;
+          particles[i].life--;
+          if (particles[i].life <= 0) particles.splice(i, 1);
+        }
+
+        // 2. Drawing
+        ctx.fillStyle = C_BG;
+        ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+        // Draw Grid
+        ctx.strokeStyle = C_GRID;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for (let x = 0; x <= GRID_W; x++) {
+          ctx.moveTo(x * TILE_SIZE, 0);
+          ctx.lineTo(x * TILE_SIZE, CANVAS_H);
+        }
+        for (let y = 0; y <= GRID_H; y++) {
+          ctx.moveTo(0, y * TILE_SIZE);
+          ctx.lineTo(CANVAS_W, y * TILE_SIZE);
+        }
+        ctx.stroke();
+
+        // Draw Spawn & End
+        ctx.fillStyle = "#00ff00";
+        ctx.fillRect(
+          spawnTile.x * TILE_SIZE,
+          spawnTile.y * TILE_SIZE,
+          TILE_SIZE,
+          TILE_SIZE
+        );
+        ctx.fillStyle = "#ff0000";
+        ctx.fillRect(
+          endTile.x * TILE_SIZE,
+          endTile.y * TILE_SIZE,
+          TILE_SIZE,
+          TILE_SIZE
+        );
+
+        // Draw Main Path Hint
+        if (mainPath) {
+          ctx.strokeStyle = C_PATH_HINT;
+          ctx.lineWidth = 4;
+          ctx.lineCap = "round";
+          ctx.beginPath();
+          ctx.moveTo(
+            spawnTile.x * TILE_SIZE + TILE_SIZE / 2,
+            spawnTile.y * TILE_SIZE + TILE_SIZE / 2
+          );
+          for (let p of mainPath) {
+            ctx.lineTo(
+              p.x * TILE_SIZE + TILE_SIZE / 2,
+              p.y * TILE_SIZE + TILE_SIZE / 2
+            );
+          }
+          ctx.stroke();
+        }
+
+        // Draw Towers
+        towers.forEach((t) => t.draw());
+
+        // Draw Enemies
+        enemies.forEach((e) => e.draw());
+
+        // Draw Projectiles
+        projectiles.forEach((p) => p.draw());
+
+        // Draw Particles
+        particles.forEach((p) => {
+          ctx.fillStyle = p.color;
+          ctx.fillRect(p.x, p.y, 2, 2);
+        });
+
+        // Draw Hover / Ghost Tower
+        if (
+          hoverTile.x >= 0 &&
+          hoverTile.x < GRID_W &&
+          hoverTile.y >= 0 &&
+          hoverTile.y < GRID_H
+        ) {
+          const x = hoverTile.x * TILE_SIZE;
+          const y = hoverTile.y * TILE_SIZE;
+
+          // Check validity visual only (rough)
+          let isValid = grid[hoverTile.y][hoverTile.x] === 0;
+          // Strict validity checks handled in click logic, but we can color hint
+          const cost = TOWER_TYPES[selectedTowerType].cost;
+
+          ctx.fillStyle = isValid && money >= cost ? C_VALID : C_INVALID;
+          ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+
+          // Range indicator
+          ctx.beginPath();
+          ctx.strokeStyle =
+            isValid && money >= cost
+              ? "rgba(255, 255, 255, 0.3)"
+              : "rgba(255, 0, 0, 0.3)";
+          ctx.arc(
+            x + TILE_SIZE / 2,
+            y + TILE_SIZE / 2,
+            TOWER_TYPES[selectedTowerType].range * TILE_SIZE,
+            0,
+            Math.PI * 2
+          );
+          ctx.stroke();
+        }
+
+        requestAnimationFrame(gameLoop);
+      }
+
+      // Start
+      init();
+    </script>
+  </body>
+</html>

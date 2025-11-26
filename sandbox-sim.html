@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>High-Performance Particle Sandbox</title>
+    <style>
+      body {
+        margin: 0;
+        background-color: #111;
+        color: #eee;
+        font-family: "Segoe UI", monospace;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        height: 100vh;
+        overflow: hidden;
+      }
+
+      /* The simulation canvas (low res logic) */
+      canvas {
+        image-rendering: pixelated; /* Essential for crisp pixels */
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+        border: 2px solid #333;
+        cursor: crosshair;
+        max-width: 100%;
+        max-height: 80vh;
+        /* We let CSS scale it up */
+        width: auto;
+        height: auto;
+        aspect-ratio: 1;
+      }
+
+      #ui {
+        margin-top: 10px;
+        background: #222;
+        padding: 10px;
+        border-radius: 8px;
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+
+      .element-btn {
+        background: #333;
+        border: 2px solid #555;
+        color: #fff;
+        padding: 8px 16px;
+        cursor: pointer;
+        font-weight: bold;
+        text-transform: uppercase;
+        border-radius: 4px;
+        transition: all 0.1s;
+      }
+
+      .element-btn:hover {
+        transform: translateY(-2px);
+      }
+      .element-btn.active {
+        border-color: #fff;
+        box-shadow: 0 0 8px rgba(255, 255, 255, 0.3);
+      }
+
+      /* Specific colors for buttons matching elements */
+      .btn-sand {
+        border-color: #f4a460;
+        color: #f4a460;
+      }
+      .btn-water {
+        border-color: #4169e1;
+        color: #4169e1;
+      }
+      .btn-stone {
+        border-color: #888;
+        color: #888;
+      }
+      .btn-wood {
+        border-color: #8b4513;
+        color: #8b4513;
+      }
+      .btn-fire {
+        border-color: #ff4500;
+        color: #ff4500;
+      }
+      .btn-eraser {
+        border-color: #000;
+        background: #eee;
+        color: #000;
+      }
+
+      .info {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        color: #555;
+        font-size: 12px;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="info">
+      FPS: <span id="fps">0</span> | Particles: <span id="count">0</span>
+    </div>
+
+    <canvas id="simCanvas"></canvas>
+
+    <div id="ui">
+      <button class="element-btn btn-sand active" onclick="setElement(1)">
+        Sand
+      </button>
+      <button class="element-btn btn-water" onclick="setElement(2)">
+        Water
+      </button>
+      <button class="element-btn btn-stone" onclick="setElement(3)">
+        Stone
+      </button>
+      <button class="element-btn btn-wood" onclick="setElement(4)">Wood</button>
+      <button class="element-btn btn-fire" onclick="setElement(5)">Fire</button>
+      <button class="element-btn btn-eraser" onclick="setElement(0)">
+        Eraser
+      </button>
+      <button class="element-btn" onclick="clearCanvas()">Clear</button>
+    </div>
+
+    <script>
+      /**
+       * PARTICLE SANDBOX ENGINE
+       * Optimization Technique: 1D Array + Raw Buffer Manipulation
+       */
+
+      // --- CONFIGURATION ---
+      const WIDTH = 200; // Simulation width
+      const HEIGHT = 200; // Simulation height
+      const GRAVITY = 1;
+
+      // Element IDs
+      const E_AIR = 0;
+      const E_SAND = 1;
+      const E_WATER = 2;
+      const E_STONE = 3;
+      const E_WOOD = 4;
+      const E_FIRE = 5;
+      const E_SMOKE = 6;
+      const E_STEAM = 7;
+      const E_ASH = 8;
+
+      // Colors (R, G, B)
+      const PALETTE = [
+        [0, 0, 0], // Air (Black)
+        [244, 164, 96], // Sand
+        [65, 105, 225], // Water
+        [120, 120, 120], // Stone
+        [139, 69, 19], // Wood
+        [255, 69, 0], // Fire
+        [80, 80, 80], // Smoke
+        [200, 200, 255], // Steam
+        [60, 60, 60], // Ash
+      ];
+
+      // --- STATE ---
+      const canvas = document.getElementById("simCanvas");
+      const ctx = canvas.getContext("2d", { alpha: false }); // Alpha false for speed
+
+      // Set resolution
+      canvas.width = WIDTH;
+      canvas.height = HEIGHT;
+
+      // 1. World Data: Stores the Element ID for every pixel
+      const grid = new Uint8Array(WIDTH * HEIGHT);
+
+      // 2. Extra Data: Stores life/variance (e.g., fire life, color noise)
+      const meta = new Uint8Array(WIDTH * HEIGHT);
+
+      // 3. Image Buffer: For direct rendering
+      const imgData = ctx.createImageData(WIDTH, HEIGHT);
+      const buf32 = new Uint32Array(imgData.data.buffer); // 32-bit view for fast pixel writing
+
+      let currentElement = E_SAND;
+      let isMouseDown = false;
+      let mouseX = 0,
+        mouseY = 0;
+      let brushSize = 3;
+
+      // Performance monitoring
+      let lastTime = performance.now();
+      let frames = 0;
+      let particleCount = 0;
+
+      // --- INPUT HANDLING ---
+
+      function getMousePos(evt) {
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        return {
+          x: Math.floor((evt.clientX - rect.left) * scaleX),
+          y: Math.floor((evt.clientY - rect.top) * scaleY),
+        };
+      }
+
+      canvas.addEventListener("mousedown", (e) => {
+        isMouseDown = true;
+        const pos = getMousePos(e);
+        mouseX = pos.x;
+        mouseY = pos.y;
+        paint(mouseX, mouseY);
+      });
+      window.addEventListener("mouseup", () => (isMouseDown = false));
+      canvas.addEventListener("mousemove", (e) => {
+        const pos = getMousePos(e);
+        mouseX = pos.x;
+        mouseY = pos.y;
+        if (isMouseDown) paint(mouseX, mouseY);
+      });
+
+      // Touch support
+      canvas.addEventListener(
+        "touchstart",
+        (e) => {
+          isMouseDown = true;
+          const pos = getMousePos(e.touches[0]);
+          mouseX = pos.x;
+          mouseY = pos.y;
+          paint(mouseX, mouseY);
+          e.preventDefault();
+        },
+        { passive: false }
+      );
+      canvas.addEventListener(
+        "touchmove",
+        (e) => {
+          const pos = getMousePos(e.touches[0]);
+          mouseX = pos.x;
+          mouseY = pos.y;
+          if (isMouseDown) paint(mouseX, mouseY);
+          e.preventDefault();
+        },
+        { passive: false }
+      );
+
+      function setElement(id) {
+        currentElement = id;
+        // UI Update
+        document
+          .querySelectorAll(".element-btn")
+          .forEach((b) => b.classList.remove("active"));
+        // Find button based on onclick attribute text (simple hack)
+        const btns = document.querySelectorAll(".element-btn");
+        if (id === 1) btns[0].classList.add("active");
+        if (id === 2) btns[1].classList.add("active");
+        if (id === 3) btns[2].classList.add("active");
+        if (id === 4) btns[3].classList.add("active");
+        if (id === 5) btns[4].classList.add("active");
+        if (id === 0) btns[5].classList.add("active");
+      }
+
+      function clearCanvas() {
+        grid.fill(E_AIR);
+        meta.fill(0);
+      }
+
+      function paint(cx, cy) {
+        // Brush circle
+        const r = brushSize;
+        const rSq = r * r;
+
+        for (let y = -r; y <= r; y++) {
+          for (let x = -r; x <= r; x++) {
+            if (x * x + y * y <= rSq) {
+              const px = cx + x;
+              const py = cy + y;
+              if (px >= 0 && px < WIDTH && py >= 0 && py < HEIGHT) {
+                const idx = py * WIDTH + px;
+                // Don't overwrite if not empty, unless using eraser or stronger element
+                // Or specific interactions (water puts out fire)
+
+                if (currentElement === E_AIR) {
+                  grid[idx] = E_AIR; // Erase
+                } else if (grid[idx] === E_AIR || grid[idx] === E_WATER) {
+                  // Basic painting into empty space
+                  grid[idx] = currentElement;
+                  // Randomize meta for visual noise or lifetime
+                  meta[idx] = Math.floor(Math.random() * 255);
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // --- SIMULATION LOOP ---
+
+      function update() {
+        let pCount = 0;
+
+        // Iterate pixels
+        // IMPORTANT: For falling elements, we iterate Bottom -> Top to prevent a particle falling infinitely in one frame
+        // For rising elements (steam), Top -> Bottom is better, but we can manage with one loop if careful,
+        // or splitting loops. For simplicity and mixed elements, we often do random or alternating,
+        // but Bottom-Up is standard for "Falling" sand.
+
+        // To allow horizontal movement to be unbiased, we can flip scan direction x every frame
+        const startX = Math.random() > 0.5 ? 0 : WIDTH - 1;
+        const stepX = startX === 0 ? 1 : -1;
+
+        for (let y = HEIGHT - 1; y >= 0; y--) {
+          for (let i = 0; i < WIDTH; i++) {
+            // Get X based on scan direction
+            let x = startX === 0 ? i : WIDTH - 1 - i;
+
+            const idx = y * WIDTH + x;
+            const type = grid[idx];
+
+            if (type === E_AIR) continue;
+
+            pCount++;
+
+            // --- BEHAVIORS ---
+
+            // 1. SAND (Falls down, piles diagonally)
+            if (type === E_SAND || type === E_ASH) {
+              if (y === HEIGHT - 1) continue; // Bottom
+
+              const below = idx + WIDTH;
+              if (grid[below] === E_AIR || grid[below] === E_WATER) {
+                // Fall down (swap if water)
+                const targetType = grid[below];
+                grid[below] = type;
+                grid[idx] = targetType;
+                meta[below] = meta[idx]; // Keep meta (color)
+              } else {
+                // Try Diagonal
+                const dir = Math.random() > 0.5 ? 1 : -1;
+                const bl = below - dir;
+                const br = below + dir;
+
+                // Check Left Diagonal
+                if (
+                  x - dir >= 0 &&
+                  x - dir < WIDTH &&
+                  (grid[bl] === E_AIR || grid[bl] === E_WATER)
+                ) {
+                  const targetType = grid[bl];
+                  grid[bl] = type;
+                  grid[idx] = targetType;
+                  meta[bl] = meta[idx];
+                }
+                // Check Right Diagonal
+                else if (
+                  x + dir >= 0 &&
+                  x + dir < WIDTH &&
+                  (grid[br] === E_AIR || grid[br] === E_WATER)
+                ) {
+                  const targetType = grid[br];
+                  grid[br] = type;
+                  grid[idx] = targetType;
+                  meta[br] = meta[idx];
+                }
+              }
+            }
+
+            // 2. WATER (Falls, flows horizontal)
+            else if (type === E_WATER) {
+              if (y === HEIGHT - 1) continue;
+
+              const below = idx + WIDTH;
+              if (grid[below] === E_AIR) {
+                grid[below] = E_WATER;
+                grid[idx] = E_AIR;
+                meta[below] = meta[idx];
+              } else {
+                // Flow Horizontal
+                const dir = Math.random() > 0.5 ? 1 : -1;
+                const n1 = idx + dir;
+                const n2 = idx - dir;
+
+                // Try random side first
+                if (x + dir >= 0 && x + dir < WIDTH && grid[n1] === E_AIR) {
+                  grid[n1] = E_WATER;
+                  grid[idx] = E_AIR;
+                  meta[n1] = meta[idx];
+                } else if (
+                  x - dir >= 0 &&
+                  x - dir < WIDTH &&
+                  grid[n2] === E_AIR
+                ) {
+                  grid[n2] = E_WATER;
+                  grid[idx] = E_AIR;
+                  meta[n2] = meta[idx];
+                }
+              }
+
+              // Interaction: Water puts out fire
+              const neighbors = [idx - 1, idx + 1, idx - WIDTH, idx + WIDTH];
+              for (let n of neighbors) {
+                if (grid[n] === E_FIRE) {
+                  grid[n] = E_STEAM; // Fire becomes steam
+                  grid[idx] = Math.random() > 0.5 ? E_AIR : E_WATER; // Water evaporates sometimes
+                  break;
+                }
+              }
+            }
+
+            // 3. FIRE (Moves randomly, rises, burns wood, dies)
+            else if (type === E_FIRE) {
+              // Lifetime decay
+              if (Math.random() < 0.1) {
+                meta[idx] -= 10;
+                if (meta[idx] < 10) {
+                  grid[idx] = Math.random() > 0.8 ? E_SMOKE : E_AIR;
+                  meta[idx] = 200; // Reset meta for smoke
+                  continue;
+                }
+              }
+
+              // Movement: Rise and flutter
+              const destX = x + (Math.floor(Math.random() * 3) - 1);
+              const destY = y - 1;
+
+              if (destY >= 0 && destX >= 0 && destX < WIDTH) {
+                const destIdx = destY * WIDTH + destX;
+                if (grid[destIdx] === E_AIR) {
+                  grid[destIdx] = E_FIRE;
+                  grid[idx] = E_AIR;
+                  meta[destIdx] = meta[idx];
+                } else if (grid[destIdx] === E_WOOD) {
+                  // BURN WOOD
+                  if (Math.random() < 0.05) {
+                    grid[destIdx] = E_FIRE;
+                    meta[destIdx] = 255; // Fresh fire
+                  }
+                } else if (grid[destIdx] === E_WATER) {
+                  grid[idx] = E_AIR; // Die
+                }
+              }
+            }
+
+            // 4. SMOKE / STEAM (Rises)
+            else if (type === E_SMOKE || type === E_STEAM) {
+              if (Math.random() < 0.02) {
+                // Dissipate
+                grid[idx] = E_AIR;
+                continue;
+              }
+
+              const destX = x + (Math.floor(Math.random() * 3) - 1);
+              const destY = y - 1;
+
+              if (destY >= 0 && destX >= 0 && destX < WIDTH) {
+                const destIdx = destY * WIDTH + destX;
+                if (grid[destIdx] === E_AIR) {
+                  grid[destIdx] = type;
+                  grid[idx] = E_AIR;
+                } else if (grid[destIdx] === E_WATER && type === E_STEAM) {
+                  // Steam turns to water if trapped? (simplified: no)
+                }
+              }
+            }
+
+            // 5. WOOD (Static, but flammable check done by fire)
+          }
+        }
+        particleCount = pCount;
+      }
+
+      // --- RENDERING ---
+
+      function draw() {
+        // Clear buffer (opaque black)
+        buf32.fill(0xff000000); // ABGR: Alpha=255, Blue=0, Green=0, Red=0
+
+        for (let i = 0; i < WIDTH * HEIGHT; i++) {
+          const type = grid[i];
+          if (type === E_AIR) continue;
+
+          const colorBase = PALETTE[type];
+          let r = colorBase[0];
+          let g = colorBase[1];
+          let b = colorBase[2];
+
+          // Add visual variance based on 'meta' value
+          // Meta is 0-255. We can shift brightness.
+          const variance = (meta[i] - 128) * 0.1;
+
+          if (type === E_FIRE) {
+            // Fire flickers heavily
+            r += variance * 2;
+            g += variance;
+          } else if (type === E_WATER) {
+            b += variance;
+          } else if (type === E_SAND) {
+            r += variance;
+            g += variance;
+            b += variance;
+          } else if (type === E_WOOD) {
+            r += variance * 0.5;
+          }
+
+          // Clamp
+          // Bitwise magic to set ABGR pixel
+          // buf32 is Little Endian on most systems: A B G R
+
+          // Ensure values 0-255
+          // Using bitwise OR 0 to floor
+          const finalR = (r < 0 ? 0 : r > 255 ? 255 : r) | 0;
+          const finalG = (g < 0 ? 0 : g > 255 ? 255 : g) | 0;
+          const finalB = (b < 0 ? 0 : b > 255 ? 255 : b) | 0;
+
+          buf32[i] = (255 << 24) | (finalB << 16) | (finalG << 8) | finalR;
+        }
+
+        ctx.putImageData(imgData, 0, 0);
+      }
+
+      // --- MAIN LOOP ---
+
+      function loop() {
+        update();
+        draw();
+
+        // FPS Calc
+        frames++;
+        const now = performance.now();
+        if (now - lastTime >= 1000) {
+          document.getElementById("fps").innerText = frames;
+          document.getElementById("count").innerText = particleCount;
+          frames = 0;
+          lastTime = now;
+        }
+
+        requestAnimationFrame(loop);
+      }
+
+      // Start
+      setElement(E_SAND);
+      loop();
+    </script>
+  </body>
+</html>

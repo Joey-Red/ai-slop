@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Retro FPS Procedural</title>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        background-color: #000;
+        font-family: "Courier New", Courier, monospace;
+        user-select: none;
+      }
+
+      #game-container {
+        position: relative;
+        width: 100vw;
+        height: 100vh;
+      }
+
+      /* The 3D World */
+      canvas#world {
+        display: block;
+        width: 100%;
+        height: 100%;
+        image-rendering: pixelated; /* Crucial for retro look */
+      }
+
+      /* The 2D HUD (Gun, UI) */
+      canvas#hud {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none; /* Let clicks pass through */
+        image-rendering: pixelated;
+      }
+
+      #overlay {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: #fff;
+        text-align: center;
+        background: rgba(0, 0, 0, 0.8);
+        padding: 20px;
+        border: 2px solid #ff0044;
+        pointer-events: none; /* Controlled by JS */
+      }
+
+      h1 {
+        margin: 0 0 10px 0;
+        color: #ff0044;
+        text-transform: uppercase;
+        text-shadow: 2px 2px #000;
+      }
+      p {
+        margin: 5px 0;
+        font-size: 14px;
+        color: #ccc;
+      }
+
+      #crosshair {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 4px;
+        height: 4px;
+        background-color: #0f0;
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+        box-shadow: 0 0 4px #0f0;
+      }
+
+      #health-bar {
+        position: absolute;
+        bottom: 20px;
+        left: 20px;
+        font-size: 24px;
+        color: #ff0044;
+        font-weight: bold;
+        text-shadow: 2px 2px 0 #000;
+      }
+
+      #score-board {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        font-size: 24px;
+        color: #fff;
+        text-shadow: 2px 2px 0 #000;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="game-container">
+      <canvas id="world"></canvas>
+      <canvas id="hud"></canvas>
+      <div id="crosshair"></div>
+      <div id="health-bar">HP: 100%</div>
+      <div id="score-board">ENEMIES: 0</div>
+      <div id="overlay">
+        <h1>NEON CATACOMBS</h1>
+        <p>CLICK TO START</p>
+        <p>WASD to Move | Mouse to Look | Click to Shoot</p>
+      </div>
+    </div>
+
+    <!-- Import Three.js -->
+    <script type="module">
+      import * as THREE from "https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.js";
+
+      // --- CONFIGURATION ---
+      const WORLD_WIDTH = 20;
+      const WORLD_HEIGHT = 20;
+      const TILE_SIZE = 4; // World units per tile
+      const WALL_HEIGHT = 5;
+      const PLAYER_SPEED = 15.0;
+      const PLAYER_RUN_SPEED = 25.0;
+      const MOUSE_SENSITIVITY = 0.002;
+      const ENEMY_SPEED = 3.5;
+      const NUM_ENEMIES = 10;
+
+      // --- STATE ---
+      let camera, scene, renderer;
+      let hudCanvas, hudCtx;
+      let player = {
+        velocity: new THREE.Vector3(),
+        direction: new THREE.Vector3(),
+        health: 100,
+        canShoot: true,
+      };
+      let moveForward = false,
+        moveBackward = false,
+        moveLeft = false,
+        moveRight = false;
+      let prevTime = performance.now();
+      let enemies = [];
+      let particles = [];
+      let mapData = []; // 0 = empty, 1 = wall
+      let isGameActive = false;
+      let gunState = {
+        sway: 0,
+        bob: 0,
+        shooting: 0, // 0 = idle, >0 = frames of recoil
+        frame: 0,
+      };
+      let score = 0;
+
+      // --- ASSET GENERATION (Procedural Textures) ---
+
+      // Helper: Create a canvas texture
+      function createTexture(width, height, drawFn) {
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        drawFn(ctx, width, height);
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.magFilter = THREE.NearestFilter; // Retro pixel look
+        texture.minFilter = THREE.NearestFilter;
+        return texture;
+      }
+
+      // 1. Wall Texture (Gritty Bricks)
+      const wallTexture = createTexture(64, 64, (ctx, w, h) => {
+        ctx.fillStyle = "#444";
+        ctx.fillRect(0, 0, w, h);
+
+        // Bricks
+        ctx.fillStyle = "#3a3a3a";
+        const brickH = 16;
+        const brickW = 32;
+        for (let y = 0; y < h; y += brickH) {
+          const offset = ((y / brickH) % 2) * (brickW / 2);
+          for (let x = -brickW; x < w; x += brickW) {
+            ctx.fillRect(x + offset + 2, y + 2, brickW - 4, brickH - 4);
+
+            // Highlight/Shadow
+            ctx.fillStyle = "#555";
+            ctx.fillRect(x + offset + 2, y + 2, brickW - 4, 2);
+            ctx.fillStyle = "#222";
+            ctx.fillRect(x + offset + 2, y + brickH - 4, brickW - 4, 2);
+            ctx.fillStyle = "#3a3a3a"; // Reset
+          }
+        }
+        // Grime
+        ctx.globalCompositeOperation = "multiply";
+        ctx.fillStyle = "#533"; // Reddish tint
+        for (let i = 0; i < 40; i++) {
+          ctx.fillRect(Math.random() * w, Math.random() * h, 4, 4);
+        }
+      });
+
+      // 2. Floor Texture (Dark Stone)
+      const floorTexture = createTexture(64, 64, (ctx, w, h) => {
+        ctx.fillStyle = "#111";
+        ctx.fillRect(0, 0, w, h);
+        ctx.strokeStyle = "#222";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(w, h);
+        ctx.moveTo(w, 0);
+        ctx.lineTo(0, h);
+        ctx.stroke();
+        // Noise
+        for (let i = 0; i < 100; i++) {
+          ctx.fillStyle = Math.random() > 0.5 ? "#1a1a1a" : "#0a0a0a";
+          ctx.fillRect(Math.random() * w, Math.random() * h, 2, 2);
+        }
+      });
+
+      // 3. Enemy Sprite (Pixel Art Demon)
+      const enemyTexture = createTexture(64, 64, (ctx, w, h) => {
+        // Clear
+        ctx.clearRect(0, 0, w, h);
+
+        const cx = w / 2;
+        const cy = h / 2;
+
+        // Draw Blob function
+        function drawBlob(color, radius, rough) {
+          ctx.fillStyle = color;
+          ctx.beginPath();
+          for (let a = 0; a < Math.PI * 2; a += 0.2) {
+            const r = radius + (Math.random() - 0.5) * rough;
+            ctx.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+          }
+          ctx.fill();
+        }
+
+        drawBlob("#500", 25, 5); // Dark red body
+        drawBlob("#a00", 20, 5); // Bright red center
+
+        // Eyes
+        ctx.fillStyle = "#ff0"; // Yellow glowing eyes
+        ctx.fillRect(cx - 10, cy - 5, 6, 6);
+        ctx.fillRect(cx + 4, cy - 5, 6, 6);
+
+        // Mouth
+        ctx.fillStyle = "#000";
+        ctx.beginPath();
+        ctx.moveTo(cx - 10, cy + 10);
+        ctx.lineTo(cx + 10, cy + 10);
+        ctx.lineTo(cx, cy + 18);
+        ctx.fill();
+
+        // Teeth
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(cx - 6, cy + 10, 2, 4);
+        ctx.fillRect(cx + 4, cy + 10, 2, 4);
+      });
+
+      // --- INITIALIZATION ---
+
+      function init() {
+        // 1. Scene Setup
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x050505);
+        scene.fog = new THREE.FogExp2(0x000000, 0.03);
+
+        camera = new THREE.PerspectiveCamera(
+          75,
+          window.innerWidth / window.innerHeight,
+          0.1,
+          1000
+        );
+
+        renderer = new THREE.WebGLRenderer({
+          canvas: document.getElementById("world"),
+        });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio > 1 ? 1 : 1); // Keep pixel ratio low for performance/retro style
+
+        // 2. HUD Setup
+        hudCanvas = document.getElementById("hud");
+        hudCtx = hudCanvas.getContext("2d");
+        resizeHud();
+
+        // 3. Lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
+        scene.add(ambientLight);
+
+        // Player torch
+        const torchLight = new THREE.PointLight(0xffaa00, 1, 25);
+        camera.add(torchLight);
+        scene.add(camera); // Add camera to scene so light works
+
+        // 4. Generate Level
+        generateLevel();
+
+        // 5. Spawn Enemies
+        spawnEnemies();
+
+        // 6. Events
+        document.addEventListener("keydown", onKeyDown);
+        document.addEventListener("keyup", onKeyUp);
+        document.addEventListener("mousedown", onMouseDown);
+        window.addEventListener("resize", onWindowResize);
+        document.addEventListener("pointerlockchange", () => {
+          if (document.pointerLockElement !== document.body) {
+            isGameActive = false;
+            document.getElementById("overlay").style.display = "block";
+          } else {
+            isGameActive = true;
+            document.getElementById("overlay").style.display = "none";
+          }
+        });
+
+        // Start Loop
+        requestAnimationFrame(animate);
+      }
+
+      function generateLevel() {
+        // Initialize empty map
+        mapData = [];
+        for (let x = 0; x < WORLD_WIDTH; x++) {
+          mapData[x] = [];
+          for (let z = 0; z < WORLD_HEIGHT; z++) {
+            // Border walls
+            if (
+              x === 0 ||
+              x === WORLD_WIDTH - 1 ||
+              z === 0 ||
+              z === WORLD_HEIGHT - 1
+            ) {
+              mapData[x][z] = 1;
+            } else {
+              // Random pillars/walls inside
+              mapData[x][z] = Math.random() < 0.15 ? 1 : 0;
+            }
+          }
+        }
+
+        // Ensure spawn area is clear
+        mapData[1][1] = 0;
+        mapData[1][2] = 0;
+        mapData[2][1] = 0;
+
+        // Build Geometry
+        const wallGeo = new THREE.BoxGeometry(
+          TILE_SIZE,
+          WALL_HEIGHT,
+          TILE_SIZE
+        );
+        const floorGeo = new THREE.PlaneGeometry(
+          WORLD_WIDTH * TILE_SIZE,
+          WORLD_HEIGHT * TILE_SIZE
+        );
+
+        const wallMat = new THREE.MeshStandardMaterial({ map: wallTexture });
+        const floorMat = new THREE.MeshStandardMaterial({
+          map: floorTexture,
+          roughness: 0.8,
+        });
+        const ceilMat = new THREE.MeshBasicMaterial({ color: 0x111111 });
+
+        // Instanced mesh could be better for perf, but standard mesh is fine for this scale
+        const wallGroup = new THREE.Group();
+
+        for (let x = 0; x < WORLD_WIDTH; x++) {
+          for (let z = 0; z < WORLD_HEIGHT; z++) {
+            if (mapData[x][z] === 1) {
+              const wall = new THREE.Mesh(wallGeo, wallMat);
+              wall.position.set(x * TILE_SIZE, WALL_HEIGHT / 2, z * TILE_SIZE);
+              wallGroup.add(wall);
+            }
+          }
+        }
+        scene.add(wallGroup);
+
+        // Floor
+        const floor = new THREE.Mesh(floorGeo, floorMat);
+        floor.rotation.x = -Math.PI / 2;
+        floor.position.set(
+          (WORLD_WIDTH * TILE_SIZE) / 2 - TILE_SIZE / 2,
+          0,
+          (WORLD_HEIGHT * TILE_SIZE) / 2 - TILE_SIZE / 2
+        );
+        scene.add(floor);
+
+        // Ceiling (simple plane)
+        const ceil = new THREE.Mesh(floorGeo, ceilMat);
+        ceil.rotation.x = Math.PI / 2;
+        ceil.position.set(
+          (WORLD_WIDTH * TILE_SIZE) / 2 - TILE_SIZE / 2,
+          WALL_HEIGHT,
+          (WORLD_HEIGHT * TILE_SIZE) / 2 - TILE_SIZE / 2
+        );
+        scene.add(ceil);
+
+        // Set Player Start
+        camera.position.set(
+          1.5 * TILE_SIZE,
+          WALL_HEIGHT * 0.4,
+          1.5 * TILE_SIZE
+        );
+        camera.rotation.y = -Math.PI / 4;
+      }
+
+      function spawnEnemies() {
+        // Clear old
+        enemies.forEach((e) => scene.remove(e.mesh));
+        enemies = [];
+        score = 0;
+        document.getElementById(
+          "score-board"
+        ).innerText = `ENEMIES: ${NUM_ENEMIES}`;
+
+        const spriteMat = new THREE.SpriteMaterial({
+          map: enemyTexture,
+          color: 0xffffff,
+        });
+
+        for (let i = 0; i < NUM_ENEMIES; i++) {
+          let x, z;
+          // Find empty spot
+          do {
+            x = Math.floor(Math.random() * (WORLD_WIDTH - 2)) + 1;
+            z = Math.floor(Math.random() * (WORLD_HEIGHT - 2)) + 1;
+          } while (mapData[x][z] === 1 || (x < 4 && z < 4)); // Avoid walls and player start
+
+          const sprite = new THREE.Sprite(spriteMat);
+          sprite.position.set(x * TILE_SIZE, WALL_HEIGHT * 0.4, z * TILE_SIZE);
+          sprite.scale.set(3, 3, 1);
+
+          scene.add(sprite);
+          enemies.push({
+            mesh: sprite,
+            health: 3,
+            state: "idle", // idle, chase
+            speed: ENEMY_SPEED + Math.random() * 2,
+          });
+        }
+      }
+
+      // --- CONTROLS ---
+
+      function onMouseDown(event) {
+        if (!isGameActive) {
+          document.body.requestPointerLock();
+          return;
+        }
+        if (event.button === 0 && player.canShoot) {
+          shootGun();
+        }
+      }
+
+      function onKeyDown(event) {
+        switch (event.code) {
+          case "ArrowUp":
+          case "KeyW":
+            moveBackward = true;
+            break;
+          case "ArrowLeft":
+          case "KeyA":
+            moveLeft = true;
+            break;
+          case "ArrowDown":
+          case "KeyS":
+            moveForward = true;
+            break;
+          case "ArrowRight":
+          case "KeyD":
+            moveRight = true;
+            break;
+        }
+      }
+
+      function onKeyUp(event) {
+        switch (event.code) {
+          case "ArrowUp":
+          case "KeyS":
+            moveForward = false;
+            break;
+          case "ArrowLeft":
+          case "KeyA":
+            moveLeft = false;
+            break;
+          case "ArrowDown":
+          case "KeyW":
+            moveBackward = false;
+            break;
+          case "ArrowRight":
+          case "KeyD":
+            moveRight = false;
+            break;
+        }
+      }
+
+      function onMouseMove(event) {
+        if (!isGameActive) return;
+
+        // Euler rotation for camera
+        camera.rotation.y -= event.movementX * MOUSE_SENSITIVITY;
+
+        // Optional: Vertical look clamping could go here
+        // But for "Doom" style, often vertical look is restricted or purely visual (shearing)
+      }
+      document.addEventListener("mousemove", onMouseMove);
+
+      // --- GAME LOGIC ---
+
+      function shootGun() {
+        gunState.shooting = 10; // Frames of animation
+
+        // Raycast for hit
+        const raycaster = new THREE.Raycaster();
+        raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+
+        // Check intersections with enemies
+        // Note: Raycasting against sprites can be tricky, we'll approximate with distance checks first for speed, or actual raycast
+        const enemyMeshes = enemies.map((e) => e.mesh);
+        const intersects = raycaster.intersectObjects(enemyMeshes);
+
+        if (intersects.length > 0) {
+          const hitObj = intersects[0].object;
+          const enemy = enemies.find((e) => e.mesh === hitObj);
+          if (enemy) {
+            damageEnemy(enemy);
+            // Visual feedback: spark
+            createParticles(hitObj.position, 10, "#f00");
+          }
+        } else {
+          // Did we hit a wall?
+          // Simple visual raycast to walls? Not strictly needed for retro feel
+        }
+
+        // Recoil
+        player.canShoot = false;
+        setTimeout(() => {
+          player.canShoot = true;
+        }, 250);
+      }
+
+      function damageEnemy(enemy) {
+        enemy.health--;
+
+        // Flash red
+        enemy.mesh.material.color.setHex(0xff0000);
+        setTimeout(() => {
+          if (enemy.health > 0) enemy.mesh.material.color.setHex(0xffffff);
+        }, 100);
+
+        if (enemy.health <= 0) {
+          // Die
+          createParticles(enemy.mesh.position, 30, "#aa0000");
+          scene.remove(enemy.mesh);
+          enemies = enemies.filter((e) => e !== enemy);
+          score++;
+          document.getElementById(
+            "score-board"
+          ).innerText = `ENEMIES: ${enemies.length}`;
+
+          if (enemies.length === 0) {
+            setTimeout(() => {
+              alert("AREA CLEARED! LOADING NEXT LEVEL...");
+              generateLevel();
+              spawnEnemies();
+            }, 1000);
+          }
+        }
+      }
+
+      function createParticles(pos, count, color) {
+        for (let i = 0; i < count; i++) {
+          particles.push({
+            pos: pos.clone(),
+            vel: new THREE.Vector3(
+              (Math.random() - 0.5) * 0.5,
+              Math.random() * 0.5,
+              (Math.random() - 0.5) * 0.5
+            ),
+            life: 1.0,
+            color: color,
+          });
+        }
+      }
+
+      // Check collision with map walls
+      function checkCollision(x, z) {
+        const gridX = Math.round(x / TILE_SIZE);
+        const gridZ = Math.round(z / TILE_SIZE);
+
+        if (
+          gridX < 0 ||
+          gridX >= WORLD_WIDTH ||
+          gridZ < 0 ||
+          gridZ >= WORLD_HEIGHT
+        )
+          return true;
+        return mapData[gridX][gridZ] === 1;
+      }
+
+      // --- RENDER LOOPS ---
+
+      function drawGun(delta) {
+        hudCtx.clearRect(0, 0, hudCanvas.width, hudCanvas.height);
+
+        const w = hudCanvas.width;
+        const h = hudCanvas.height;
+
+        // Gun parameters
+        const gunScale = h * 0.6; // Size relative to screen
+        const centerX = w / 2;
+        const bottomY = h;
+
+        // 1. Bobbing (Walk cycle)
+        const isMoving = moveForward || moveBackward || moveLeft || moveRight;
+        if (isMoving) {
+          gunState.bob += delta * 15;
+          gunState.sway = Math.sin(gunState.bob) * 20; // Horizontal sway
+        } else {
+          // Return to center
+          gunState.sway = gunState.sway * 0.9;
+        }
+
+        const swayX = gunState.sway;
+        const bobY = Math.abs(Math.sin(gunState.bob)) * 10;
+
+        // 2. Recoil
+        let recoilY = 0;
+        if (gunState.shooting > 0) {
+          recoilY = 40;
+          gunState.shooting--;
+
+          // Muzzle flash
+          hudCtx.fillStyle = `rgba(255, 255, 0, ${Math.random()})`;
+          hudCtx.beginPath();
+          hudCtx.arc(
+            centerX + swayX,
+            h - gunScale + recoilY + 50,
+            40 + Math.random() * 20,
+            0,
+            Math.PI * 2
+          );
+          hudCtx.fill();
+        }
+
+        // 3. Draw Gun (Procedural Pixel Art)
+        hudCtx.save();
+        hudCtx.translate(centerX + swayX, bottomY - bobY + recoilY);
+
+        // Gun Body (Metal Grey)
+        hudCtx.fillStyle = "#444";
+        hudCtx.fillRect(-40, -gunScale + 50, 80, gunScale);
+
+        // Gun Barrel (Darker)
+        hudCtx.fillStyle = "#222";
+        hudCtx.fillRect(-15, -gunScale + 50, 30, gunScale);
+
+        // Highlights
+        hudCtx.fillStyle = "#666";
+        hudCtx.fillRect(-35, -gunScale + 50, 10, gunScale);
+
+        // Handle/Grip details (bottom)
+        hudCtx.fillStyle = "#111";
+        hudCtx.fillRect(-50, -50, 100, 60);
+
+        hudCtx.restore();
+      }
+
+      function updatePhysics(delta) {
+        // 1. Player Movement
+        player.velocity.x -= player.velocity.x * 10.0 * delta;
+        player.velocity.z -= player.velocity.z * 10.0 * delta;
+
+        player.direction.z = Number(moveForward) - Number(moveBackward);
+        player.direction.x = Number(moveRight) - Number(moveLeft);
+        player.direction.normalize();
+
+        if (moveForward || moveBackward)
+          player.velocity.z -= player.direction.z * PLAYER_SPEED * delta;
+        if (moveLeft || moveRight)
+          player.velocity.x -= player.direction.x * PLAYER_SPEED * delta;
+
+        // Apply movement with wall sliding
+        // Calculate intent
+        const nextX =
+          camera.position.x -
+          (player.velocity.z * Math.sin(camera.rotation.y) +
+            player.velocity.x * Math.cos(camera.rotation.y));
+        const nextZ =
+          camera.position.z -
+          (player.velocity.z * Math.cos(camera.rotation.y) -
+            player.velocity.x * Math.sin(camera.rotation.y));
+
+        // X Collision
+        if (!checkCollision(nextX, camera.position.z)) {
+          camera.position.x = nextX;
+        }
+        // Z Collision
+        if (!checkCollision(camera.position.x, nextZ)) {
+          camera.position.z = nextZ;
+        }
+
+        // 2. Enemies
+        enemies.forEach((enemy) => {
+          // Billboard
+          enemy.mesh.lookAt(camera.position);
+
+          // AI: Move towards player if far enough
+          const dist = enemy.mesh.position.distanceTo(camera.position);
+          if (dist < 15 && dist > 1.5) {
+            // Activate range, don't clip player
+            const dir = new THREE.Vector3()
+              .subVectors(camera.position, enemy.mesh.position)
+              .normalize();
+
+            // Simple movement
+            const moveX = enemy.mesh.position.x + dir.x * enemy.speed * delta;
+            const moveZ = enemy.mesh.position.z + dir.z * enemy.speed * delta;
+
+            // Simple collision check for enemy
+            if (!checkCollision(moveX, enemy.mesh.position.z))
+              enemy.mesh.position.x = moveX;
+            if (!checkCollision(enemy.mesh.position.x, moveZ))
+              enemy.mesh.position.z = moveZ;
+          } else if (dist <= 1.5) {
+            // Attack player
+            // player.health -= delta * 10;
+          }
+        });
+
+        // 3. Particles
+        // Use the HUD canvas to draw particles? No, use 3D points or HUD.
+        // Let's use HUD for "blood" splatters, but 3D Points for world effects.
+        // For simplicity in this file, we'll draw simple 2D squares on HUD for particles to save WebGL calls.
+
+        for (let i = particles.length - 1; i >= 0; i--) {
+          const p = particles[i];
+          p.pos.add(p.vel);
+          p.vel.y -= 2 * delta; // Gravity
+          p.life -= delta * 2;
+
+          if (p.life <= 0 || p.pos.y < 0) {
+            particles.splice(i, 1);
+            continue;
+          }
+
+          // Project to 2D
+          // A bit complex for single file without helper, so we'll skip 3D-to-2D projection for particles
+          // and just skip visual particles for code brevity, relying on the enemy flash red.
+        }
+      }
+
+      function animate() {
+        requestAnimationFrame(animate);
+
+        const time = performance.now();
+        const delta = (time - prevTime) / 1000;
+        prevTime = time;
+
+        if (isGameActive) {
+          updatePhysics(delta);
+        }
+
+        renderer.render(scene, camera);
+        drawGun(delta);
+      }
+
+      function onWindowResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        resizeHud();
+      }
+
+      function resizeHud() {
+        hudCanvas.width = window.innerWidth;
+        hudCanvas.height = window.innerHeight;
+        hudCtx.imageSmoothingEnabled = false;
+      }
+
+      // Start
+      init();
+    </script>
+  </body>
+</html>
