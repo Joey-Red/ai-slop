@@ -416,8 +416,7 @@
 
     <script>
       /**
-       * SimpleScape Engine v4.1 - Enhanced Art
-       * Features: Upgraded Player and Enemy visuals. All mechanics identical to v4.0.
+       * SimpleScape Engine v4.2 - Fixes (Smithing, Enemy Chase, Bank Icons)
        */
 
       const CONSTANTS = {
@@ -724,6 +723,7 @@
             state: "wander",
             moveTimer: 0,
             attackCooldown: 0,
+            combatTarget: null,
           };
           // Random pos avoiding 0,0
           ent.x = 100 + Math.random() * (this.width - 200);
@@ -837,6 +837,36 @@
           this.entities.forEach((e) => {
             if (e.hp <= 0) return;
 
+            // Aggro Logic - Chase player if target matches
+            if (e.combatTarget) {
+              const t = e.combatTarget;
+              const dist = Math.hypot(t.x - e.x, t.y - e.y);
+              const range = e.radius + t.radius + 5;
+
+              // De-aggro if dead or too far
+              if (t.hp <= 0 || dist > 400) {
+                e.combatTarget = null;
+                e.state = "wander";
+              } else {
+                e.state = "fighting";
+                if (dist > range) {
+                  // Chase
+                  const angle = Math.atan2(t.y - e.y, t.x - e.x);
+                  e.x += Math.cos(angle) * 1.5; // Enemy speed
+                  e.y += Math.sin(angle) * 1.5;
+                } else {
+                  // Attack
+                  if (e.attackCooldown <= 0) {
+                    this.performAttack(e, t);
+                    e.attackCooldown = 80;
+                  }
+                }
+              }
+
+              if (e.attackCooldown > 0) e.attackCooldown--;
+              return; // Skip wander logic
+            }
+
             // Wander
             if (e.state === "wander") {
               e.moveTimer--;
@@ -856,19 +886,6 @@
                 e.y += (dy / dist) * 0.5;
               }
             }
-
-            // Combat Back
-            if (p.actionState === "fighting" && p.combatTarget === e) {
-              e.state = "fighting";
-              const dist = Math.hypot(p.x - e.x, p.y - e.y);
-              if (dist <= e.radius + p.radius + 5) {
-                if (e.attackCooldown <= 0) {
-                  this.performAttack(e, p);
-                  e.attackCooldown = 80;
-                }
-              }
-            }
-            if (e.attackCooldown > 0) e.attackCooldown--;
           });
 
           // Respawn / Death cleanup
@@ -1047,6 +1064,8 @@
             p.actionTimer = 80;
           } else if (obj.type === "bank") {
             this.openBank();
+          } else if (obj.type === "furnace") {
+            this.smeltOres();
           } else if (obj.type === "anvil") {
             document.getElementById("smithing-interface").style.display =
               "flex";
@@ -1101,6 +1120,23 @@
           p.currentObj = null;
         },
 
+        smeltOres() {
+          const p = this.player;
+          let copperIdx = p.inventory.findIndex((i) => i && i.id === "copper");
+          let tinIdx = p.inventory.findIndex((i) => i && i.id === "tin");
+
+          if (copperIdx !== -1 && tinIdx !== -1) {
+            p.inventory[copperIdx] = null;
+            p.inventory[tinIdx] = null;
+            this.addToInventory(ITEMS.bronze_bar);
+            this.addXP("smithing", 6);
+            this.log("You smelt a Bronze Bar.", "gain");
+          } else {
+            this.log("You need Copper and Tin ore.", "info");
+          }
+          this.updateInventoryUI();
+        },
+
         // --- Combat ---
         performAttack(attacker, defender) {
           let maxHit = 0;
@@ -1116,6 +1152,8 @@
               : 0;
             maxHit = Math.floor(1 + strLvl / 2 + wpnBonus / 2);
             accuracy = attLvl + wpnBonus;
+            // Set aggro
+            defender.combatTarget = attacker;
           } else {
             // Monster Stats
             maxHit = attacker.maxHit;
@@ -1162,6 +1200,8 @@
               this.player.actionState = "idle";
             } else {
               this.log(`You defeated the ${defender.name}.`, "gain");
+              // Clear monster target
+              defender.combatTarget = null;
             }
           }
           this.updateStatsUI();
@@ -1382,6 +1422,10 @@
             const icon = document.createElement("div");
             icon.className = "inv-item";
             icon.textContent = item.emoji;
+            if (!item.emoji) {
+              icon.style.backgroundColor = item.color;
+              icon.className += " icon-ore"; // fallback shape
+            }
             slot.appendChild(icon);
             div.appendChild(slot);
           });
