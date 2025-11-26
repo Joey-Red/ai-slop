@@ -6,9 +6,28 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
     />
-    <title>Neon Defense v3.6 - Stable</title>
+    <title>Neon Defense v4.0 - Cozy Update</title>
     <style>
       @import url("https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap");
+      @import url("https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap"); /* Cozy Font */
+
+      :root {
+        --bg-color: #050505;
+        --panel-bg: rgba(10, 15, 20, 0.95);
+        --text-color: #fff;
+        --accent-color: #0ff;
+        --border-color: #333;
+        --font-main: "Orbitron", sans-serif;
+      }
+
+      body.theme-cozy {
+        --bg-color: #fdf6e3; /* Solarized Light Cream */
+        --panel-bg: rgba(255, 255, 255, 0.9);
+        --text-color: #586e75;
+        --accent-color: #268bd2;
+        --border-color: #93a1a1;
+        --font-main: "Nunito", sans-serif;
+      }
 
       body,
       html {
@@ -17,10 +36,11 @@
         width: 100%;
         height: 100%;
         overflow: hidden;
-        background-color: #050505;
-        font-family: "Orbitron", sans-serif;
+        background-color: var(--bg-color);
+        font-family: var(--font-main);
         touch-action: none;
         user-select: none;
+        transition: background-color 0.5s, color 0.5s;
       }
 
       #game-container {
@@ -47,7 +67,7 @@
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        background: rgba(5, 5, 10, 0.95);
+        background: var(--panel-bg);
         z-index: 200;
         transition: opacity 0.5s;
       }
@@ -57,12 +77,17 @@
       }
 
       h1 {
-        color: #fff;
-        text-shadow: 0 0 20px #0ff;
+        color: var(--text-color);
+        text-shadow: 0 0 20px var(--accent-color);
         font-size: 64px;
         margin-bottom: 40px;
         text-transform: uppercase;
         letter-spacing: 5px;
+      }
+
+      body.theme-cozy h1 {
+        text-shadow: none;
+        color: #d33682;
       }
 
       /* Map Selection */
@@ -74,9 +99,9 @@
       .map-card {
         width: 200px;
         height: 250px;
-        border: 2px solid #333;
+        border: 2px solid var(--border-color);
         border-radius: 12px;
-        background: #111;
+        background: rgba(0, 0, 0, 0.2);
         cursor: pointer;
         transition: all 0.3s;
         display: flex;
@@ -87,20 +112,23 @@
         overflow: hidden;
       }
 
+      body.theme-cozy .map-card {
+        background: rgba(255, 255, 255, 0.5);
+      }
+
       .map-card:hover {
         transform: translateY(-10px);
-        border-color: #0ff;
-        box-shadow: 0 0 30px rgba(0, 255, 255, 0.4);
+        border-color: var(--accent-color);
+        box-shadow: 0 0 30px rgba(0, 255, 255, 0.2);
       }
 
       .map-title {
         position: absolute;
         bottom: 20px;
-        color: #fff;
+        color: var(--text-color);
         font-size: 18px;
         font-weight: bold;
         z-index: 2;
-        text-shadow: 0 2px 4px #000;
       }
 
       .difficulty-tag {
@@ -112,6 +140,7 @@
         border-radius: 4px;
         background: #000;
         border: 1px solid #555;
+        color: #fff;
       }
 
       /* Perk Selection */
@@ -124,7 +153,7 @@
       }
 
       .perk-card {
-        background: rgba(20, 20, 30, 0.9);
+        background: var(--panel-bg);
         border: 2px solid #a0f;
         padding: 20px;
         width: 220px;
@@ -132,12 +161,11 @@
         transition: 0.3s;
         text-align: center;
         border-radius: 8px;
-        color: #fff;
+        color: var(--text-color);
       }
       .perk-card:hover {
         transform: scale(1.05);
         box-shadow: 0 0 20px #a0f;
-        background: #201030;
       }
       .perk-title {
         color: #d0f;
@@ -147,7 +175,8 @@
       }
       .perk-desc {
         font-size: 12px;
-        color: #ccc;
+        color: var(--text-color);
+        opacity: 0.8;
         line-height: 1.4;
       }
 
@@ -170,11 +199,7 @@
         display: flex;
         justify-content: space-between;
         padding: 15px 25px;
-        background: linear-gradient(
-          to bottom,
-          rgba(0, 0, 0, 0.95),
-          transparent
-        );
+        background: linear-gradient(to bottom, var(--panel-bg), transparent);
         pointer-events: auto;
         border-bottom: 1px solid rgba(255, 255, 255, 0.1);
       }
@@ -189,14 +214,14 @@
       }
       .stat-label {
         font-size: 10px;
-        color: #888;
+        color: var(--text-color);
+        opacity: 0.6;
         letter-spacing: 1px;
       }
       .stat-val {
         font-size: 24px;
-        color: #fff;
+        color: var(--text-color);
         font-weight: 700;
-        text-shadow: 0 0 10px currentColor;
       }
 
       /* Speed Controls */
@@ -206,9 +231,9 @@
         align-items: center;
       }
       .icon-btn {
-        background: rgba(255, 255, 255, 0.1);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        color: #fff;
+        background: rgba(128, 128, 128, 0.1);
+        border: 1px solid var(--border-color);
+        color: var(--text-color);
         min-width: 36px;
         height: 36px;
         padding: 0 8px;
@@ -219,18 +244,25 @@
         font-size: 12px;
         transition: 0.2s;
         font-weight: bold;
+        border-radius: 4px;
       }
       .icon-btn:hover,
       .icon-btn.active {
-        background: #0ff;
+        background: var(--accent-color);
         color: #000;
-        box-shadow: 0 0 15px #0ff;
-        border-color: #0ff;
+        box-shadow: 0 0 15px var(--accent-color);
+        border-color: var(--accent-color);
+      }
+
+      /* Cozy Mode Toggle */
+      .toggle-btn {
+        margin-right: 15px;
+        font-size: 18px;
       }
 
       /* Build Bar */
       .build-bar {
-        background: linear-gradient(to top, rgba(0, 0, 0, 0.95), transparent);
+        background: linear-gradient(to top, var(--panel-bg), transparent);
         padding: 15px;
         display: flex;
         justify-content: center;
@@ -242,8 +274,8 @@
         position: relative;
         width: 70px;
         height: 70px;
-        background: rgba(10, 20, 30, 0.9);
-        border: 1px solid #444;
+        background: var(--panel-bg);
+        border: 1px solid var(--border-color);
         border-radius: 6px;
         cursor: pointer;
         display: flex;
@@ -257,9 +289,8 @@
       .tower-btn:hover,
       .tower-btn.selected {
         transform: translateY(-5px);
-        border-color: #0ff;
+        border-color: var(--accent-color);
         box-shadow: 0 0 15px rgba(0, 255, 255, 0.4);
-        background: rgba(0, 40, 60, 0.9);
       }
 
       .tower-btn.too-expensive {
@@ -272,7 +303,8 @@
         top: 2px;
         left: 4px;
         font-size: 10px;
-        color: #666;
+        color: var(--text-color);
+        opacity: 0.5;
         font-weight: bold;
       }
 
@@ -284,13 +316,16 @@
       }
       .t-name {
         font-size: 9px;
-        color: #fff;
+        color: var(--text-color);
         margin-bottom: 2px;
       }
       .t-cost {
         font-size: 10px;
         color: #ff0;
         font-weight: bold;
+      }
+      body.theme-cozy .t-cost {
+        color: #d33682;
       }
 
       /* Upgrade Panel (Contextual) */
@@ -299,29 +334,29 @@
         bottom: 120px;
         right: 20px;
         width: 280px;
-        background: rgba(10, 15, 20, 0.98);
-        border: 1px solid #0ff;
+        background: var(--panel-bg);
+        border: 1px solid var(--accent-color);
         padding: 20px;
         border-radius: 4px;
         display: none;
         pointer-events: auto;
-        box-shadow: 0 0 30px rgba(0, 0, 0, 0.8);
+        box-shadow: 0 0 30px rgba(0, 0, 0, 0.3);
         z-index: 50;
       }
 
       .upg-header {
         display: flex;
         justify-content: space-between;
-        border-bottom: 1px solid #333;
+        border-bottom: 1px solid var(--border-color);
         padding-bottom: 10px;
         margin-bottom: 10px;
       }
       .upg-name {
         font-size: 18px;
-        color: #fff;
+        color: var(--text-color);
       }
       .upg-level {
-        color: #0ff;
+        color: var(--accent-color);
       }
 
       .upg-stats {
@@ -332,11 +367,13 @@
       }
       .stat-row {
         font-size: 11px;
-        color: #aaa;
+        color: var(--text-color);
+        opacity: 0.7;
       }
       .stat-row span {
-        color: #fff;
+        color: var(--text-color);
         float: right;
+        opacity: 1;
       }
 
       .path-container {
@@ -347,21 +384,20 @@
       .path-btn {
         flex: 1;
         padding: 10px;
-        border: 1px solid #555;
-        background: rgba(255, 255, 255, 0.05);
-        color: #aaa;
+        border: 1px solid var(--border-color);
+        background: rgba(128, 128, 128, 0.1);
+        color: var(--text-color);
         font-size: 10px;
         cursor: pointer;
         text-align: center;
         transition: 0.2s;
       }
       .path-btn:hover {
-        background: #333;
-        border-color: #888;
+        background: rgba(128, 128, 128, 0.3);
       }
       .path-btn.active {
-        border-color: #0ff;
-        color: #0ff;
+        border-color: var(--accent-color);
+        color: var(--accent-color);
         background: rgba(0, 255, 255, 0.1);
       }
 
@@ -375,6 +411,10 @@
         cursor: pointer;
         font-family: inherit;
         text-transform: uppercase;
+      }
+      body.theme-cozy .main-action {
+        background: #859900;
+        color: #fff;
       }
       .main-action:disabled {
         background: #333;
@@ -403,8 +443,8 @@
         width: 100%;
         text-align: center;
         font-size: 32px;
-        color: #fff;
-        text-shadow: 0 0 15px #0ff;
+        color: var(--text-color);
+        text-shadow: 0 0 15px var(--accent-color);
         pointer-events: none;
         opacity: 0;
         transition: opacity 0.5s;
@@ -412,28 +452,28 @@
 
       #tooltip {
         position: absolute;
-        background: rgba(0, 10, 20, 0.95);
-        border: 1px solid #0ff;
+        background: var(--panel-bg);
+        border: 1px solid var(--accent-color);
         padding: 12px;
         pointer-events: none;
         display: none;
         z-index: 100;
         width: 200px;
-        box-shadow: 0 0 15px rgba(0, 255, 255, 0.2);
+        box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
         backdrop-filter: blur(5px);
       }
       #tooltip h4 {
         margin: 0 0 8px 0;
         font-size: 14px;
-        color: #0ff;
+        color: var(--accent-color);
         text-transform: uppercase;
-        border-bottom: 1px solid #333;
+        border-bottom: 1px solid var(--border-color);
         padding-bottom: 5px;
       }
       #tooltip p {
         margin: 0;
         font-size: 11px;
-        color: #ccc;
+        color: var(--text-color);
         line-height: 1.4;
       }
       .tt-row {
@@ -443,11 +483,12 @@
         font-size: 11px;
       }
       .tt-val {
-        color: #fff;
+        color: var(--text-color);
         font-weight: bold;
       }
       .tt-label {
-        color: #888;
+        color: var(--text-color);
+        opacity: 0.7;
       }
     </style>
   </head>
@@ -455,9 +496,11 @@
     <!-- Map Select Screen -->
     <div id="screen-map" class="screen">
       <h1>
-        Neon Defense <span style="font-size: 20px; color: #f0f">v3.6</span>
+        Neon Defense <span style="font-size: 20px; opacity: 0.7">v4.0</span>
       </h1>
-      <p style="color: #aaa; margin-bottom: 40px">Select Mission Protocol</p>
+      <p style="color: var(--text-color); margin-bottom: 40px">
+        Select Mission Protocol
+      </p>
       <div class="map-select-container">
         <div class="map-card" onclick="startGame(0)">
           <div class="difficulty-tag" style="color: #0f0; border-color: #0f0">
@@ -485,7 +528,7 @@
       <h1 style="color: #d0f; text-shadow: 0 0 20px #d0f">
         SYSTEM HACK DETECTED
       </h1>
-      <p style="color: #fff; margin-bottom: 30px">
+      <p style="color: var(--text-color); margin-bottom: 30px">
         Choose a subroutine augmentation:
       </p>
       <div id="perk-container">
@@ -496,7 +539,7 @@
     <!-- Game Over / Victory -->
     <div id="screen-end" class="screen hidden">
       <h1 id="end-title">MISSION FAILED</h1>
-      <p id="end-stats" style="color: #fff; margin-bottom: 30px">
+      <p id="end-stats" style="color: var(--text-color); margin-bottom: 30px">
         Wave 15 Reached
       </p>
       <button
@@ -530,10 +573,22 @@
             </div>
             <div class="stat-box">
               <span class="stat-label">WAVE</span
-              ><span class="stat-val" id="ui-wave" style="color: #0ff">1</span>
+              ><span
+                class="stat-val"
+                id="ui-wave"
+                style="color: var(--accent-color)"
+                >1</span
+              >
             </div>
           </div>
           <div class="controls-right">
+            <div
+              class="icon-btn toggle-btn"
+              onclick="toggleTheme()"
+              title="Toggle Cozy Mode"
+            >
+              🎨
+            </div>
             <div class="icon-btn" onclick="togglePause()">||</div>
             <div class="icon-btn active" onclick="setSpeed(1)">1x</div>
             <div class="icon-btn" onclick="setSpeed(5)">5x</div>
@@ -587,11 +642,20 @@
 
     <script>
       // --- Configuration ---
+      // Colors: [Neon, Cozy]
+      const COLORS = {
+        blaster: ["#0ff", "#5dade2"], // Neon Cyan, Pastel Blue
+        sniper: ["#0f0", "#82e0aa"], // Neon Green, Pastel Green
+        pulsar: ["#f0f", "#d98880"], // Neon Pink, Pastel Red/Pink
+        arc: ["#ff0", "#f7dc6f"], // Neon Yellow, Pastel Yellow
+        cryo: ["#0af", "#a9dfbf"], // Neon Deep Blue, Mint
+        mortar: ["#f50", "#f5b041"], // Neon Orange, Pastel Orange
+      };
+
       const TOWER_TYPES = {
         blaster: {
           name: "Blaster",
           cost: 50,
-          color: "#0ff",
           range: 120,
           dmg: 10,
           rate: 20,
@@ -605,7 +669,6 @@
         sniper: {
           name: "Sniper",
           cost: 150,
-          color: "#0f0",
           range: 350,
           dmg: 80,
           rate: 90,
@@ -619,7 +682,6 @@
         pulsar: {
           name: "Pulsar",
           cost: 200,
-          color: "#f0f",
           range: 110,
           dmg: 2,
           rate: 10,
@@ -633,7 +695,6 @@
         arc: {
           name: "Arc",
           cost: 250,
-          color: "#ff0",
           range: 140,
           dmg: 15,
           rate: 30,
@@ -647,7 +708,6 @@
         cryo: {
           name: "Cryo",
           cost: 180,
-          color: "#0af",
           range: 130,
           dmg: 5,
           rate: 15,
@@ -661,7 +721,6 @@
         mortar: {
           name: "Mortar",
           cost: 300,
-          color: "#f50",
           range: 250,
           dmg: 40,
           rate: 120,
@@ -708,9 +767,9 @@
       ];
 
       const MAPS = [
-        { name: "Serpentine", color: "#003", id: 0 },
-        { name: "The Knot", color: "#300", id: 1 },
-        { name: "ZigZag", color: "#030", id: 2 },
+        { name: "Serpentine", color: "#003", colorCozy: "#f0e6d2", id: 0 },
+        { name: "The Knot", color: "#300", colorCozy: "#e6d2f0", id: 1 },
+        { name: "ZigZag", color: "#030", colorCozy: "#d2f0e6", id: 2 },
       ];
 
       // --- Engine State ---
@@ -729,6 +788,7 @@
         wave: 1,
         speed: 1,
         paused: false,
+        theme: "neon", // neon or cozy
 
         path: [],
         enemies: [],
@@ -736,6 +796,10 @@
         projectiles: [],
         particles: [],
         bgParticles: [],
+
+        // Visual FX
+        trackFlash: 0,
+        flashColor: "#fff",
 
         waveActive: false,
         spawning: false,
@@ -780,6 +844,20 @@
         if (state.screen !== "menu") generateFixedPath(state.mapId);
       }
 
+      function getThemeColor(key) {
+        const idx = state.theme === "neon" ? 0 : 1;
+        if (COLORS[key]) return COLORS[key][idx];
+        return "#fff"; // fallback
+      }
+
+      window.toggleTheme = function () {
+        state.theme = state.theme === "neon" ? "cozy" : "neon";
+        document.body.classList.toggle("theme-cozy");
+        // Re-render build bar icons
+        setupBuildMenu();
+        updateHUD();
+      };
+
       function setupBuildMenu() {
         const container = document.querySelector(".build-bar");
         container.innerHTML = "";
@@ -788,9 +866,13 @@
           const t = TOWER_TYPES[key];
           const btn = document.createElement("div");
           btn.className = "tower-btn";
+
+          // Dynamic color in menu
+          const color = getThemeColor(key);
+
           btn.innerHTML = `
                 <div class="key-hint">${i}</div>
-                <div class="t-icon" style="border-color:${t.color}"></div>
+                <div class="t-icon" style="border-color:${color}; background:${color}22"></div>
                 <div class="t-name">${t.name}</div>
                 <div class="t-cost">${t.cost}</div>
             `;
@@ -808,10 +890,10 @@
                     }</span></div>
                     <div class="tt-row"><span class="tt-label">Rate</span><span class="tt-val">${rate}/s</span></div>
                     <div class="tt-row"><span class="tt-label">Type</span><span class="tt-val">${t.type.toUpperCase()}</span></div>
-                    <div style="margin-top:5px; color:#ccc; font-style:italic; font-size:10px;">${
+                    <div style="margin-top:5px; opacity:0.7; font-style:italic; font-size:10px;">${
                       t.desc
                     }</div>
-                    <div style="margin-top:5px; color:#ff0; font-weight:bold; border-top:1px solid #333; padding-top:3px;">Cost: ${
+                    <div style="margin-top:5px; color:var(--accent-color); font-weight:bold; border-top:1px solid var(--border-color); padding-top:3px;">Cost: ${
                       t.cost
                     }</div>
                 `;
@@ -923,7 +1005,7 @@
           this.type = "normal";
           this.typeName = "Standard";
           this.baseSpeed = 1.0;
-          this.color = "#fff";
+          this.color = state.theme === "neon" ? "#fff" : "#657b83";
           this.radius = 10;
           this.bounty = Math.max(
             1,
@@ -935,7 +1017,7 @@
             this.typeName = "Sprinter";
             this.baseSpeed = 1.8;
             this.hp *= 0.6;
-            this.color = "#ff0";
+            this.color = state.theme === "neon" ? "#ff0" : "#b58900";
             this.radius = 8;
           } else if (wave > 5 && rand > 0.8) {
             this.type = "tank";
@@ -943,7 +1025,7 @@
             this.baseSpeed = 0.6;
             this.hp *= 2.5;
             this.armor += 5;
-            this.color = "#f00";
+            this.color = state.theme === "neon" ? "#f00" : "#cb4b16";
             this.radius = 14;
           }
 
@@ -1051,7 +1133,7 @@
           }
 
           const pct = Math.max(0, this.hp / this.maxHp);
-          ctx.fillStyle = "#000";
+          ctx.fillStyle = state.theme === "neon" ? "#000" : "#fff";
           ctx.fillRect(this.x - 10, this.y - 20, 20, 4);
           ctx.fillStyle = pct > 0.5 ? "#0f0" : "#f00";
           ctx.fillRect(this.x - 10, this.y - 20, 20 * pct, 4);
@@ -1124,7 +1206,7 @@
                   this.x,
                   this.y,
                   this.stats.range,
-                  this.config.color
+                  getThemeColor(this.type)
                 );
               }
             }
@@ -1152,11 +1234,23 @@
         }
 
         fire(target) {
+          // Trigger Track Lighting
+          state.trackFlash = 1.0;
+          // Random Neon/Pastel color for the flash
+          const types = Object.keys(COLORS);
+          const randomType = types[Math.floor(Math.random() * types.length)];
+          state.flashColor = getThemeColor(randomType);
+
           let dmg = this.stats.dmg;
           // Augment: Crit
           if (Math.random() < state.augments.critChance) {
             dmg *= 2;
-            addParticle(this.x, this.y, "#fff", 5); // Crit spark
+            addParticle(
+              this.x,
+              this.y,
+              state.theme === "neon" ? "#fff" : "#000",
+              5
+            ); // Crit spark
           }
 
           const p = {
@@ -1165,7 +1259,7 @@
             target: target,
             speed: 12,
             dmg: dmg,
-            color: this.config.color,
+            color: getThemeColor(this.type),
             type: this.config.type,
             source: this,
             special: this.pathChoice,
@@ -1175,33 +1269,34 @@
 
         draw() {
           ctx.translate(this.x, this.y);
+          const color = getThemeColor(this.type);
 
           // Base
-          ctx.fillStyle = "#111";
+          ctx.fillStyle = state.theme === "neon" ? "#111" : "#eee";
           ctx.beginPath();
           ctx.arc(0, 0, 10, 0, Math.PI * 2);
           ctx.fill();
-          ctx.strokeStyle = this.config.color;
+          ctx.strokeStyle = color;
           ctx.lineWidth = 2;
           ctx.stroke();
 
           // Rank
           if (this.level > 1) {
-            ctx.fillStyle = "#fff";
+            ctx.fillStyle = state.theme === "neon" ? "#fff" : "#333";
             ctx.font = "8px Arial";
             ctx.fillText(this.level + (this.pathChoice || ""), -6, -15);
           }
 
           if (this.config.type !== "aoe") {
             ctx.rotate(this.angle);
-            ctx.fillStyle = this.config.color;
+            ctx.fillStyle = color;
             ctx.fillRect(0, -3, 15, 6);
             if (this.type === "sniper") ctx.fillRect(15, -1, 10, 2);
             if (this.type === "mortar") ctx.arc(0, 0, 6, 0, Math.PI * 2);
           } else {
             ctx.beginPath();
             ctx.arc(0, 0, 6 + Math.sin(Date.now() * 0.01) * 2, 0, Math.PI * 2);
-            ctx.fillStyle = this.config.color;
+            ctx.fillStyle = color;
             ctx.fill();
           }
 
@@ -1228,7 +1323,12 @@
 
           this.recalcStats();
 
-          addParticle(this.x, this.y, "#fff", 20);
+          addParticle(
+            this.x,
+            this.y,
+            state.theme === "neon" ? "#fff" : "#000",
+            20
+          );
           updateUpgradeUI();
           updateHUD();
         }
@@ -1302,24 +1402,45 @@
         if (state.paused || state.screen !== "game") return;
 
         // --- Background Flow ---
-        bgCtx.fillStyle = "rgba(0,0,0,0.1)";
+        // Use theme bg with trail
+        bgCtx.fillStyle =
+          state.theme === "neon"
+            ? "rgba(5,5,5,0.1)"
+            : "rgba(253, 246, 227, 0.2)";
         bgCtx.fillRect(0, 0, width, height);
 
         // Draw Path (Faint)
         if (state.path.length > 0) {
           bgCtx.beginPath();
-          bgCtx.strokeStyle = "#111";
+          bgCtx.strokeStyle = state.theme === "neon" ? "#111" : "#eee8d5";
           bgCtx.lineWidth = 40;
           bgCtx.lineCap = "round";
           bgCtx.moveTo(state.path[0].x, state.path[0].y);
           state.path.forEach((p) => bgCtx.lineTo(p.x, p.y));
           bgCtx.stroke();
+
+          // --- TRACK FLASH EFFECT ---
+          if (state.trackFlash > 0) {
+            bgCtx.save();
+            bgCtx.shadowBlur = 20 * state.trackFlash;
+            bgCtx.shadowColor = state.flashColor;
+            bgCtx.strokeStyle = state.flashColor;
+            bgCtx.globalAlpha = state.trackFlash * 0.5;
+            bgCtx.lineWidth = 40; // Same as path
+            bgCtx.stroke();
+            bgCtx.restore();
+            state.trackFlash -= 0.05;
+          }
         }
 
         // Draw Flow Particles
-        bgCtx.fillStyle = MAPS[state.mapId].color.replace("0.2", "0.5"); // Brighten base color
+        const mapBaseColor =
+          state.theme === "neon"
+            ? MAPS[state.mapId].color
+            : MAPS[state.mapId].colorCozy;
+        bgCtx.fillStyle = mapBaseColor;
+
         state.bgParticles.forEach((p) => {
-          // Flow Field Math
           const zoom = 0.005;
           const angle =
             (Math.sin(p.x * zoom) + Math.cos(p.y * zoom)) * Math.PI * 2;
@@ -1331,7 +1452,6 @@
           p.x += p.vx;
           p.y += p.vy;
 
-          // Wrap
           if (p.x < 0) p.x = width;
           if (p.x > width) p.x = 0;
           if (p.y < 0) p.y = height;
@@ -1438,8 +1558,11 @@
             TOWER_TYPES[state.buildType].range * state.augments.rangeMult;
           ctx.beginPath();
           ctx.arc(mouse.x, mouse.y, range, 0, Math.PI * 2);
-          ctx.fillStyle = "rgba(255, 255, 255, 0.1)";
-          ctx.strokeStyle = "#fff";
+          ctx.fillStyle =
+            state.theme === "neon"
+              ? "rgba(255, 255, 255, 0.1)"
+              : "rgba(0,0,0,0.05)";
+          ctx.strokeStyle = state.theme === "neon" ? "#fff" : "#586e75";
           ctx.fill();
           ctx.stroke();
         }
@@ -1447,14 +1570,17 @@
         // Selection Ring
         if (state.selection) {
           ctx.beginPath();
-          ctx.strokeStyle = "#fff";
+          ctx.strokeStyle = state.theme === "neon" ? "#fff" : "#586e75";
           ctx.setLineDash([5, 5]);
           ctx.arc(state.selection.x, state.selection.y, 25, 0, Math.PI * 2);
           ctx.stroke();
           ctx.setLineDash([]);
           // Range
           ctx.beginPath();
-          ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
+          ctx.strokeStyle =
+            state.theme === "neon"
+              ? "rgba(255, 255, 255, 0.3)"
+              : "rgba(0,0,0,0.2)";
           ctx.arc(
             state.selection.x,
             state.selection.y,
@@ -1498,7 +1624,6 @@
       const mouse = { x: 0, y: 0 };
 
       // --- Hover Logic ---
-      // Change to Window listener to handle UI elements better
       window.addEventListener("mousemove", (e) => {
         mouse.x = e.clientX;
         mouse.y = e.clientY;
@@ -1657,6 +1782,11 @@
           // Update cost text
           btn.querySelector(".t-cost").innerText = cost;
 
+          // Update color for Theme switch
+          const color = getThemeColor(key);
+          btn.querySelector(".t-icon").style.borderColor = color;
+          btn.querySelector(".t-icon").style.backgroundColor = color + "22";
+
           if (state.credits < cost) btn.classList.add("too-expensive");
           else btn.classList.remove("too-expensive");
         }
@@ -1673,7 +1803,7 @@
         const conf = t.config;
 
         document.getElementById("u-name").innerText = conf.name;
-        document.getElementById("u-name").style.color = conf.color;
+        document.getElementById("u-name").style.color = getThemeColor(t.type);
 
         let lvlText = `Lvl ${t.level}`;
         if (t.pathChoice) lvlText += ` [${conf.paths[t.pathChoice].name}]`;
@@ -1694,7 +1824,7 @@
         const btnA = document.getElementById("path-a-btn");
         btnA.onmouseenter = () => {
           const desc = conf.paths.A.desc;
-          const html = `<div style="color:#fff; font-size:11px;">${desc}</div>`;
+          const html = `<div style="color:var(--text-color); font-size:11px;">${desc}</div>`;
           state.hoverUI = { title: conf.paths.A.name, html: html };
           showTooltip(conf.paths.A.name, html);
         };
@@ -1707,7 +1837,7 @@
         const btnB = document.getElementById("path-b-btn");
         btnB.onmouseenter = () => {
           const desc = conf.paths.B.desc;
-          const html = `<div style="color:#fff; font-size:11px;">${desc}</div>`;
+          const html = `<div style="color:var(--text-color); font-size:11px;">${desc}</div>`;
           state.hoverUI = { title: conf.paths.B.name, html: html };
           showTooltip(conf.paths.B.name, html);
         };
